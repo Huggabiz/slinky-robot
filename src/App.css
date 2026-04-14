@@ -1,5 +1,7 @@
 .app {
-  min-height: 100vh;
+  /* Fixed viewport height so the workspace flex child can size itself
+     against a known container and let its own children overflow-scroll. */
+  height: 100vh;
   display: flex;
   flex-direction: column;
   color: var(--color-text);
@@ -10,36 +12,29 @@
   display: flex;
   justify-content: center;
   padding: var(--space-xl) var(--space-md);
+  overflow-y: auto;
 }
 
-.app-empty,
-.app-loaded {
+.app-empty {
   max-width: 720px;
   width: 100%;
 }
 
-.app-empty h1,
-.app-loaded h1 {
+.app-empty h1 {
   margin: 0 0 var(--space-sm) 0;
   font-size: 28px;
 }
 
-.app-empty p,
-.app-loaded p {
+.app-empty p {
   color: var(--color-text-muted);
   line-height: 1.5;
 }
 
-.app-meta {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-}
-
-.app-placeholder {
-  margin-top: var(--space-lg);
-  padding: var(--space-md);
-  background: var(--color-surface);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
+.app-workspace {
+  flex: 1;
+  display: flex;
+  /* min-height: 0 is the magic flexbox-scroll-child incantation — without
+     it, the workspace grows to fit its tallest child and internal
+     overflow-scroll never kicks in. */
+  min-height: 0;
 }
