@@ -1,11 +1,37 @@
+import { useEffect, useState } from 'react';
 import { Toolbar } from './components/Toolbar';
-import { PhaseSidebar } from './components/PhaseSidebar';
+import { PhaseTabs } from './components/PhaseTabs';
+import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
 import { useAppStore } from './store/useAppStore';
+import { getPhasesOrdered } from './types';
 import './App.css';
 
 function App() {
   const file = useAppStore((s) => s.file);
+  const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const [phaseId, setPhaseId] = useState<string | null>(null);
+
+  // Keep the active phase coherent with the loaded file:
+  // - no file → no phase
+  // - file loaded but current phaseId doesn't exist in it → snap to first phase
+  // The guard here is important because loading a new file keeps the old
+  // phaseId in local state, which would point at a phase that no longer
+  // exists in the new file's phase list.
+  useEffect(() => {
+    if (!file) {
+      setPhaseId(null);
+      return;
+    }
+    const phases = getPhasesOrdered(file);
+    if (phases.length === 0) {
+      setPhaseId(null);
+      return;
+    }
+    if (!phaseId || !phases.some((p) => p.id === phaseId)) {
+      setPhaseId(phases[0].id);
+    }
+  }, [file, phaseId]);
 
   return (
     <div className="app">
@@ -23,8 +49,15 @@ function App() {
         </main>
       ) : (
         <div className="app-workspace">
-          <PhaseSidebar />
-          <TaskDetail />
+          <div className="app-flow-column">
+            <PhaseTabs selectedPhaseId={phaseId} onSelect={setPhaseId} />
+            <ProcessFlow phaseId={phaseId} />
+          </div>
+          {selectedTaskId && (
+            <aside className="app-detail-column">
+              <TaskDetail />
+            </aside>
+          )}
         </div>
       )}
     </div>

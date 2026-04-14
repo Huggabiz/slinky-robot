@@ -1,0 +1,41 @@
+.phase-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.phase-tab {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.phase-tab:hover {
+  border-color: var(--color-accent);
+}
+
+.phase-tab-active {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+
+.phase-tab-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  opacity: 0.75;
+}

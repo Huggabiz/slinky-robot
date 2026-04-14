@@ -1,0 +1,30 @@
+.process-flow {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background: var(--color-bg);
+}
+
+.process-flow-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  padding: var(--space-xl);
+}
+
+/* React Flow's minimap and controls default to a heavier look than the
+   rest of the app — tone them down. */
+.process-flow .react-flow__controls {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.process-flow .react-flow__minimap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
