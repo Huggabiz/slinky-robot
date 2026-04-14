@@ -1,0 +1,149 @@
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--space-md);
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 680px;
+  width: 100%;
+  max-height: calc(100vh - var(--space-xl));
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dialog-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+}
+
+.dialog-close {
+  appearance: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-sm);
+}
+
+.dialog-close:hover {
+  color: var(--color-text);
+}
+
+.dialog-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dialog-intro p,
+.dialog-summary,
+.dialog-hint {
+  margin: 0 0 var(--space-md) 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.dialog-summary strong {
+  color: var(--color-text);
+}
+
+.dialog-mapping {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dialog-mapping th,
+.dialog-mapping td {
+  text-align: left;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.dialog-mapping th {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.dialog-mapping select {
+  width: 100%;
+  padding: 4px var(--space-xs);
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dialog-required {
+  color: var(--color-accent);
+}
+
+.dialog-error {
+  color: #c0392b;
+  margin: var(--space-sm) 0 0 0;
+  font-size: 13px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.dialog-footer button,
+.dialog-intro button {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dialog-footer button:hover:not(:disabled),
+.dialog-intro button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.dialog-footer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dialog-primary {
+  background: var(--color-accent) !important;
+  color: white !important;
+  border-color: var(--color-accent) !important;
+}
+
+.dialog-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
