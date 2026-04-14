@@ -3,29 +3,35 @@ import { useAppStore } from './store/useAppStore';
 import './App.css';
 
 function App() {
-  const message = useAppStore((s) => s.message);
-  const setMessage = useAppStore((s) => s.setMessage);
+  const file = useAppStore((s) => s.file);
 
   return (
     <div className="app">
       <Toolbar />
       <main className="app-main">
-        <section className="app-card">
-          <h1>Slinky Robot</h1>
-          <p className="app-subtitle">
-            Generic starter — replace this content with your app.
-          </p>
-          <label className="app-field">
-            <span>Message</span>
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type something…"
-            />
-          </label>
-          <p className="app-echo">{message || '…'}</p>
-        </section>
+        {!file ? (
+          <div className="app-empty">
+            <h1>No process file open</h1>
+            <p>
+              Use <strong>Open…</strong> to load an existing process JSON file,
+              or <strong>New</strong> to start an empty one.
+            </p>
+          </div>
+        ) : (
+          <div className="app-loaded">
+            <h1>{file.meta.title}</h1>
+            <p className="app-meta">
+              {file.phases.length} phase{file.phases.length === 1 ? '' : 's'}
+              {' · '}
+              {file.tasks.length} task{file.tasks.length === 1 ? '' : 's'}
+              {' · '}
+              updated {new Date(file.meta.updatedAt).toLocaleString()}
+            </p>
+            <p className="app-placeholder">
+              Review mode UI will appear here in the next increment.
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );

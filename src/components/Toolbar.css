@@ -12,6 +12,42 @@
   font-weight: 600;
   font-size: 15px;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.toolbar-dirty {
+  color: var(--color-accent);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.toolbar-actions button {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.toolbar-actions button:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+}
+
+.toolbar-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .toolbar-spacer {

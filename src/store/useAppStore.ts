@@ -1,18 +1,57 @@
 import { create } from 'zustand';
+import { type ProcessFile, makeEmptyProcessFile } from '../types';
 
-// Single top-level app store. Add new slices of state and their actions
-// inline here. Use `get()` for cross-action reads and `set()` for writes,
-// always returning new objects/arrays (no in-place mutation).
+// Review = read-only navigation; Edit = form controls unlocked (behind the
+// file's optional password gate, enforced at mode-transition time in the UI).
+export type EditorMode = 'review' | 'edit';
+
 interface AppState {
-  message: string;
-  setMessage: (message: string) => void;
-  reset: () => void;
+  // The currently loaded process file (null = nothing open).
+  file: ProcessFile | null;
+  // Last-used filename for save default. Null until opened/saved.
+  fileName: string | null;
+  mode: EditorMode;
+  // Selected task by internal id, drives the detail panel.
+  selectedTaskId: string | null;
+  // Whether there are unsaved changes since last load/save.
+  dirty: boolean;
+
+  // Actions
+  newEmptyFile: () => void;
+  loadFile: (file: ProcessFile, fileName: string | null) => void;
+  selectTask: (id: string | null) => void;
+  setMode: (mode: EditorMode) => void;
+  markDirty: () => void;
+  markClean: () => void;
 }
 
-const INITIAL_MESSAGE = '';
-
 export const useAppStore = create<AppState>((set) => ({
-  message: INITIAL_MESSAGE,
-  setMessage: (message) => set({ message }),
-  reset: () => set({ message: INITIAL_MESSAGE }),
+  file: null,
+  fileName: null,
+  mode: 'review',
+  selectedTaskId: null,
+  dirty: false,
+
+  newEmptyFile: () =>
+    set({
+      file: makeEmptyProcessFile(),
+      fileName: null,
+      selectedTaskId: null,
+      dirty: false,
+      mode: 'review',
+    }),
+
+  loadFile: (file, fileName) =>
+    set({
+      file,
+      fileName,
+      selectedTaskId: null,
+      dirty: false,
+      mode: 'review',
+    }),
+
+  selectTask: (id) => set({ selectedTaskId: id }),
+  setMode: (mode) => set({ mode }),
+  markDirty: () => set({ dirty: true }),
+  markClean: () => set({ dirty: false }),
 }));
