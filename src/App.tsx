@@ -3,6 +3,9 @@ import { Toolbar } from './components/Toolbar';
 import { PhaseTabs } from './components/PhaseTabs';
 import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
+// FLOW LAB: delete these two imports when the lab is removed.
+import { FlowLabPanel } from './components/FlowLabPanel';
+import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
 import { useAppStore } from './store/useAppStore';
 import { getPhasesOrdered } from './types';
 import './App.css';
@@ -12,12 +15,12 @@ function App() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
+  // FLOW LAB: labConfig state — delete when the lab is removed.
+  const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
+
   // Keep the active phase coherent with the loaded file:
   // - no file → no phase
   // - file loaded but current phaseId doesn't exist in it → snap to first phase
-  // The guard here is important because loading a new file keeps the old
-  // phaseId in local state, which would point at a phase that no longer
-  // exists in the new file's phase list.
   useEffect(() => {
     if (!file) {
       setPhaseId(null);
@@ -49,9 +52,11 @@ function App() {
         </main>
       ) : (
         <div className="app-workspace">
+          {/* FLOW LAB: remove the FlowLabPanel element when the lab is removed. */}
+          <FlowLabPanel config={labConfig} onChange={setLabConfig} />
           <div className="app-flow-column">
             <PhaseTabs selectedPhaseId={phaseId} onSelect={setPhaseId} />
-            <ProcessFlow phaseId={phaseId} />
+            <ProcessFlow phaseId={phaseId} labConfig={labConfig} />
           </div>
           {selectedTaskId && (
             <aside className="app-detail-column">

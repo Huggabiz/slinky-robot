@@ -1,16 +1,19 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { NODE_HEIGHT, NODE_WIDTH, type TaskNodeData } from '../utils/flowLayout';
+import type { TaskNodeData } from '../utils/flowLayout';
 import './TaskNode.css';
 
 // Typed Node alias so NodeProps picks up our custom data payload.
 type TaskFlowNode = Node<TaskNodeData, 'task'>;
 
+// FLOW LAB: node dimensions come from data.width/height which are
+// driven by the lab config. To revert, hard-code style width/height
+// back to constants and drop width/height from TaskNodeData.
 export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
   const task = data.task;
   return (
     <div
       className={selected ? 'task-node task-node-selected' : 'task-node'}
-      style={{ width: NODE_WIDTH, minHeight: NODE_HEIGHT }}
+      style={{ width: data.width, minHeight: data.height }}
     >
       <Handle type="target" position={Position.Top} />
       <div className="task-node-header">

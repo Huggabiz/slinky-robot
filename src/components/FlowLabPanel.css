@@ -1,0 +1,118 @@
+/* FLOW LAB — temporary styling, delete with the panel. */
+
+.flow-lab {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.flow-lab-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.flow-lab-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.flow-lab-reset {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.flow-lab-reset:hover {
+  border-color: var(--color-accent);
+}
+
+.flow-lab-section {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.flow-lab-section:last-of-type {
+  border-bottom: none;
+}
+
+.flow-lab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flow-lab-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.flow-lab-field select {
+  padding: 4px var(--space-xs);
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.flow-lab-slider-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.flow-lab-slider-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--color-text);
+}
+
+.flow-lab-field input[type='range'] {
+  width: 100%;
+  margin: 0;
+}
+
+.flow-lab-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.flow-lab-check input {
+  margin: 2px 0 0 0;
+}
+
+.flow-lab-note {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}

@@ -10,6 +10,8 @@ import '@xyflow/react/dist/style.css';
 
 import { useAppStore } from '../store/useAppStore';
 import { layoutTasks } from '../utils/flowLayout';
+// FLOW LAB: remove the LabConfig import and the labConfig prop below.
+import type { LabConfig } from '../utils/flowLab';
 import { TaskNode } from './TaskNode';
 import './ProcessFlow.css';
 
@@ -21,20 +23,22 @@ const nodeTypes: NodeTypes = {
 
 interface Props {
   phaseId: string | null;
+  // FLOW LAB: labConfig is temporary. To revert, drop this prop and
+  // inline DEFAULT_LAB_CONFIG at the layoutTasks call.
+  labConfig: LabConfig;
 }
 
-export function ProcessFlow({ phaseId }: Props) {
+export function ProcessFlow({ phaseId, labConfig }: Props) {
   const file = useAppStore((s) => s.file);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const selectTask = useAppStore((s) => s.selectTask);
 
-  // Re-layout whenever the tasks or the active phase change. Laying out
-  // happens via dagre on every file/phase change — fine up to a few
-  // hundred tasks; if we need more we can memoise per-phase.
+  // Re-layout whenever the tasks, the active phase, or the lab config
+  // change. labConfig is a dependency so sliders apply live.
   const { nodes, edges } = useMemo(() => {
     if (!file) return { nodes: [], edges: [] };
-    return layoutTasks(file.tasks, phaseId);
-  }, [file, phaseId]);
+    return layoutTasks(file.tasks, phaseId, labConfig);
+  }, [file, phaseId, labConfig]);
 
   // Selection is stored centrally; mirror it onto the nodes so React
   // Flow renders the selected visual state.
@@ -49,9 +53,7 @@ export function ProcessFlow({ phaseId }: Props) {
 
   if (!file || nodes.length === 0) {
     return (
-      <div className="process-flow-empty">
-        No tasks to show in this phase.
-      </div>
+      <div className="process-flow-empty">No tasks to show in this phase.</div>
     );
   }
 
