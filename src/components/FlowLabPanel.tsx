@@ -1,4 +1,4 @@
-import type { LabConfig, Rankdir, Ranker } from '../utils/flowLab';
+import type { LabConfig, Rankdir } from '../utils/flowLab';
 import { DEFAULT_LAB_CONFIG } from '../utils/flowLab';
 import './FlowLabPanel.css';
 
@@ -41,18 +41,6 @@ export function FlowLabPanel({ config, onChange }: Props) {
             <option value="LR">Left → Right</option>
           </select>
         </label>
-
-        <label className="flow-lab-field">
-          <span className="flow-lab-label">Ranker</span>
-          <select
-            value={config.ranker}
-            onChange={(e) => set('ranker', e.target.value as Ranker)}
-          >
-            <option value="network-simplex">network-simplex</option>
-            <option value="tight-tree">tight-tree</option>
-            <option value="longest-path">longest-path</option>
-          </select>
-        </label>
       </section>
 
       <section className="flow-lab-section">
@@ -91,14 +79,22 @@ export function FlowLabPanel({ config, onChange }: Props) {
       </section>
 
       <section className="flow-lab-section">
-        <label className="flow-lab-check">
-          <input
-            type="checkbox"
-            checked={config.snapToGrid}
-            onChange={(e) => set('snapToGrid', e.target.checked)}
-          />
-          <span>Snap X to grid (half-step for even ranks)</span>
-        </label>
+        <Slider
+          label="Corner radius"
+          value={config.cornerRadius}
+          min={0}
+          max={60}
+          step={2}
+          onChange={(v) => set('cornerRadius', v)}
+        />
+        <Slider
+          label="Arrow size"
+          value={config.arrowSize}
+          min={8}
+          max={64}
+          step={2}
+          onChange={(v) => set('arrowSize', v)}
+        />
       </section>
 
       <p className="flow-lab-note">

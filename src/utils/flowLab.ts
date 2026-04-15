@@ -10,38 +10,37 @@
 // ║    - src/components/FlowLabPanel.css                           ║
 // ║                                                                ║
 // ║  Then in the following files, find every "FLOW LAB" comment    ║
-// ║  and revert the marked block to the in-comment "pre-lab"       ║
-// ║  version:                                                      ║
+// ║  and revert the marked block by inlining the final values:     ║
 // ║                                                                ║
 // ║    - src/utils/flowLayout.ts                                   ║
 // ║    - src/components/ProcessFlow.tsx                            ║
-// ║    - src/components/TaskNode.tsx                               ║
 // ║    - src/App.tsx                                               ║
-// ║    - src/App.css                                               ║
 // ╚════════════════════════════════════════════════════════════════╝
 
 export type Rankdir = 'TB' | 'LR';
-export type Ranker = 'network-simplex' | 'tight-tree' | 'longest-path';
 
 export interface LabConfig {
   rankdir: Rankdir;
-  ranker: Ranker;
   nodesep: number;
   ranksep: number;
   nodeWidth: number;
   nodeHeight: number;
-  snapToGrid: boolean;
+  // Pixel radius applied at each orthogonal bend in an edge path.
+  cornerRadius: number;
+  // SVG marker size for edge arrowheads, in stroke-width units.
+  arrowSize: number;
 }
 
-// Defaults chosen so grid unit ≈ nodeWidth × 1.4 — leaves a comfortable
-// corridor between nodes for edges to route through, and gives a
-// visually airy layout out of the gate.
+// Defaults chosen to give a visually airy layout with comfortable
+// edge corridors and large, readable arrows. Tune these live via the
+// FlowLabPanel and lock them in as the final inlined values when the
+// lab is removed.
 export const DEFAULT_LAB_CONFIG: LabConfig = {
   rankdir: 'TB',
-  ranker: 'network-simplex',
   nodesep: 80,
   ranksep: 80,
   nodeWidth: 200,
   nodeHeight: 92,
-  snapToGrid: true,
+  cornerRadius: 20,
+  arrowSize: 32,
 };
