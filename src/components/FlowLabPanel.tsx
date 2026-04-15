@@ -1,4 +1,4 @@
-import type { LabConfig, Rankdir } from '../utils/flowLab';
+import type { LabConfig, NodePlacement, Rankdir } from '../utils/flowLab';
 import { DEFAULT_LAB_CONFIG } from '../utils/flowLab';
 import './FlowLabPanel.css';
 
@@ -40,6 +40,30 @@ export function FlowLabPanel({ config, onChange }: Props) {
             <option value="TB">Top → Bottom</option>
             <option value="LR">Left → Right</option>
           </select>
+        </label>
+
+        <label className="flow-lab-field">
+          <span className="flow-lab-label">Node placement</span>
+          <select
+            value={config.nodePlacement}
+            onChange={(e) =>
+              set('nodePlacement', e.target.value as NodePlacement)
+            }
+          >
+            <option value="BRANDES_KOEPF">BRANDES_KOEPF</option>
+            <option value="NETWORK_SIMPLEX">NETWORK_SIMPLEX</option>
+            <option value="LINEAR_SEGMENTS">LINEAR_SEGMENTS</option>
+            <option value="SIMPLE">SIMPLE</option>
+          </select>
+        </label>
+
+        <label className="flow-lab-check">
+          <input
+            type="checkbox"
+            checked={config.favorStraightEdges}
+            onChange={(e) => set('favorStraightEdges', e.target.checked)}
+          />
+          <span>Favour straight edges</span>
         </label>
       </section>
 

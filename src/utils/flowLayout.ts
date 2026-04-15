@@ -112,21 +112,31 @@ export async function layoutTasks(
       'elk.algorithm': 'layered',
       // ELK uses compass directions; map our TB/LR control to DOWN/RIGHT.
       'elk.direction': config.rankdir === 'TB' ? 'DOWN' : 'RIGHT',
-      // Orthogonal routing is what gives us lane-based edges that avoid
-      // passing through unrelated nodes.
+      // Orthogonal routing gives lane-based edges that avoid passing
+      // through unrelated nodes.
       'elk.edgeRouting': 'ORTHOGONAL',
-      'elk.spacing.nodeNode': String(config.nodesep),
-      'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
-      'elk.layered.spacing.edgeNodeBetweenLayers': String(
-        Math.max(20, Math.round(config.ranksep / 2)),
+      // Explicit crossing minimisation — LAYER_SWEEP is the default
+      // but making it visible here documents the intent.
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+      // BRANDES_KOEPF keeps nodes on tidier vertical lines than
+      // NETWORK_SIMPLEX and is closer to the book's grid look.
+      'elk.layered.nodePlacement.strategy': config.nodePlacement,
+      // Prefer routing edges as straight vertical lines where
+      // possible, which keeps columns from drifting apart when lanes
+      // squeeze through a narrow gap.
+      'elk.layered.nodePlacement.favorStraightEdges': String(
+        config.favorStraightEdges,
       ),
-      'elk.layered.spacing.edgeEdgeBetweenLayers': '20',
-      // NETWORK_SIMPLEX gives the closest visual match to what dagre
-      // was producing and produces well-centred layouts for DAGs with a
-      // single source and sink.
-      'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-      // Preserve the original input order where possible — this keeps
-      // the left-to-right sibling ordering stable across re-layouts.
+      // Node spacing within a layer.
+      'elk.spacing.nodeNode': String(config.nodesep),
+      // Vertical spacing between layers.
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
+      // Keep edges close to nodes and packed tight so lanes don't
+      // bump columns apart — user requirement: grid > lane breathing.
+      'elk.layered.spacing.edgeNodeBetweenLayers': '16',
+      'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
+      // Preserve input order where possible — keeps left-to-right
+      // sibling ordering stable across re-layouts.
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
       // Don't merge parallel edges into a single bundle.
       'elk.layered.mergeEdges': 'false',

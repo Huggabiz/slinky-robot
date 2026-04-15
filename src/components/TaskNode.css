@@ -67,10 +67,18 @@
   margin-top: auto;
 }
 
-/* Shrink the default React Flow handles so they don't dominate the card. */
+/* React Flow needs Handle components in the DOM for its graph model,
+   but ELK computes edge endpoints independently — the dots on the node
+   don't reflect where edges actually enter/exit. Hiding them keeps the
+   drawing honest: lines appear to meet the card edge cleanly rather
+   than missing an unused stub. */
 .task-node .react-flow__handle {
-  width: 6px;
-  height: 6px;
-  background: var(--color-text-muted);
-  border: 1px solid var(--color-surface);
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+  background: transparent;
+  border: none;
 }

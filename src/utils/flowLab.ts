@@ -19,8 +19,20 @@
 
 export type Rankdir = 'TB' | 'LR';
 
+// ELK's four node-placement strategies. BRANDES_KOEPF produces the
+// tidiest orthogonal grids for DAGs; NETWORK_SIMPLEX optimises edge
+// routing; LINEAR_SEGMENTS is a compromise; SIMPLE places nodes at
+// uniform intervals without trying to straighten edges.
+export type NodePlacement =
+  | 'BRANDES_KOEPF'
+  | 'NETWORK_SIMPLEX'
+  | 'LINEAR_SEGMENTS'
+  | 'SIMPLE';
+
 export interface LabConfig {
   rankdir: Rankdir;
+  nodePlacement: NodePlacement;
+  favorStraightEdges: boolean;
   nodesep: number;
   ranksep: number;
   nodeWidth: number;
@@ -31,12 +43,14 @@ export interface LabConfig {
   arrowSize: number;
 }
 
-// Defaults chosen to give a visually airy layout with comfortable
-// edge corridors and large, readable arrows. Tune these live via the
+// Defaults chosen for a tidy grid-like layout with comfortable edge
+// corridors and large, readable arrows. Tune these live via the
 // FlowLabPanel and lock them in as the final inlined values when the
 // lab is removed.
 export const DEFAULT_LAB_CONFIG: LabConfig = {
   rankdir: 'TB',
+  nodePlacement: 'BRANDES_KOEPF',
+  favorStraightEdges: true,
   nodesep: 80,
   ranksep: 80,
   nodeWidth: 200,
