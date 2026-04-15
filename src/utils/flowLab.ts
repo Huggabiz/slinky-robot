@@ -33,6 +33,13 @@ export interface LabConfig {
   rankdir: Rankdir;
   nodePlacement: NodePlacement;
   favorStraightEdges: boolean;
+  // When true, flowLayout runs ELK twice: once with the chosen node
+  // placement strategy, then a second pass in INTERACTIVE mode with
+  // X positions snapped to a grid centred on x=0. Single-node ranks
+  // (START, END) automatically land on the centre axis, and every
+  // other rank spreads around it with integer offsets (odd count) or
+  // half-step offsets (even count).
+  snapToGrid: boolean;
   nodesep: number;
   ranksep: number;
   nodeWidth: number;
@@ -43,14 +50,11 @@ export interface LabConfig {
   arrowSize: number;
 }
 
-// Defaults chosen for a tidy grid-like layout with comfortable edge
-// corridors and large, readable arrows. Tune these live via the
-// FlowLabPanel and lock them in as the final inlined values when the
-// lab is removed.
 export const DEFAULT_LAB_CONFIG: LabConfig = {
   rankdir: 'TB',
   nodePlacement: 'BRANDES_KOEPF',
   favorStraightEdges: true,
+  snapToGrid: true,
   nodesep: 80,
   ranksep: 80,
   nodeWidth: 200,

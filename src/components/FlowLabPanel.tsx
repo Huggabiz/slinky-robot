@@ -65,6 +65,15 @@ export function FlowLabPanel({ config, onChange }: Props) {
           />
           <span>Favour straight edges</span>
         </label>
+
+        <label className="flow-lab-check">
+          <input
+            type="checkbox"
+            checked={config.snapToGrid}
+            onChange={(e) => set('snapToGrid', e.target.checked)}
+          />
+          <span>Snap X to grid (centres start/end, locks columns)</span>
+        </label>
       </section>
 
       <section className="flow-lab-section">

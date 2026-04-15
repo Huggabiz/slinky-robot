@@ -31,6 +31,10 @@ interface ElkInputNode {
   id: string;
   width: number;
   height: number;
+  // x/y are only set when feeding positions back to ELK in the
+  // interactive (pass 2) mode.
+  x?: number;
+  y?: number;
 }
 
 interface ElkInputEdge {
@@ -84,13 +88,20 @@ interface ElkLayoutOutput {
  * Lay out the filtered task set using ELK's layered algorithm with
  * orthogonal edge routing.
  *
- * ELK is async — the caller must await this and guard against stale
- * results if its inputs change before the promise resolves.
+ * When `config.snapToGrid` is true the layout runs in two passes:
+ *   1. Pass 1 uses the chosen node-placement strategy to get ELK's
+ *      natural positions and layering.
+ *   2. X positions are snapped to a grid centred on x=0 (integer
+ *      offsets for odd-count ranks, half-step for even). Single-node
+ *      ranks (START, END) therefore land dead centre and line up with
+ *      each other automatically.
+ *   3. Pass 2 re-runs ELK in INTERACTIVE mode with the snapped
+ *      positions as fixed inputs, so only the edge routing phase does
+ *      real work. The result has locked-column nodes AND properly
+ *      routed obstacle-aware edges.
  *
- * Edge paths are returned as pre-computed SVG `d` strings with rounded
- * corners at every bend, sized by `config.cornerRadius`. This is why
- * edges use the custom 'orth' type and the OrthEdge renderer rather
- * than React Flow's built-ins.
+ * When `config.snapToGrid` is false the layout is a single ELK pass
+ * with the chosen placement strategy.
  */
 export async function layoutTasks(
   tasks: Task[],
@@ -106,53 +117,60 @@ export async function layoutTasks(
 
   const taskIdSet = new Set(filtered.map((t) => t.id));
 
-  const elkGraph: ElkGraphInput = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      // ELK uses compass directions; map our TB/LR control to DOWN/RIGHT.
-      'elk.direction': config.rankdir === 'TB' ? 'DOWN' : 'RIGHT',
-      // Orthogonal routing gives lane-based edges that avoid passing
-      // through unrelated nodes.
-      'elk.edgeRouting': 'ORTHOGONAL',
-      // Explicit crossing minimisation — LAYER_SWEEP is the default
-      // but making it visible here documents the intent.
-      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-      // BRANDES_KOEPF keeps nodes on tidier vertical lines than
-      // NETWORK_SIMPLEX and is closer to the book's grid look.
-      'elk.layered.nodePlacement.strategy': config.nodePlacement,
-      // Prefer routing edges as straight vertical lines where
-      // possible, which keeps columns from drifting apart when lanes
-      // squeeze through a narrow gap.
-      'elk.layered.nodePlacement.favorStraightEdges': String(
-        config.favorStraightEdges,
-      ),
-      // Node spacing within a layer.
-      'elk.spacing.nodeNode': String(config.nodesep),
-      // Vertical spacing between layers.
-      'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
-      // Keep edges close to nodes and packed tight so lanes don't
-      // bump columns apart — user requirement: grid > lane breathing.
-      'elk.layered.spacing.edgeNodeBetweenLayers': '16',
-      'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
-      // Preserve input order where possible — keeps left-to-right
-      // sibling ordering stable across re-layouts.
-      'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-      // Don't merge parallel edges into a single bundle.
-      'elk.layered.mergeEdges': 'false',
-    },
-    children: filtered.map((task) => ({
+  // Pass 1: ELK with the user's chosen node-placement strategy.
+  const pass1Input = buildElkInput(filtered, taskIdSet, config, false, null);
+  const pass1Output = (await elk.layout(pass1Input)) as ElkLayoutOutput;
+
+  if (!config.snapToGrid) {
+    return extractLayoutResult(pass1Output, filtered, config);
+  }
+
+  // Snap X positions and keep Y from pass 1 (y already represents the
+  // layer y-axis so it doesn't need adjustment).
+  const snapped = snapNodePositions(pass1Output, config);
+  if (snapped.size === 0) {
+    return extractLayoutResult(pass1Output, filtered, config);
+  }
+
+  // Pass 2: ELK in interactive mode with positions fixed to the snap.
+  const pass2Input = buildElkInput(filtered, taskIdSet, config, true, snapped);
+  const pass2Output = (await elk.layout(pass2Input)) as ElkLayoutOutput;
+  return extractLayoutResult(pass2Output, filtered, config);
+}
+
+/**
+ * Build an ELK input graph. When `interactive` is true the returned
+ * options use ELK's INTERACTIVE strategies for layering, cycle
+ * breaking, crossing minimisation, and node placement, and the
+ * node children carry the position hints from the `positions` map —
+ * ELK will honour those coordinates throughout.
+ */
+function buildElkInput(
+  filtered: Task[],
+  taskIdSet: Set<string>,
+  config: LabConfig,
+  interactive: boolean,
+  positions: Map<string, { x: number; y: number }> | null,
+): ElkGraphInput {
+  const children: ElkInputNode[] = filtered.map((task) => {
+    const node: ElkInputNode = {
       id: task.id,
       width: config.nodeWidth,
       height: config.nodeHeight,
-    })),
-    edges: [],
-  };
+    };
+    const hint = positions?.get(task.id);
+    if (hint) {
+      node.x = hint.x;
+      node.y = hint.y;
+    }
+    return node;
+  });
 
+  const edges: ElkInputEdge[] = [];
   for (const task of filtered) {
     for (const prereqId of task.prerequisites) {
       if (taskIdSet.has(prereqId)) {
-        elkGraph.edges.push({
+        edges.push({
           id: `${prereqId}->${task.id}`,
           sources: [prereqId],
           targets: [task.id],
@@ -161,13 +179,106 @@ export async function layoutTasks(
     }
   }
 
-  const laid = (await elk.layout(elkGraph)) as ElkLayoutOutput;
+  const layoutOptions: Record<string, string> = {
+    'elk.algorithm': 'layered',
+    'elk.direction': config.rankdir === 'TB' ? 'DOWN' : 'RIGHT',
+    'elk.edgeRouting': 'ORTHOGONAL',
+    'elk.spacing.nodeNode': String(config.nodesep),
+    'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
+    // Keep edges close to nodes and packed tight so lanes don't bump
+    // columns apart — user requirement: grid > lane breathing.
+    'elk.layered.spacing.edgeNodeBetweenLayers': '16',
+    'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
+    'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+    'elk.layered.mergeEdges': 'false',
+  };
 
+  if (interactive) {
+    // Respect provided positions across every phase so the snapped
+    // x values survive through the final placement step.
+    layoutOptions['elk.layered.layering.strategy'] = 'INTERACTIVE';
+    layoutOptions['elk.layered.cycleBreaking.strategy'] = 'INTERACTIVE';
+    layoutOptions['elk.layered.crossingMinimization.strategy'] = 'INTERACTIVE';
+    layoutOptions['elk.layered.nodePlacement.strategy'] = 'INTERACTIVE';
+  } else {
+    layoutOptions['elk.layered.nodePlacement.strategy'] = config.nodePlacement;
+    layoutOptions['elk.layered.crossingMinimization.strategy'] = 'LAYER_SWEEP';
+    layoutOptions['elk.layered.nodePlacement.favorStraightEdges'] = String(
+      config.favorStraightEdges,
+    );
+  }
+
+  return {
+    id: 'root',
+    layoutOptions,
+    children,
+    edges,
+  };
+}
+
+/**
+ * Snap ELK's output X positions to a shared grid centred on x=0.
+ *
+ * - Nodes are bucketed into ranks by the y coordinate ELK assigned
+ *   (rounded to guard against float drift).
+ * - Within each rank, nodes keep their left→right order from pass 1.
+ * - Odd-count ranks get integer grid offsets  (… -1, 0, 1 …).
+ * - Even-count ranks get half-step offsets    (… -1.5, -0.5, 0.5, 1.5 …).
+ * - Single-node ranks therefore land at x=0, aligning START and END
+ *   automatically without any additional centring logic.
+ *
+ * Y positions are unchanged — ELK's layered ranking already puts
+ * every rank on a uniform vertical grid via `ranksep`.
+ *
+ * The returned map uses the node's top-left coordinate (React Flow
+ * convention) not its centre.
+ */
+function snapNodePositions(
+  output: ElkLayoutOutput,
+  config: LabConfig,
+): Map<string, { x: number; y: number }> {
+  const children = output.children ?? [];
+  if (children.length === 0) return new Map();
+
+  const ranks = new Map<number, ElkOutputNode[]>();
+  for (const c of children) {
+    const y = Math.round(c.y ?? 0);
+    const bucket = ranks.get(y) ?? [];
+    bucket.push(c);
+    ranks.set(y, bucket);
+  }
+
+  const gridUnitX = config.nodeWidth + config.nodesep;
+  const positions = new Map<string, { x: number; y: number }>();
+
+  for (const [y, rankNodes] of ranks) {
+    rankNodes.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
+    const n = rankNodes.length;
+    const firstOffset = -(n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      const offset = (firstOffset + i) * gridUnitX;
+      // node.x in React Flow is top-left; grid is centred on x=0, so
+      // top-left = offset − width/2.
+      const x = offset - config.nodeWidth / 2;
+      positions.set(rankNodes[i].id, { x, y });
+    }
+  }
+
+  return positions;
+}
+
+/**
+ * Turn an ELK layout output into the React Flow nodes + edges the
+ * ProcessFlow component consumes. Shared between both passes.
+ */
+function extractLayoutResult(
+  output: ElkLayoutOutput,
+  filtered: Task[],
+  config: LabConfig,
+): LayoutResult {
   const taskById = new Map(filtered.map((t) => [t.id, t]));
 
-  // ELK returns top-left (x, y) for each child, matching React Flow's
-  // convention — no offset conversion needed.
-  const nodes: Node<TaskNodeData>[] = (laid.children ?? []).map((child) => {
+  const nodes: Node<TaskNodeData>[] = (output.children ?? []).map((child) => {
     const task = taskById.get(child.id);
     if (!task) {
       // Shouldn't happen — ELK only returns children we passed in.
@@ -186,7 +297,7 @@ export async function layoutTasks(
   });
 
   const edges: Edge<OrthEdgeData>[] = [];
-  for (const elkEdge of laid.edges ?? []) {
+  for (const elkEdge of output.edges ?? []) {
     const section = elkEdge.sections?.[0];
     if (!section) continue;
 
