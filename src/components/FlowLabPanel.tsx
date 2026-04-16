@@ -10,15 +10,19 @@ import './FlowLabPanel.css';
 interface Props {
   config: LabConfig;
   onChange: (next: LabConfig) => void;
+  onClose: () => void;
 }
 
-export function FlowLabPanel({ config, onChange }: Props) {
+// Floating pop-out panel. Rendered as a position: fixed overlay on top
+// of the workspace so it doesn't steal layout space from the flow or
+// detail columns. Dismiss with the × button.
+export function FlowLabPanel({ config, onChange, onClose }: Props) {
   const set = <K extends keyof LabConfig>(key: K, value: LabConfig[K]) => {
     onChange({ ...config, [key]: value });
   };
 
   return (
-    <aside className="flow-lab">
+    <aside className="flow-lab" role="dialog" aria-label="Layout Lab">
       <header className="flow-lab-header">
         <h2>Layout Lab</h2>
         <button
@@ -27,6 +31,14 @@ export function FlowLabPanel({ config, onChange }: Props) {
           onClick={() => onChange(DEFAULT_LAB_CONFIG)}
         >
           Reset
+        </button>
+        <button
+          type="button"
+          className="flow-lab-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
         </button>
       </header>
 

@@ -10,9 +10,13 @@ import { ImportCsvDialog } from './ImportCsvDialog';
 import { APP_VERSION } from '../version';
 import './Toolbar.css';
 
-// The version badge is the only way the user can visually confirm a new
-// build is live on GitHub Pages refresh — keep it visible and readable.
-export function Toolbar() {
+// FLOW LAB: drop onOpenLab from the props and the Layout Lab button
+// when the lab is removed.
+interface Props {
+  onOpenLab?: () => void;
+}
+
+export function Toolbar({ onOpenLab }: Props) {
   const file = useAppStore((s) => s.file);
   const fileName = useAppStore((s) => s.fileName);
   const dirty = useAppStore((s) => s.dirty);
@@ -63,8 +67,6 @@ export function Toolbar() {
   };
 
   const handleImported = (result: ImportResult) => {
-    // Imported data is a fresh in-memory file — no filename yet, and dirty
-    // so the user knows they still need to Save to get a persistent JSON.
     loadFile(result.file, null);
     markDirty();
     setCsvDialogOpen(false);
@@ -107,6 +109,12 @@ export function Toolbar() {
           <button type="button" onClick={handleSave} disabled={!file}>
             Save
           </button>
+          {/* FLOW LAB: delete this button when the lab is removed. */}
+          {onOpenLab && file && (
+            <button type="button" onClick={onOpenLab}>
+              Layout Lab…
+            </button>
+          )}
         </div>
 
         <div className="toolbar-spacer" />

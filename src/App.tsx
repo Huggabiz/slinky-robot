@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Toolbar } from './components/Toolbar';
-import { PhaseTabs } from './components/PhaseTabs';
+import { PhaseSidebar } from './components/PhaseSidebar';
 import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
+import { DetailResizer } from './components/DetailResizer';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
 import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
@@ -15,8 +16,17 @@ function App() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
-  // FLOW LAB: labConfig state — delete when the lab is removed.
+  // FLOW LAB: labConfig state + lab open toggle — delete when the lab
+  // is removed.
   const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
+  const [labOpen, setLabOpen] = useState(false);
+
+  // Right-hand detail panel width, user-resizable via DetailResizer.
+  // Ref mirrors state so DetailResizer's drag handler can read the
+  // latest width without going stale across mouse-move events.
+  const [detailWidth, setDetailWidth] = useState(420);
+  const detailWidthRef = useRef(detailWidth);
+  detailWidthRef.current = detailWidth;
 
   // Keep the active phase coherent with the loaded file:
   // - no file → no phase
@@ -38,7 +48,7 @@ function App() {
 
   return (
     <div className="app">
-      <Toolbar />
+      <Toolbar onOpenLab={() => setLabOpen(true)} />
       {!file ? (
         <main className="app-main">
           <div className="app-empty">
@@ -52,18 +62,33 @@ function App() {
         </main>
       ) : (
         <div className="app-workspace">
-          {/* FLOW LAB: remove the FlowLabPanel element when the lab is removed. */}
-          <FlowLabPanel config={labConfig} onChange={setLabConfig} />
+          <PhaseSidebar selectedPhaseId={phaseId} onSelect={setPhaseId} />
           <div className="app-flow-column">
-            <PhaseTabs selectedPhaseId={phaseId} onSelect={setPhaseId} />
             <ProcessFlow phaseId={phaseId} labConfig={labConfig} />
           </div>
           {selectedTaskId && (
-            <aside className="app-detail-column">
-              <TaskDetail />
-            </aside>
+            <>
+              <DetailResizer
+                onResize={setDetailWidth}
+                getCurrentWidth={() => detailWidthRef.current}
+              />
+              <aside
+                className="app-detail-column"
+                style={{ width: detailWidth }}
+              >
+                <TaskDetail />
+              </aside>
+            </>
           )}
         </div>
+      )}
+      {/* FLOW LAB: delete this block when the lab is removed. */}
+      {labOpen && file && (
+        <FlowLabPanel
+          config={labConfig}
+          onChange={setLabConfig}
+          onClose={() => setLabOpen(false)}
+        />
       )}
     </div>
   );
