@@ -41,6 +41,10 @@ interface ElkInputNode {
   id: string;
   width: number;
   height: number;
+  // Only set when feeding positions back to ELK for the interactive
+  // second pass.
+  x?: number;
+  y?: number;
   layoutOptions?: Record<string, string>;
   ports?: ElkInputPort[];
 }
@@ -58,8 +62,6 @@ interface ElkGraphInput {
   edges: ElkInputEdge[];
 }
 
-// ELK's published .d.ts doesn't describe `sections` on output edges,
-// so we define the output shape we actually depend on.
 interface ElkOutputPoint {
   x: number;
   y: number;
@@ -95,31 +97,32 @@ interface ElkLayoutOutput {
  * Lay out the filtered task set using ELK's layered algorithm with
  * orthogonal edge routing.
  *
- * Every node carries two FIXED_POS ports — one at top-centre, one at
- * bottom-centre. All incoming edges attach at the NORTH port and all
- * outgoing edges leave from the SOUTH port, so connections bunch at
- * a single point on each side of a node rather than spreading along
- * the edge. (Req: "connection points can be more closely bunched".)
+ * Every node exposes two FIXED_POS ports (top-centre and bottom-
+ * centre). All incoming edges attach at the top port, all outgoing at
+ * the bottom port, so connections bunch at a single attach point per
+ * node side.
  *
- * After the ELK pass there are two light post-processing steps:
+ * When `config.snapToGrid` is true the layout runs in TWO ELK PASSES:
  *
- *   1. If `config.snapToGrid` is on, X positions are rewritten onto a
- *      single grid shared by every rank, centred on x=0. Odd-count
- *      ranks use integer offsets (… -1, 0, 1 …); even-count ranks use
- *      half-step offsets (… -1.5, -0.5, 0.5, 1.5 …). Because the grid
- *      axis is global, single-node ranks (START, END) land at x=0 and
- *      single-chain descendants whose rank midpoint is at index 0 also
- *      land at x=0 — which is what produces 0-bend straight edges for
- *      aligned subsequent flow steps. Edge endpoints shift in lockstep
- *      with their source/target; bend points sharing an X with an
- *      endpoint shift with it. After the shift the path is simplified
- *      to drop any bend points that became collinear with their
- *      neighbours (which happens when the snap aligns endpoints).
+ *   Pass 1 — run ELK with the user-selected node-placement strategy
+ *     (BK by default) to get sensible initial positions and layering.
  *
- *   2. Only when snap is OFF: the whole graph is translated so its
- *      horizontal bounding-box midpoint sits at x=0. When snap is on
- *      the snap already centres every rank on x=0 so the graph's
- *      overall centre is also at 0, and this step is skipped.
+ *   Snap — rewrite each node's X onto a grid centred on x=0. Odd-count
+ *     ranks use integer offsets (… -1, 0, 1 …); even-count ranks use
+ *     half-step offsets (… -1.5, -0.5, 0.5, 1.5 …). Single-node ranks
+ *     (START, END) land at x=0 and align automatically.
+ *
+ *   Pass 2 — run ELK again with INTERACTIVE strategies for layering,
+ *     cycle breaking, crossing minimisation, and node placement, AND
+ *     with each node's x/y set to its snapped position. ELK respects
+ *     those positions throughout and only does real work on edge
+ *     routing — so edges emerge as proper orthogonal paths that avoid
+ *     passing through unrelated nodes. No post-hoc edge shifting,
+ *     which means no diagonal artefacts and no through-node crossings.
+ *
+ * When `config.snapToGrid` is false, only pass 1 runs; the whole
+ * graph is then translated so its horizontal bounding-box midpoint
+ * sits at x=0.
  */
 export async function layoutTasks(
   tasks: Task[],
@@ -136,59 +139,76 @@ export async function layoutTasks(
   const taskIdSet = new Set(filtered.map((t) => t.id));
   const taskById = new Map(filtered.map((t) => [t.id, t]));
 
-  const elkGraph = buildElkInput(filtered, taskIdSet, config);
-  const output = (await elk.layout(elkGraph)) as ElkLayoutOutput;
-  const children = output.children ?? [];
-  if (children.length === 0) {
+  // Pass 1: normal ELK with chosen placement strategy.
+  const pass1Input = buildElkInput(filtered, taskIdSet, config, null, false);
+  const pass1Output = (await elk.layout(pass1Input)) as ElkLayoutOutput;
+  const pass1Children = pass1Output.children ?? [];
+  if (pass1Children.length === 0) {
     return { nodes: [], edges: [] };
   }
 
-  // Map of nodeId → original (pre-snap) top-left X, needed later for
-  // translating edge endpoints.
-  const originalX = new Map<string, number>();
+  if (!config.snapToGrid) {
+    // Snap off: just centre the whole graph and use pass 1's edges.
+    const centres = pass1Children.map(
+      (c) => (c.x ?? 0) + config.nodeWidth / 2,
+    );
+    const centringDx = -((Math.min(...centres) + Math.max(...centres)) / 2);
+    return extractLayoutResult(pass1Output, taskById, config, centringDx);
+  }
+
+  // Compute snapped positions on the shared x=0 grid.
+  const snapped = computeSnappedPositions(pass1Children, config);
+
+  // Pass 2: ELK in interactive mode. Positions are fixed via x/y
+  // hints + INTERACTIVE strategies; ELK only re-routes edges.
+  const pass2Input = buildElkInput(filtered, taskIdSet, config, snapped, true);
+  const pass2Output = (await elk.layout(pass2Input)) as ElkLayoutOutput;
+  return extractLayoutResult(pass2Output, taskById, config, 0);
+}
+
+function computeSnappedPositions(
+  children: ElkOutputNode[],
+  config: LabConfig,
+): Map<string, { x: number; y: number }> {
+  const ranks = new Map<number, ElkOutputNode[]>();
   for (const c of children) {
-    originalX.set(c.id, c.x ?? 0);
+    // Round Y to guard against float drift in ELK's layered output.
+    const y = Math.round(c.y ?? 0);
+    const bucket = ranks.get(y) ?? [];
+    bucket.push(c);
+    ranks.set(y, bucket);
   }
 
-  // Compute the target top-left X for each node.
-  //
-  // When snap is on: positions are on a shared grid centred on x=0,
-  // so START/END and every middle-index chain node end up at x=0.
-  // When snap is off: preserve ELK's output and translate the whole
-  // graph so its bounding-box midpoint sits at x=0.
-  const targetX = new Map<string, number>();
-  if (config.snapToGrid) {
-    const gridUnit = config.nodeWidth + config.nodesep;
-    const ranks = new Map<number, ElkOutputNode[]>();
-    for (const c of children) {
-      // Round to guard against float drift from ELK's layout output.
-      const y = Math.round(c.y ?? 0);
-      const bucket = ranks.get(y) ?? [];
-      bucket.push(c);
-      ranks.set(y, bucket);
-    }
-    for (const [, rankNodes] of ranks) {
-      // Preserve left→right order ELK chose (BK's alignment hints).
-      rankNodes.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
-      const n = rankNodes.length;
-      const firstOffset = -(n - 1) / 2;
-      for (let i = 0; i < n; i++) {
-        // centre is at (firstOffset + i) * gridUnit from the shared
-        // axis at x=0; top-left is centre - width/2.
-        const centreX = (firstOffset + i) * gridUnit;
-        targetX.set(rankNodes[i].id, centreX - config.nodeWidth / 2);
-      }
-    }
-  } else {
-    const xs = children.map((c) => (c.x ?? 0) + config.nodeWidth / 2);
-    const centringDx = -((Math.min(...xs) + Math.max(...xs)) / 2);
-    for (const c of children) {
-      targetX.set(c.id, (c.x ?? 0) + centringDx);
+  const gridUnit = config.nodeWidth + config.nodesep;
+  const snapped = new Map<string, { x: number; y: number }>();
+
+  for (const [rankY, rankNodes] of ranks) {
+    rankNodes.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
+    const n = rankNodes.length;
+    const firstOffset = -(n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      const centreX = (firstOffset + i) * gridUnit;
+      // top-left (React Flow convention) = centre − width/2
+      const topLeftX = centreX - config.nodeWidth / 2;
+      snapped.set(rankNodes[i].id, { x: topLeftX, y: rankY });
     }
   }
 
-  // Assemble React Flow nodes with the combined offsets applied.
-  const nodes: Node<TaskNodeData>[] = children.map((child) => {
+  return snapped;
+}
+
+/**
+ * Convert ELK output into React Flow nodes + edges, applying an
+ * optional global x-offset (`centringDx`) to every node and edge
+ * point. Edge paths are emitted orthogonally; no post-shift hackery.
+ */
+function extractLayoutResult(
+  output: ElkLayoutOutput,
+  taskById: Map<string, Task>,
+  config: LabConfig,
+  centringDx: number,
+): LayoutResult {
+  const nodes: Node<TaskNodeData>[] = (output.children ?? []).map((child) => {
     const task = taskById.get(child.id);
     if (!task) {
       throw new Error(`ELK returned unknown node ${child.id}`);
@@ -196,7 +216,10 @@ export async function layoutTasks(
     return {
       id: child.id,
       type: 'task',
-      position: { x: targetX.get(child.id) ?? 0, y: child.y ?? 0 },
+      position: {
+        x: (child.x ?? 0) + centringDx,
+        y: child.y ?? 0,
+      },
       data: {
         task,
         width: config.nodeWidth,
@@ -205,9 +228,6 @@ export async function layoutTasks(
     };
   });
 
-  // Build edges. Every output edge's startPoint and endPoint need to
-  // move in lockstep with its source and target node; bend points
-  // aligned with an endpoint move with it.
   const edges: Edge<OrthEdgeData>[] = [];
   for (const elkEdge of output.edges ?? []) {
     const section = elkEdge.sections?.[0];
@@ -217,44 +237,13 @@ export async function layoutTasks(
     const targetId = portOwner(elkEdge.targets?.[0]);
     if (!sourceId || !targetId) continue;
 
-    const dxSource =
-      (targetX.get(sourceId) ?? 0) - (originalX.get(sourceId) ?? 0);
-    const dxTarget =
-      (targetX.get(targetId) ?? 0) - (originalX.get(targetId) ?? 0);
-
-    const rawStart = section.startPoint;
-    const rawEnd = section.endPoint;
-
-    const shiftedPoints: { x: number; y: number }[] = [];
-    shiftedPoints.push({ x: rawStart.x + dxSource, y: rawStart.y });
-
+    const points: { x: number; y: number }[] = [
+      { x: section.startPoint.x + centringDx, y: section.startPoint.y },
+    ];
     for (const bp of section.bendPoints ?? []) {
-      // Attribute each bend to whichever endpoint it shares an X with
-      // (orthogonal routes have vertical segments at both ends, so the
-      // first/last bends typically sit on the same X as start/end).
-      const alignedSource = Math.abs(bp.x - rawStart.x) < 0.5;
-      const alignedTarget = Math.abs(bp.x - rawEnd.x) < 0.5;
-      if (alignedSource) {
-        shiftedPoints.push({ x: bp.x + dxSource, y: bp.y });
-      } else if (alignedTarget) {
-        shiftedPoints.push({ x: bp.x + dxTarget, y: bp.y });
-      } else {
-        // Intermediate bend — rare for pure orthogonal routes. Nudge
-        // by the average of the two deltas so it tracks the overall
-        // drift rather than snapping to either end.
-        shiftedPoints.push({
-          x: bp.x + (dxSource + dxTarget) / 2,
-          y: bp.y,
-        });
-      }
+      points.push({ x: bp.x + centringDx, y: bp.y });
     }
-
-    shiftedPoints.push({ x: rawEnd.x + dxTarget, y: rawEnd.y });
-
-    // Drop bend points that became collinear with their neighbours
-    // after shifting. This is what turns a 2-bend S-shape into a
-    // 0-bend straight line when snap aligns endpoints.
-    const simplified = simplifyOrthogonalPath(shiftedPoints);
+    points.push({ x: section.endPoint.x + centringDx, y: section.endPoint.y });
 
     edges.push({
       id: elkEdge.id,
@@ -262,7 +251,7 @@ export async function layoutTasks(
       target: targetId,
       type: 'orth',
       data: {
-        path: roundedOrthogonalPath(simplified, config.cornerRadius),
+        path: roundedOrthogonalPath(points, config.cornerRadius),
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -284,66 +273,47 @@ function portOwner(portRef: string | undefined): string | undefined {
   return dot === -1 ? portRef : portRef.slice(0, dot);
 }
 
-/**
- * Drop interior points that are collinear with their neighbours
- * along either axis. Used after the edge-shift step so a 2-bend
- * S-shape collapses to a 0-bend straight line whenever the snap
- * aligned the source and target — and, more generally, any extra
- * bend points that the shift rendered redundant.
- */
-function simplifyOrthogonalPath(
-  points: { x: number; y: number }[],
-): { x: number; y: number }[] {
-  if (points.length <= 2) return points;
-  const tol = 0.5;
-  const result: { x: number; y: number }[] = [points[0]];
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = result[result.length - 1];
-    const cur = points[i];
-    const next = points[i + 1];
-    const onSameY =
-      Math.abs(prev.y - cur.y) < tol && Math.abs(cur.y - next.y) < tol;
-    const onSameX =
-      Math.abs(prev.x - cur.x) < tol && Math.abs(cur.x - next.x) < tol;
-    if (!(onSameX || onSameY)) {
-      result.push(cur);
-    }
-  }
-  result.push(points[points.length - 1]);
-  return result;
-}
-
 function buildElkInput(
   filtered: Task[],
   taskIdSet: Set<string>,
   config: LabConfig,
+  positionHints: Map<string, { x: number; y: number }> | null,
+  interactive: boolean,
 ): ElkGraphInput {
   // Every node gets FIXED_POS N and S ports at top-centre and
   // bottom-centre. Edges attach at those fixed points regardless of
   // how many share a node, which is the "bunched connection points"
   // behaviour.
-  const children: ElkInputNode[] = filtered.map((task) => ({
-    id: task.id,
-    width: config.nodeWidth,
-    height: config.nodeHeight,
-    layoutOptions: {
-      'elk.portConstraints': 'FIXED_POS',
-    },
-    ports: [
-      {
-        id: `${task.id}.n`,
-        x: config.nodeWidth / 2,
-        y: 0,
-        layoutOptions: { 'elk.port.side': 'NORTH' },
+  const children: ElkInputNode[] = filtered.map((task) => {
+    const node: ElkInputNode = {
+      id: task.id,
+      width: config.nodeWidth,
+      height: config.nodeHeight,
+      layoutOptions: {
+        'elk.portConstraints': 'FIXED_POS',
       },
-      {
-        id: `${task.id}.s`,
-        x: config.nodeWidth / 2,
-        y: config.nodeHeight,
-        layoutOptions: { 'elk.port.side': 'SOUTH' },
-      },
-    ],
-  }));
+      ports: [
+        {
+          id: `${task.id}.n`,
+          x: config.nodeWidth / 2,
+          y: 0,
+          layoutOptions: { 'elk.port.side': 'NORTH' },
+        },
+        {
+          id: `${task.id}.s`,
+          x: config.nodeWidth / 2,
+          y: config.nodeHeight,
+          layoutOptions: { 'elk.port.side': 'SOUTH' },
+        },
+      ],
+    };
+    const hint = positionHints?.get(task.id);
+    if (hint) {
+      node.x = hint.x;
+      node.y = hint.y;
+    }
+    return node;
+  });
 
   const edges: ElkInputEdge[] = [];
   for (const task of filtered) {
@@ -362,20 +332,33 @@ function buildElkInput(
     'elk.algorithm': 'layered',
     'elk.direction': config.rankdir === 'TB' ? 'DOWN' : 'RIGHT',
     'elk.edgeRouting': 'ORTHOGONAL',
-    'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-    'elk.layered.nodePlacement.strategy': config.nodePlacement,
-    'elk.layered.nodePlacement.favorStraightEdges': String(
-      config.favorStraightEdges,
-    ),
     'elk.spacing.nodeNode': String(config.nodesep),
     'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
     // Keep edges close to nodes and packed tight so lanes don't bump
     // columns apart — user requirement: grid > lane breathing.
     'elk.layered.spacing.edgeNodeBetweenLayers': '16',
     'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
-    'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.mergeEdges': 'false',
   };
+
+  if (interactive) {
+    // Lock every structural decision to the provided x/y positions so
+    // ELK only does edge routing this pass. Without all four phases on
+    // INTERACTIVE, crossing-min or node-placement could still reshuffle
+    // the x coordinates we carefully snapped.
+    layoutOptions['elk.layered.layering.strategy'] = 'INTERACTIVE';
+    layoutOptions['elk.layered.cycleBreaking.strategy'] = 'INTERACTIVE';
+    layoutOptions['elk.layered.crossingMinimization.strategy'] = 'INTERACTIVE';
+    layoutOptions['elk.layered.nodePlacement.strategy'] = 'INTERACTIVE';
+  } else {
+    layoutOptions['elk.layered.nodePlacement.strategy'] = config.nodePlacement;
+    layoutOptions['elk.layered.crossingMinimization.strategy'] = 'LAYER_SWEEP';
+    layoutOptions['elk.layered.nodePlacement.favorStraightEdges'] = String(
+      config.favorStraightEdges,
+    );
+    layoutOptions['elk.layered.considerModelOrder.strategy'] =
+      'NODES_AND_EDGES';
+  }
 
   return {
     id: 'root',
