@@ -11,6 +11,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useAppStore } from '../store/useAppStore';
 import { layoutTasks, type LayoutResult } from '../utils/flowLayout';
+import { computeHighlights } from '../utils/highlight';
 // FLOW LAB: remove the LabConfig import and the labConfig prop below.
 import type { LabConfig } from '../utils/flowLab';
 import { TaskNode } from './TaskNode';
@@ -31,22 +32,26 @@ const EMPTY_LAYOUT: LayoutResult = { nodes: [], edges: [] };
 
 interface Props {
   phaseId: string | null;
-  // FLOW LAB: labConfig is temporary. To revert, drop this prop and
-  // inline DEFAULT_LAB_CONFIG at the layoutTasks call site.
+  // FLOW LAB: labConfig is temporary.
   labConfig: LabConfig;
+  // Dependency-highlight tool config. When `enabled` is false the
+  // highlight pass is skipped entirely.
+  highlightEnabled: boolean;
+  fadeOver: number | null;
 }
 
-export function ProcessFlow({ phaseId, labConfig }: Props) {
+export function ProcessFlow({
+  phaseId,
+  labConfig,
+  highlightEnabled,
+  fadeOver,
+}: Props) {
   const file = useAppStore((s) => s.file);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const selectTask = useAppStore((s) => s.selectTask);
 
   const [layout, setLayout] = useState<LayoutResult>(EMPTY_LAYOUT);
 
-  // ELK layout is async. Recompute whenever the file, active phase,
-  // or lab config changes. The cancellation flag ensures a stale
-  // layout can't overwrite a fresher one when the user is dragging
-  // a slider rapidly — only the most-recent run's result sticks.
   useEffect(() => {
     if (!file) {
       setLayout(EMPTY_LAYOUT);
@@ -60,8 +65,6 @@ export function ProcessFlow({ phaseId, labConfig }: Props) {
       })
       .catch((err) => {
         if (cancelled) return;
-        // Surface layout errors to the dev console but keep the last
-        // good layout on screen so the app stays usable.
         console.error('Layout failed:', err);
       });
     return () => {
@@ -69,15 +72,29 @@ export function ProcessFlow({ phaseId, labConfig }: Props) {
     };
   }, [file, phaseId, labConfig]);
 
+  // Dependency highlight pass. Cheap BFS across all tasks (not just the
+  // filtered phase) so cross-phase prereq/dependent chains would also
+  // colour correctly — even though we only render the active phase,
+  // the map is keyed by task id so no harm done.
+  const highlightMap = useMemo(() => {
+    if (!highlightEnabled || !file) return null;
+    return computeHighlights(file.tasks, selectedTaskId, fadeOver);
+  }, [highlightEnabled, file, selectedTaskId, fadeOver]);
+
   // Selection is stored centrally; mirror it onto the nodes so React
-  // Flow renders the selected visual state.
+  // Flow renders the selected visual state. Highlight info is injected
+  // into data here so TaskNode can read it without a second hook.
   const styledNodes = useMemo(
     () =>
       layout.nodes.map((n) => ({
         ...n,
         selected: n.id === selectedTaskId,
+        data: {
+          ...n.data,
+          highlight: highlightMap?.get(n.id),
+        },
       })),
-    [layout.nodes, selectedTaskId],
+    [layout.nodes, selectedTaskId, highlightMap],
   );
 
   if (!file || layout.nodes.length === 0) {

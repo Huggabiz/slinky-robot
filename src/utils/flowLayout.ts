@@ -1,6 +1,7 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { Task } from '../types';
+import type { HighlightInfo } from './highlight';
 // FLOW LAB: drop the LabConfig import and the config parameter when
 // the lab is removed; bake its final values into the function body.
 import type { LabConfig } from './flowLab';
@@ -9,10 +10,13 @@ const elk = new ELK();
 
 // Data on each flow node. width/height travel with the node so the
 // rendered TaskNode can size itself to match what ELK was told to expect.
+// `highlight` is injected after layout by ProcessFlow from the selected-
+// task dependency walk; TaskNode reads it to tint itself.
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task;
   width: number;
   height: number;
+  highlight?: HighlightInfo;
 }
 
 // Data on each flow edge. path is the pre-computed rounded orthogonal

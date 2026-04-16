@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { PhaseSidebar } from './components/PhaseSidebar';
+import { FlowToolbar } from './components/FlowToolbar';
 import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
 import { DetailResizer } from './components/DetailResizer';
@@ -16,21 +17,21 @@ function App() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
-  // FLOW LAB: labConfig state + lab open toggle — delete when the lab
-  // is removed.
+  // Display-tool state (FlowToolbar). These control how the flow
+  // renders but don't affect the layout itself.
+  const [highlightEnabled, setHighlightEnabled] = useState(false);
+  const [fadeOver, setFadeOver] = useState<number | null>(3);
+
+  // FLOW LAB: labConfig state + lab open toggle.
   const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
   const [labOpen, setLabOpen] = useState(false);
 
   // Right-hand detail panel width, user-resizable via DetailResizer.
-  // Ref mirrors state so DetailResizer's drag handler can read the
-  // latest width without going stale across mouse-move events.
   const [detailWidth, setDetailWidth] = useState(420);
   const detailWidthRef = useRef(detailWidth);
   detailWidthRef.current = detailWidth;
 
-  // Keep the active phase coherent with the loaded file:
-  // - no file → no phase
-  // - file loaded but current phaseId doesn't exist in it → snap to first phase
+  // Keep the active phase coherent with the loaded file.
   useEffect(() => {
     if (!file) {
       setPhaseId(null);
@@ -64,7 +65,18 @@ function App() {
         <div className="app-workspace">
           <PhaseSidebar selectedPhaseId={phaseId} onSelect={setPhaseId} />
           <div className="app-flow-column">
-            <ProcessFlow phaseId={phaseId} labConfig={labConfig} />
+            <FlowToolbar
+              highlightEnabled={highlightEnabled}
+              onHighlightChange={setHighlightEnabled}
+              fadeOver={fadeOver}
+              onFadeChange={setFadeOver}
+            />
+            <ProcessFlow
+              phaseId={phaseId}
+              labConfig={labConfig}
+              highlightEnabled={highlightEnabled}
+              fadeOver={fadeOver}
+            />
           </div>
           {selectedTaskId && (
             <>
