@@ -33,13 +33,13 @@ export interface LabConfig {
   rankdir: Rankdir;
   nodePlacement: NodePlacement;
   favorStraightEdges: boolean;
-  // When true, flowLayout runs ELK twice: once with the chosen node
-  // placement strategy, then a second pass in INTERACTIVE mode with
-  // X positions snapped to a grid centred on x=0. Single-node ranks
-  // (START, END) automatically land on the centre axis, and every
-  // other rank spreads around it with integer offsets (odd count) or
-  // half-step offsets (even count).
-  snapToGrid: boolean;
+  // When true, after ELK's first pass a second INTERACTIVE pass pins
+  // every node's position to where pass 1 put it, EXCEPT for the
+  // single-node first rank (START) and single-node last rank (END),
+  // which are forced onto the horizontal centre axis. ELK then
+  // re-routes only the edges touching those two so the rest of the
+  // layout stays exactly as BK + favour-straight-edges produced it.
+  centreStartEnd: boolean;
   nodesep: number;
   ranksep: number;
   nodeWidth: number;
@@ -50,13 +50,16 @@ export interface LabConfig {
   arrowSize: number;
 }
 
+// Defaults match the settings the user dialled in as "by far the best
+// configuration": BK placement with favour-straight-edges on, tight
+// rank spacing, and the centre-start-end post-process enabled.
 export const DEFAULT_LAB_CONFIG: LabConfig = {
   rankdir: 'TB',
   nodePlacement: 'BRANDES_KOEPF',
   favorStraightEdges: true,
-  snapToGrid: true,
-  nodesep: 80,
-  ranksep: 80,
+  centreStartEnd: true,
+  nodesep: 70,
+  ranksep: 20,
   nodeWidth: 200,
   nodeHeight: 92,
   cornerRadius: 20,

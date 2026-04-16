@@ -102,27 +102,23 @@ interface ElkLayoutOutput {
  * the bottom port, so connections bunch at a single attach point per
  * node side.
  *
- * When `config.snapToGrid` is true the layout runs in TWO ELK PASSES:
+ * When `config.centreStartEnd` is true AND the filtered phase has a
+ * single-node first rank (START) and single-node last rank (END),
+ * the layout runs in TWO ELK PASSES:
  *
- *   Pass 1 — run ELK with the user-selected node-placement strategy
- *     (BK by default) to get sensible initial positions and layering.
+ *   Pass 1 — run ELK with the user-selected placement strategy
+ *     (BK by default) to get its natural layout.
  *
- *   Snap — rewrite each node's X onto a grid centred on x=0. Odd-count
- *     ranks use integer offsets (… -1, 0, 1 …); even-count ranks use
- *     half-step offsets (… -1.5, -0.5, 0.5, 1.5 …). Single-node ranks
- *     (START, END) land at x=0 and align automatically.
+ *   Pass 2 — feed ELK the SAME positions back for every node except
+ *     START and END, which are pinned to x=0 instead of their pass-1
+ *     x. All four INTERACTIVE strategies are set so ELK respects
+ *     every pinned position and only re-routes the edges touching
+ *     the two shifted endpoints. The rest of the layout is
+ *     byte-for-byte identical to pass 1.
  *
- *   Pass 2 — run ELK again with INTERACTIVE strategies for layering,
- *     cycle breaking, crossing minimisation, and node placement, AND
- *     with each node's x/y set to its snapped position. ELK respects
- *     those positions throughout and only does real work on edge
- *     routing — so edges emerge as proper orthogonal paths that avoid
- *     passing through unrelated nodes. No post-hoc edge shifting,
- *     which means no diagonal artefacts and no through-node crossings.
- *
- * When `config.snapToGrid` is false, only pass 1 runs; the whole
- * graph is then translated so its horizontal bounding-box midpoint
- * sits at x=0.
+ * When `config.centreStartEnd` is false (or the phase doesn't have a
+ * single START/END pair) only pass 1 runs, followed by a global
+ * translation that puts the bounding-box midpoint on x=0.
  */
 export async function layoutTasks(
   tasks: Task[],
@@ -147,8 +143,13 @@ export async function layoutTasks(
     return { nodes: [], edges: [] };
   }
 
-  if (!config.snapToGrid) {
-    // Snap off: just centre the whole graph and use pass 1's edges.
+  // Decide whether to run a pass 2 to shift START and END.
+  const hints = config.centreStartEnd
+    ? buildCentredStartEndHints(pass1Children, config)
+    : null;
+
+  if (!hints) {
+    // No pass 2 needed: just translate so bbox midpoint sits at x=0.
     const centres = pass1Children.map(
       (c) => (c.x ?? 0) + config.nodeWidth / 2,
     );
@@ -156,45 +157,66 @@ export async function layoutTasks(
     return extractLayoutResult(pass1Output, taskById, config, centringDx);
   }
 
-  // Compute snapped positions on the shared x=0 grid.
-  const snapped = computeSnappedPositions(pass1Children, config);
-
-  // Pass 2: ELK in interactive mode. Positions are fixed via x/y
-  // hints + INTERACTIVE strategies; ELK only re-routes edges.
-  const pass2Input = buildElkInput(filtered, taskIdSet, config, snapped, true);
+  // Pass 2: ELK in interactive mode. Every node's position is pinned
+  // via the hints (pass-1 position for most, x=0 for START/END). ELK
+  // re-routes only the edges that now need to reach the shifted ends.
+  const pass2Input = buildElkInput(filtered, taskIdSet, config, hints, true);
   const pass2Output = (await elk.layout(pass2Input)) as ElkLayoutOutput;
   return extractLayoutResult(pass2Output, taskById, config, 0);
 }
 
-function computeSnappedPositions(
+/**
+ * Identify the single-node first and last ranks (START / END) in
+ * pass 1's output. If neither rank has exactly one node, returns null
+ * and the caller falls back to a plain global centring translation.
+ *
+ * When a pair is found, builds a position-hints map for pass 2 in
+ * which:
+ *   - every node gets its pass-1 position translated by the graph's
+ *     centring offset so the overall bbox will land on x=0;
+ *   - START and END get their x forced to −width/2 (top-left) so
+ *     their centres sit exactly at x=0.
+ */
+function buildCentredStartEndHints(
   children: ElkOutputNode[],
   config: LabConfig,
-): Map<string, { x: number; y: number }> {
-  const ranks = new Map<number, ElkOutputNode[]>();
+): Map<string, { x: number; y: number }> | null {
+  if (children.length === 0) return null;
+
+  const byY = new Map<number, string[]>();
   for (const c of children) {
-    // Round Y to guard against float drift in ELK's layered output.
     const y = Math.round(c.y ?? 0);
-    const bucket = ranks.get(y) ?? [];
-    bucket.push(c);
-    ranks.set(y, bucket);
+    const bucket = byY.get(y) ?? [];
+    bucket.push(c.id);
+    byY.set(y, bucket);
   }
+  const ys = [...byY.keys()].sort((a, b) => a - b);
+  const topRank = byY.get(ys[0]) ?? [];
+  const bottomRank = byY.get(ys[ys.length - 1]) ?? [];
+  // Require both ends to be single-node ranks — otherwise centring
+  // "the" start/end isn't well-defined.
+  if (topRank.length !== 1 || bottomRank.length !== 1) return null;
 
-  const gridUnit = config.nodeWidth + config.nodesep;
-  const snapped = new Map<string, { x: number; y: number }>();
+  const startId = topRank[0];
+  const endId = bottomRank[0];
 
-  for (const [rankY, rankNodes] of ranks) {
-    rankNodes.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
-    const n = rankNodes.length;
-    const firstOffset = -(n - 1) / 2;
-    for (let i = 0; i < n; i++) {
-      const centreX = (firstOffset + i) * gridUnit;
-      // top-left (React Flow convention) = centre − width/2
-      const topLeftX = centreX - config.nodeWidth / 2;
-      snapped.set(rankNodes[i].id, { x: topLeftX, y: rankY });
+  // Centre the overall graph on x=0 by translating every node by
+  // −bboxCentre; START and END then additionally land at exactly 0.
+  const centres = children.map((c) => (c.x ?? 0) + config.nodeWidth / 2);
+  const bboxCentre = (Math.min(...centres) + Math.max(...centres)) / 2;
+
+  const hints = new Map<string, { x: number; y: number }>();
+  for (const c of children) {
+    const origX = c.x ?? 0;
+    const origY = c.y ?? 0;
+    if (c.id === startId || c.id === endId) {
+      // Top-left X = 0 − width/2 so the centre sits on x=0.
+      hints.set(c.id, { x: -config.nodeWidth / 2, y: origY });
+    } else {
+      hints.set(c.id, { x: origX - bboxCentre, y: origY });
     }
   }
-
-  return snapped;
+  return hints;
 }
 
 /**
@@ -282,8 +304,7 @@ function buildElkInput(
 ): ElkGraphInput {
   // Every node gets FIXED_POS N and S ports at top-centre and
   // bottom-centre. Edges attach at those fixed points regardless of
-  // how many share a node, which is the "bunched connection points"
-  // behaviour.
+  // how many share a node — the "bunched connection points" behaviour.
   const children: ElkInputNode[] = filtered.map((task) => {
     const node: ElkInputNode = {
       id: task.id,
@@ -343,9 +364,7 @@ function buildElkInput(
 
   if (interactive) {
     // Lock every structural decision to the provided x/y positions so
-    // ELK only does edge routing this pass. Without all four phases on
-    // INTERACTIVE, crossing-min or node-placement could still reshuffle
-    // the x coordinates we carefully snapped.
+    // ELK only does edge routing this pass.
     layoutOptions['elk.layered.layering.strategy'] = 'INTERACTIVE';
     layoutOptions['elk.layered.cycleBreaking.strategy'] = 'INTERACTIVE';
     layoutOptions['elk.layered.crossingMinimization.strategy'] = 'INTERACTIVE';

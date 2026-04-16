@@ -81,10 +81,10 @@ export function FlowLabPanel({ config, onChange, onClose }: Props) {
         <label className="flow-lab-check">
           <input
             type="checkbox"
-            checked={config.snapToGrid}
-            onChange={(e) => set('snapToGrid', e.target.checked)}
+            checked={config.centreStartEnd}
+            onChange={(e) => set('centreStartEnd', e.target.checked)}
           />
-          <span>Snap X to grid (centres start/end, locks columns)</span>
+          <span>Centre start/end on screen</span>
         </label>
       </section>
 
