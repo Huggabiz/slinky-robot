@@ -99,22 +99,23 @@ interface ElkLayoutOutput {
  *
  * After the ELK pass there are two light post-processing steps:
  *
- *   1. If `config.snapToGrid` is on, each rank's X positions are
- *      rewritten to a grid centred on the rank's midpoint. Odd-count
+ *   1. If `config.snapToGrid` is on, X positions are rewritten onto a
+ *      single grid shared by every rank, centred on x=0. Odd-count
  *      ranks use integer offsets (… -1, 0, 1 …); even-count ranks use
- *      half-step offsets (… -1.5, -0.5, 0.5, 1.5 …). Single-node
- *      ranks (START, END) therefore land dead centre of the rank.
- *      Edge endpoints are shifted in lockstep with the nodes they
- *      touch; bend points aligned with an endpoint shift with it too.
- *      Nothing else in the layout is re-run — this is a pure shift,
- *      not a second ELK pass.
+ *      half-step offsets (… -1.5, -0.5, 0.5, 1.5 …). Because the grid
+ *      axis is global, single-node ranks (START, END) land at x=0 and
+ *      single-chain descendants whose rank midpoint is at index 0 also
+ *      land at x=0 — which is what produces 0-bend straight edges for
+ *      aligned subsequent flow steps. Edge endpoints shift in lockstep
+ *      with their source/target; bend points sharing an X with an
+ *      endpoint shift with it. After the shift the path is simplified
+ *      to drop any bend points that became collinear with their
+ *      neighbours (which happens when the snap aligns endpoints).
  *
- *   2. The whole graph is translated so its horizontal bounding-box
- *      midpoint sits at x=0. (Req: "put start and end phase steps in
- *      the centre of the screen regardless of the node placement".)
- *      If snap is on this is mostly a no-op because the per-rank snap
- *      already centred things, but the translation is still useful
- *      when snap is off and BK has produced an asymmetric layout.
+ *   2. Only when snap is OFF: the whole graph is translated so its
+ *      horizontal bounding-box midpoint sits at x=0. When snap is on
+ *      the snap already centres every rank on x=0 so the graph's
+ *      overall centre is also at 0, and this step is skipped.
  */
 export async function layoutTasks(
   tasks: Task[],
@@ -145,21 +146,42 @@ export async function layoutTasks(
     originalX.set(c.id, c.x ?? 0);
   }
 
-  // Step 1: optional grid snap (rank-local, centred on rank midpoint).
-  const snapOverrides = config.snapToGrid
-    ? computeGridSnappedX(children, config)
-    : null;
-
-  // Step 2: global centre translation. Compute the bounding-box
-  // midpoint of the (possibly snapped) positions and shift so it
-  // lands at x=0.
-  const finalXs = children.map((c) => {
-    const base = snapOverrides?.get(c.id) ?? originalX.get(c.id) ?? 0;
-    return base + config.nodeWidth / 2;
-  });
-  const minX = Math.min(...finalXs);
-  const maxX = Math.max(...finalXs);
-  const centringDx = -((minX + maxX) / 2);
+  // Compute the target top-left X for each node.
+  //
+  // When snap is on: positions are on a shared grid centred on x=0,
+  // so START/END and every middle-index chain node end up at x=0.
+  // When snap is off: preserve ELK's output and translate the whole
+  // graph so its bounding-box midpoint sits at x=0.
+  const targetX = new Map<string, number>();
+  if (config.snapToGrid) {
+    const gridUnit = config.nodeWidth + config.nodesep;
+    const ranks = new Map<number, ElkOutputNode[]>();
+    for (const c of children) {
+      // Round to guard against float drift from ELK's layout output.
+      const y = Math.round(c.y ?? 0);
+      const bucket = ranks.get(y) ?? [];
+      bucket.push(c);
+      ranks.set(y, bucket);
+    }
+    for (const [, rankNodes] of ranks) {
+      // Preserve left→right order ELK chose (BK's alignment hints).
+      rankNodes.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
+      const n = rankNodes.length;
+      const firstOffset = -(n - 1) / 2;
+      for (let i = 0; i < n; i++) {
+        // centre is at (firstOffset + i) * gridUnit from the shared
+        // axis at x=0; top-left is centre - width/2.
+        const centreX = (firstOffset + i) * gridUnit;
+        targetX.set(rankNodes[i].id, centreX - config.nodeWidth / 2);
+      }
+    }
+  } else {
+    const xs = children.map((c) => (c.x ?? 0) + config.nodeWidth / 2);
+    const centringDx = -((Math.min(...xs) + Math.max(...xs)) / 2);
+    for (const c of children) {
+      targetX.set(c.id, (c.x ?? 0) + centringDx);
+    }
+  }
 
   // Assemble React Flow nodes with the combined offsets applied.
   const nodes: Node<TaskNodeData>[] = children.map((child) => {
@@ -167,12 +189,10 @@ export async function layoutTasks(
     if (!task) {
       throw new Error(`ELK returned unknown node ${child.id}`);
     }
-    const baseX =
-      snapOverrides?.get(child.id) ?? originalX.get(child.id) ?? 0;
     return {
       id: child.id,
       type: 'task',
-      position: { x: baseX + centringDx, y: child.y ?? 0 },
+      position: { x: targetX.get(child.id) ?? 0, y: child.y ?? 0 },
       data: {
         task,
         width: config.nodeWidth,
@@ -194,9 +214,9 @@ export async function layoutTasks(
     if (!sourceId || !targetId) continue;
 
     const dxSource =
-      computeDeltaForNode(sourceId, originalX, snapOverrides) + centringDx;
+      (targetX.get(sourceId) ?? 0) - (originalX.get(sourceId) ?? 0);
     const dxTarget =
-      computeDeltaForNode(targetId, originalX, snapOverrides) + centringDx;
+      (targetX.get(targetId) ?? 0) - (originalX.get(targetId) ?? 0);
 
     const rawStart = section.startPoint;
     const rawEnd = section.endPoint;
@@ -227,13 +247,18 @@ export async function layoutTasks(
 
     shiftedPoints.push({ x: rawEnd.x + dxTarget, y: rawEnd.y });
 
+    // Drop bend points that became collinear with their neighbours
+    // after shifting. This is what turns a 2-bend S-shape into a
+    // 0-bend straight line when snap aligns endpoints.
+    const simplified = simplifyOrthogonalPath(shiftedPoints);
+
     edges.push({
       id: elkEdge.id,
       source: sourceId,
       target: targetId,
       type: 'orth',
       data: {
-        path: roundedOrthogonalPath(shiftedPoints, config.cornerRadius),
+        path: roundedOrthogonalPath(simplified, config.cornerRadius),
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -255,14 +280,33 @@ function portOwner(portRef: string | undefined): string | undefined {
   return dot === -1 ? portRef : portRef.slice(0, dot);
 }
 
-function computeDeltaForNode(
-  nodeId: string,
-  original: Map<string, number>,
-  snapOverrides: Map<string, number> | null,
-): number {
-  const origX = original.get(nodeId) ?? 0;
-  const snappedX = snapOverrides?.get(nodeId);
-  return snappedX !== undefined ? snappedX - origX : 0;
+/**
+ * Drop interior points that are collinear with their neighbours
+ * along either axis. Used after the edge-shift step so a 2-bend
+ * S-shape collapses to a 0-bend straight line whenever the snap
+ * aligned the source and target — and, more generally, any extra
+ * bend points that the shift rendered redundant.
+ */
+function simplifyOrthogonalPath(
+  points: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  if (points.length <= 2) return points;
+  const tol = 0.5;
+  const result: { x: number; y: number }[] = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = result[result.length - 1];
+    const cur = points[i];
+    const next = points[i + 1];
+    const onSameY =
+      Math.abs(prev.y - cur.y) < tol && Math.abs(cur.y - next.y) < tol;
+    const onSameX =
+      Math.abs(prev.x - cur.x) < tol && Math.abs(cur.x - next.x) < tol;
+    if (!(onSameX || onSameY)) {
+      result.push(cur);
+    }
+  }
+  result.push(points[points.length - 1]);
+  return result;
 }
 
 function buildElkInput(
@@ -335,57 +379,6 @@ function buildElkInput(
     children,
     edges,
   };
-}
-
-/**
- * Compute grid-snapped top-left X for each node, centred on each
- * rank's natural midpoint (not the graph centre — global centring is
- * a separate step so the two offsets don't fight).
- *
- * - Nodes are bucketed into ranks by ELK's y coordinate.
- * - Within each rank, original left→right order is preserved.
- * - Odd-count ranks use integer offsets (… -1, 0, 1 …).
- * - Even-count ranks use half-step offsets (… -1.5, -0.5, 0.5, 1.5 …).
- * - Single-node ranks snap to their rank's midpoint.
- */
-function computeGridSnappedX(
-  children: ElkOutputNode[],
-  config: LabConfig,
-): Map<string, number> {
-  const ranks = new Map<number, ElkOutputNode[]>();
-  for (const c of children) {
-    const y = Math.round(c.y ?? 0);
-    const bucket = ranks.get(y) ?? [];
-    bucket.push(c);
-    ranks.set(y, bucket);
-  }
-
-  const gridUnit = config.nodeWidth + config.nodesep;
-  const overrides = new Map<string, number>();
-
-  for (const [, rankNodes] of ranks) {
-    rankNodes.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
-    const n = rankNodes.length;
-
-    // Rank midpoint (centre of mass of existing x values) — keeps the
-    // snap close to where ELK already placed things so downstream
-    // global centring has less work to do.
-    const centres = rankNodes.map(
-      (c) => (c.x ?? 0) + config.nodeWidth / 2,
-    );
-    const rankMid =
-      (Math.min(...centres) + Math.max(...centres)) / 2;
-
-    const firstOffset = -(n - 1) / 2;
-    for (let i = 0; i < n; i++) {
-      const offset = (firstOffset + i) * gridUnit;
-      // node.x in React Flow is top-left.
-      const topLeftX = rankMid + offset - config.nodeWidth / 2;
-      overrides.set(rankNodes[i].id, topLeftX);
-    }
-  }
-
-  return overrides;
 }
 
 /**
