@@ -1,8 +1,10 @@
 import {
   type ProcessFile,
   type Phase,
+  type Role,
   type Task,
   CURRENT_SCHEMA_VERSION,
+  DEFAULT_DELIVERABLE_STATES,
 } from '../types';
 
 // Target fields the importer knows how to populate. Anything else in the
@@ -225,6 +227,7 @@ export function buildProcessFileFromCsv(
         order: leadingNumericPrefix(taskIdStr),
         name: phaseStr,
         intro: '',
+        colour: null,
       };
       phasesByName.set(phaseStr, phase);
       phaseOrderSeen.set(phaseStr, phasesByName.size);
@@ -253,6 +256,7 @@ export function buildProcessFileFromCsv(
       keyDateRationale: cell(row, mapping.keyDateRationale) || null,
       function: cell(row, mapping.function),
       prerequisites: [],
+      deliverableTargets: [],
       extras: {},
     };
 
@@ -297,6 +301,12 @@ export function buildProcessFileFromCsv(
 
   const title = options.title ?? masterName ?? 'Imported Process';
 
+  // Auto-discover roles from the imported task data — unique non-empty
+  // strings across `accountable` and every `contributors[]`. Skips
+  // sentinels like "None" and "N/A" which appear in the sample data
+  // but aren't meaningful roles.
+  const roles = discoverRoles(tasks);
+
   const file: ProcessFile = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     meta: {
@@ -307,7 +317,31 @@ export function buildProcessFileFromCsv(
     },
     phases,
     tasks,
+    roles,
+    deliverableItems: [],
+    deliverableStates: [...DEFAULT_DELIVERABLE_STATES],
   };
 
   return { file, warnings };
+}
+
+const ROLE_SENTINELS = new Set(['', 'none', 'n/a', 'na', '-']);
+
+function discoverRoles(tasks: Task[]): Role[] {
+  const names = new Set<string>();
+  for (const task of tasks) {
+    if (task.accountable && !isSentinelRole(task.accountable)) {
+      names.add(task.accountable);
+    }
+    for (const c of task.contributors) {
+      if (c && !isSentinelRole(c)) names.add(c);
+    }
+  }
+  return Array.from(names)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ id: makeId(), name, colour: null }));
+}
+
+function isSentinelRole(name: string): boolean {
+  return ROLE_SENTINELS.has(name.trim().toLowerCase());
 }

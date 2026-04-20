@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { getPhasesOrdered, getTasksInPhase } from '../types';
+import { getPhasesOrdered, getTasksInPhase, type Phase } from '../types';
 import './PhaseSidebar.css';
 
 interface Props {
@@ -8,7 +8,9 @@ interface Props {
 }
 
 // Left-hand nav listing phases (milestones) as vertical rows. Click to
-// drive which phase the flowchart renders.
+// drive which phase the flowchart renders. A colour swatch renders to
+// the left of the name for every phase — using the phase's colour when
+// set, or a neutral placeholder when not.
 export function PhaseSidebar({ selectedPhaseId, onSelect }: Props) {
   const file = useAppStore((s) => s.file);
   if (!file) return null;
@@ -41,11 +43,30 @@ export function PhaseSidebar({ selectedPhaseId, onSelect }: Props) {
             }
             onClick={() => onSelect(phase.id)}
           >
+            <PhaseSwatch phase={phase} />
             <span className="phase-sidebar-name">{phase.name}</span>
             <span className="phase-sidebar-count">{count}</span>
           </button>
         );
       })}
     </aside>
+  );
+}
+
+// Small rounded rectangle to the left of the phase name. Kept in its
+// own component so other surfaces that show phase colour can reuse it
+// consistently as we add them (phase info bar, task node accents,
+// etc.).
+function PhaseSwatch({ phase }: { phase: Phase }) {
+  return (
+    <span
+      className="phase-sidebar-swatch"
+      style={
+        phase.colour
+          ? { backgroundColor: phase.colour, borderColor: phase.colour }
+          : undefined
+      }
+      aria-hidden
+    />
   );
 }

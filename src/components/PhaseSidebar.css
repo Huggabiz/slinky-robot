@@ -56,6 +56,23 @@
   background: var(--color-accent);
 }
 
+.phase-sidebar-swatch {
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  /* Colours applied inline via Phase.colour render identically in both
+     Navigate and Edit themes. */
+}
+
+.phase-sidebar-item-active .phase-sidebar-swatch {
+  /* Give uncoloured phases a subtle outline against the accent bg so
+     the swatch space stays visible when the row is highlighted. */
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 .phase-sidebar-name {
   flex: 1;
   word-break: break-word;
