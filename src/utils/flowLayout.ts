@@ -2,16 +2,10 @@ import ELK from 'elkjs/lib/elk.bundled.js';
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { Task } from '../types';
 import type { HighlightInfo } from './highlight';
-// FLOW LAB: drop the LabConfig import and the config parameter when
-// the lab is removed; bake its final values into the function body.
 import type { LabConfig } from './flowLab';
 
 const elk = new ELK();
 
-// Data on each flow node. width/height travel with the node so the
-// rendered TaskNode can size itself to match what ELK was told to expect.
-// `highlight` is injected after layout by ProcessFlow from the selected-
-// task dependency walk; TaskNode reads it to tint itself.
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task;
   width: number;
@@ -19,8 +13,6 @@ export interface TaskNodeData extends Record<string, unknown> {
   highlight?: HighlightInfo;
 }
 
-// Data on each flow edge. path is the pre-computed rounded orthogonal
-// SVG path string — OrthEdge hands it to BaseEdge directly.
 export interface OrthEdgeData extends Record<string, unknown> {
   path: string;
 }
@@ -41,10 +33,6 @@ interface ElkInputNode {
   id: string;
   width: number;
   height: number;
-  // Only set when feeding positions back to ELK for the interactive
-  // second pass.
-  x?: number;
-  y?: number;
   layoutOptions?: Record<string, string>;
   ports?: ElkInputPort[];
 }
@@ -94,31 +82,26 @@ interface ElkLayoutOutput {
 }
 
 /**
- * Lay out the filtered task set using ELK's layered algorithm with
+ * Lay out the filtered task set using a single ELK pass with
  * orthogonal edge routing.
  *
- * Every node exposes two FIXED_POS ports (top-centre and bottom-
- * centre). All incoming edges attach at the top port, all outgoing at
- * the bottom port, so connections bunch at a single attach point per
- * node side.
+ * After ELK produces the layout, two lightweight post-processing
+ * steps run:
  *
- * When `config.centreStartEnd` is true AND the filtered phase has a
- * single-node first rank (START) and single-node last rank (END),
- * the layout runs in TWO ELK PASSES:
+ *   1. Global centring — translate every node and edge point by a
+ *      uniform dx so the bounding-box midpoint sits at x=0.
  *
- *   Pass 1 — run ELK with the user-selected placement strategy
- *     (BK by default) to get its natural layout.
+ *   2. Centre start/end (opt-in via config.centreStartEnd) — if the
+ *      phase has a single-node first rank (START) and single-node
+ *      last rank (END), shift those two nodes onto x=0 and rewrite
+ *      ONLY the edges touching them. Every other node and edge is
+ *      completely untouched — the layout is byte-for-byte identical
+ *      to what ELK produced.
  *
- *   Pass 2 — feed ELK the SAME positions back for every node except
- *     START and END, which are pinned to x=0 instead of their pass-1
- *     x. All four INTERACTIVE strategies are set so ELK respects
- *     every pinned position and only re-routes the edges touching
- *     the two shifted endpoints. The rest of the layout is
- *     byte-for-byte identical to pass 1.
- *
- * When `config.centreStartEnd` is false (or the phase doesn't have a
- * single START/END pair) only pass 1 runs, followed by a global
- * translation that puts the bounding-box midpoint on x=0.
+ * NO second ELK pass. ELK's INTERACTIVE strategies don't truly pin
+ * positions — they use them as hints and can reshuffle the layout.
+ * This post-process is a pure geometric shift that guarantees the
+ * rest of the layout stays exactly as BK produced it.
  */
 export async function layoutTasks(
   tasks: Task[],
@@ -135,111 +118,94 @@ export async function layoutTasks(
   const taskIdSet = new Set(filtered.map((t) => t.id));
   const taskById = new Map(filtered.map((t) => [t.id, t]));
 
-  // Pass 1: normal ELK with chosen placement strategy.
-  const pass1Input = buildElkInput(filtered, taskIdSet, config, null, false);
-  const pass1Output = (await elk.layout(pass1Input)) as ElkLayoutOutput;
-  const pass1Children = pass1Output.children ?? [];
-  if (pass1Children.length === 0) {
+  // Single ELK pass.
+  const elkInput = buildElkInput(filtered, taskIdSet, config);
+  const elkOutput = (await elk.layout(elkInput)) as ElkLayoutOutput;
+  const children = elkOutput.children ?? [];
+  if (children.length === 0) {
     return { nodes: [], edges: [] };
   }
 
-  // Decide whether to run a pass 2 to shift START and END.
-  const hints = config.centreStartEnd
-    ? buildCentredStartEndHints(pass1Children, config)
-    : null;
+  // Step 1: compute global centring offset.
+  const centres = children.map((c) => (c.x ?? 0) + config.nodeWidth / 2);
+  const centringDx = -((Math.min(...centres) + Math.max(...centres)) / 2);
 
-  if (!hints) {
-    // No pass 2 needed: just translate so bbox midpoint sits at x=0.
-    const centres = pass1Children.map(
-      (c) => (c.x ?? 0) + config.nodeWidth / 2,
-    );
-    const centringDx = -((Math.min(...centres) + Math.max(...centres)) / 2);
-    return extractLayoutResult(pass1Output, taskById, config, centringDx);
-  }
+  // Step 2: compute per-node extra shifts for START/END centring.
+  // Map is empty (no-op) when the option is off or no clear single
+  // START/END pair exists.
+  const nodeShifts = config.centreStartEnd
+    ? computeStartEndShifts(children, config, centringDx)
+    : new Map<string, number>();
 
-  // Pass 2: ELK in interactive mode. Every node's position is pinned
-  // via the hints (pass-1 position for most, x=0 for START/END). ELK
-  // re-routes only the edges that now need to reach the shifted ends.
-  const pass2Input = buildElkInput(filtered, taskIdSet, config, hints, true);
-  const pass2Output = (await elk.layout(pass2Input)) as ElkLayoutOutput;
-  return extractLayoutResult(pass2Output, taskById, config, 0);
+  return buildResult(elkOutput, taskById, config, centringDx, nodeShifts);
 }
 
 /**
- * Identify the single-node first and last ranks (START / END) in
- * pass 1's output. If neither rank has exactly one node, returns null
- * and the caller falls back to a plain global centring translation.
- *
- * When a pair is found, builds a position-hints map for pass 2 in
- * which:
- *   - every node gets its pass-1 position translated by the graph's
- *     centring offset so the overall bbox will land on x=0;
- *   - START and END get their x forced to −width/2 (top-left) so
- *     their centres sit exactly at x=0.
+ * Determine how far START and END need to move (on top of the global
+ * centring) to land at x=0. Returns an empty map if the phase doesn't
+ * have a clear single-node first/last rank.
  */
-function buildCentredStartEndHints(
+function computeStartEndShifts(
   children: ElkOutputNode[],
   config: LabConfig,
-): Map<string, { x: number; y: number }> | null {
-  if (children.length === 0) return null;
+  centringDx: number,
+): Map<string, number> {
+  const shifts = new Map<string, number>();
 
-  const byY = new Map<number, string[]>();
+  const byY = new Map<number, ElkOutputNode[]>();
   for (const c of children) {
     const y = Math.round(c.y ?? 0);
     const bucket = byY.get(y) ?? [];
-    bucket.push(c.id);
+    bucket.push(c);
     byY.set(y, bucket);
   }
   const ys = [...byY.keys()].sort((a, b) => a - b);
   const topRank = byY.get(ys[0]) ?? [];
   const bottomRank = byY.get(ys[ys.length - 1]) ?? [];
-  // Require both ends to be single-node ranks — otherwise centring
-  // "the" start/end isn't well-defined.
-  if (topRank.length !== 1 || bottomRank.length !== 1) return null;
+  if (topRank.length !== 1 || bottomRank.length !== 1) return shifts;
 
-  const startId = topRank[0];
-  const endId = bottomRank[0];
+  const startNode = topRank[0];
+  const endNode = bottomRank[0];
 
-  // Centre the overall graph on x=0 by translating every node by
-  // −bboxCentre; START and END then additionally land at exactly 0.
-  const centres = children.map((c) => (c.x ?? 0) + config.nodeWidth / 2);
-  const bboxCentre = (Math.min(...centres) + Math.max(...centres)) / 2;
+  // After global centring, where do START and END end up?
+  const startCentredX =
+    (startNode.x ?? 0) + centringDx + config.nodeWidth / 2;
+  const endCentredX =
+    (endNode.x ?? 0) + centringDx + config.nodeWidth / 2;
 
-  const hints = new Map<string, { x: number; y: number }>();
-  for (const c of children) {
-    const origX = c.x ?? 0;
-    const origY = c.y ?? 0;
-    if (c.id === startId || c.id === endId) {
-      // Top-left X = 0 − width/2 so the centre sits on x=0.
-      hints.set(c.id, { x: -config.nodeWidth / 2, y: origY });
-    } else {
-      hints.set(c.id, { x: origX - bboxCentre, y: origY });
-    }
-  }
-  return hints;
+  // Additional shift to bring each to x=0.
+  if (Math.abs(startCentredX) > 0.5) shifts.set(startNode.id, -startCentredX);
+  if (Math.abs(endCentredX) > 0.5) shifts.set(endNode.id, -endCentredX);
+
+  return shifts;
 }
 
 /**
- * Convert ELK output into React Flow nodes + edges, applying an
- * optional global x-offset (`centringDx`) to every node and edge
- * point. Edge paths are emitted orthogonally; no post-shift hackery.
+ * Convert ELK output into React Flow nodes + edges, applying:
+ *   - a uniform `centringDx` to every position/point
+ *   - per-node extra shifts from `nodeShifts` (only START/END)
+ *
+ * For edges touching a shifted node, only the endpoint and its
+ * adjacent aligned bend point are moved. If the original edge was a
+ * straight line (0 bends), two S-shape bends are inserted at the
+ * midpoint Y to keep the path orthogonal.
  */
-function extractLayoutResult(
+function buildResult(
   output: ElkLayoutOutput,
   taskById: Map<string, Task>,
   config: LabConfig,
   centringDx: number,
+  nodeShifts: Map<string, number>,
 ): LayoutResult {
   const nodes: Node<TaskNodeData>[] = (output.children ?? []).map((child) => {
     const task = taskById.get(child.id);
-    if (!task) {
-      throw new Error(`ELK returned unknown node ${child.id}`);
-    }
+    if (!task) throw new Error(`ELK returned unknown node ${child.id}`);
+    const extraDx = nodeShifts.get(child.id) ?? 0;
     return {
       id: child.id,
       type: 'task',
       position: {
-        x: (child.x ?? 0) + centringDx,
+        x: (child.x ?? 0) + centringDx + extraDx,
         y: child.y ?? 0,
       },
       data: {
@@ -259,13 +225,15 @@ function extractLayoutResult(
     const targetId = portOwner(elkEdge.targets?.[0]);
     if (!sourceId || !targetId) continue;
 
-    const points: { x: number; y: number }[] = [
-      { x: section.startPoint.x + centringDx, y: section.startPoint.y },
-    ];
-    for (const bp of section.bendPoints ?? []) {
-      points.push({ x: bp.x + centringDx, y: bp.y });
-    }
-    points.push({ x: section.endPoint.x + centringDx, y: section.endPoint.y });
+    const dxSource = nodeShifts.get(sourceId) ?? 0;
+    const dxTarget = nodeShifts.get(targetId) ?? 0;
+
+    const points = buildEdgePoints(
+      section,
+      centringDx,
+      dxSource,
+      dxTarget,
+    );
 
     edges.push({
       id: elkEdge.id,
@@ -286,9 +254,91 @@ function extractLayoutResult(
   return { nodes, edges };
 }
 
-// Port IDs look like "nodeId.n" / "nodeId.s". Strip the suffix to get
-// the owning node ID. ELK returns port refs in the sources/targets
-// arrays; React Flow's edges identify nodes, not ports.
+/**
+ * Reconstruct edge points from an ELK section, applying the global
+ * centring shift plus optional per-endpoint shifts (for START/END
+ * centring).
+ *
+ * Rules:
+ * - Start point shifts by centringDx + dxSource.
+ * - End point shifts by centringDx + dxTarget.
+ * - First bend, if aligned with the original start X, shifts by
+ *   dxSource (so the first vertical segment stays vertical).
+ * - Last bend, if aligned with the original end X, shifts by
+ *   dxTarget (same reason).
+ * - All other bends get only centringDx (unchanged relative to the
+ *   rest of the graph).
+ * - If the edge had 0 bends (straight line) and either endpoint
+ *   shifted, 2 S-shape bends are inserted at the midpoint Y to
+ *   keep the path orthogonal.
+ */
+function buildEdgePoints(
+  section: ElkOutputSection,
+  centringDx: number,
+  dxSource: number,
+  dxTarget: number,
+): { x: number; y: number }[] {
+  const startX = section.startPoint.x + centringDx + dxSource;
+  const startY = section.startPoint.y;
+  const endX = section.endPoint.x + centringDx + dxTarget;
+  const endY = section.endPoint.y;
+  const bends = section.bendPoints ?? [];
+
+  // Fast path: no per-node shifts — straight centring pass-through.
+  if (dxSource === 0 && dxTarget === 0) {
+    const points: { x: number; y: number }[] = [{ x: startX, y: startY }];
+    for (const bp of bends) {
+      points.push({ x: bp.x + centringDx, y: bp.y });
+    }
+    points.push({ x: endX, y: endY });
+    return points;
+  }
+
+  // Straight-line case: insert S-shape bends so the path stays
+  // orthogonal after the shift.
+  if (bends.length === 0) {
+    const midY = (startY + endY) / 2;
+    return [
+      { x: startX, y: startY },
+      { x: startX, y: midY },
+      { x: endX, y: midY },
+      { x: endX, y: endY },
+    ];
+  }
+
+  // Bends exist — shift only the first (if source-aligned) and last
+  // (if target-aligned) to maintain vertical segments at the
+  // endpoints. Everything else gets centring only.
+  const origStartX = section.startPoint.x + centringDx;
+  const origEndX = section.endPoint.x + centringDx;
+
+  const points: { x: number; y: number }[] = [{ x: startX, y: startY }];
+
+  for (let i = 0; i < bends.length; i++) {
+    const bpX = bends[i].x + centringDx;
+    const bpY = bends[i].y;
+
+    if (
+      i === 0 &&
+      dxSource !== 0 &&
+      Math.abs(bpX - origStartX) < 0.5
+    ) {
+      points.push({ x: bpX + dxSource, y: bpY });
+    } else if (
+      i === bends.length - 1 &&
+      dxTarget !== 0 &&
+      Math.abs(bpX - origEndX) < 0.5
+    ) {
+      points.push({ x: bpX + dxTarget, y: bpY });
+    } else {
+      points.push({ x: bpX, y: bpY });
+    }
+  }
+
+  points.push({ x: endX, y: endY });
+  return points;
+}
+
 function portOwner(portRef: string | undefined): string | undefined {
   if (!portRef) return undefined;
   const dot = portRef.lastIndexOf('.');
@@ -299,42 +349,29 @@ function buildElkInput(
   filtered: Task[],
   taskIdSet: Set<string>,
   config: LabConfig,
-  positionHints: Map<string, { x: number; y: number }> | null,
-  interactive: boolean,
 ): ElkGraphInput {
-  // Every node gets FIXED_POS N and S ports at top-centre and
-  // bottom-centre. Edges attach at those fixed points regardless of
-  // how many share a node — the "bunched connection points" behaviour.
-  const children: ElkInputNode[] = filtered.map((task) => {
-    const node: ElkInputNode = {
-      id: task.id,
-      width: config.nodeWidth,
-      height: config.nodeHeight,
-      layoutOptions: {
-        'elk.portConstraints': 'FIXED_POS',
+  const children: ElkInputNode[] = filtered.map((task) => ({
+    id: task.id,
+    width: config.nodeWidth,
+    height: config.nodeHeight,
+    layoutOptions: {
+      'elk.portConstraints': 'FIXED_POS',
+    },
+    ports: [
+      {
+        id: `${task.id}.n`,
+        x: config.nodeWidth / 2,
+        y: 0,
+        layoutOptions: { 'elk.port.side': 'NORTH' },
       },
-      ports: [
-        {
-          id: `${task.id}.n`,
-          x: config.nodeWidth / 2,
-          y: 0,
-          layoutOptions: { 'elk.port.side': 'NORTH' },
-        },
-        {
-          id: `${task.id}.s`,
-          x: config.nodeWidth / 2,
-          y: config.nodeHeight,
-          layoutOptions: { 'elk.port.side': 'SOUTH' },
-        },
-      ],
-    };
-    const hint = positionHints?.get(task.id);
-    if (hint) {
-      node.x = hint.x;
-      node.y = hint.y;
-    }
-    return node;
-  });
+      {
+        id: `${task.id}.s`,
+        x: config.nodeWidth / 2,
+        y: config.nodeHeight,
+        layoutOptions: { 'elk.port.side': 'SOUTH' },
+      },
+    ],
+  }));
 
   const edges: ElkInputEdge[] = [];
   for (const task of filtered) {
@@ -353,31 +390,18 @@ function buildElkInput(
     'elk.algorithm': 'layered',
     'elk.direction': config.rankdir === 'TB' ? 'DOWN' : 'RIGHT',
     'elk.edgeRouting': 'ORTHOGONAL',
+    'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+    'elk.layered.nodePlacement.strategy': config.nodePlacement,
+    'elk.layered.nodePlacement.favorStraightEdges': String(
+      config.favorStraightEdges,
+    ),
     'elk.spacing.nodeNode': String(config.nodesep),
     'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
-    // Keep edges close to nodes and packed tight so lanes don't bump
-    // columns apart — user requirement: grid > lane breathing.
     'elk.layered.spacing.edgeNodeBetweenLayers': '16',
     'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
+    'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.mergeEdges': 'false',
   };
-
-  if (interactive) {
-    // Lock every structural decision to the provided x/y positions so
-    // ELK only does edge routing this pass.
-    layoutOptions['elk.layered.layering.strategy'] = 'INTERACTIVE';
-    layoutOptions['elk.layered.cycleBreaking.strategy'] = 'INTERACTIVE';
-    layoutOptions['elk.layered.crossingMinimization.strategy'] = 'INTERACTIVE';
-    layoutOptions['elk.layered.nodePlacement.strategy'] = 'INTERACTIVE';
-  } else {
-    layoutOptions['elk.layered.nodePlacement.strategy'] = config.nodePlacement;
-    layoutOptions['elk.layered.crossingMinimization.strategy'] = 'LAYER_SWEEP';
-    layoutOptions['elk.layered.nodePlacement.favorStraightEdges'] = String(
-      config.favorStraightEdges,
-    );
-    layoutOptions['elk.layered.considerModelOrder.strategy'] =
-      'NODES_AND_EDGES';
-  }
 
   return {
     id: 'root',
@@ -387,19 +411,6 @@ function buildElkInput(
   };
 }
 
-/**
- * Build an SVG path string from a list of points, with rounded corners
- * at each bend.
- *
- * For every (prev, bend, next) triple we shorten the two adjacent
- * segments by `radius` and connect them with an elliptical arc. The
- * radius is clamped to half the shorter adjacent segment so a corner
- * never overshoots into the next bend.
- *
- * Sweep direction is derived from the cross product of the two unit
- * vectors: in SVG's y-down coordinate frame, a positive cross product
- * means the turn is clockwise, which needs sweep-flag 1.
- */
 function roundedOrthogonalPath(
   points: { x: number; y: number }[],
   radius: number,
