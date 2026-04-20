@@ -131,15 +131,13 @@ export function ProcessFlow({
     [phaseColourById],
   );
 
-  if (!file || layout.nodes.length === 0) {
-    return (
-      <div className="process-flow-empty">No tasks to show in this phase.</div>
-    );
-  }
-
   // In edit mode, Ctrl/Cmd+Click a node toggles it as a prereq of the
   // currently-selected task; normal click still selects. Edge-click
   // inserts a new task that splits the edge.
+  // These callbacks MUST sit above the early return below — React's
+  // rules-of-hooks require every render to call the same hooks in the
+  // same order, and an early return that happens before a hook call
+  // will produce different hook counts across renders (error #310).
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (
@@ -164,6 +162,12 @@ export function ProcessFlow({
     },
     [mode, phaseId, insertTaskOnEdge, selectTask],
   );
+
+  if (!file || layout.nodes.length === 0) {
+    return (
+      <div className="process-flow-empty">No tasks to show in this phase.</div>
+    );
+  }
 
   return (
     <div className="process-flow">
