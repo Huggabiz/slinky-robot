@@ -50,18 +50,18 @@ export interface LabConfig {
   arrowSize: number;
 }
 
-// Defaults match the settings the user dialled in as "by far the best
-// configuration": BK placement with favour-straight-edges on, tight
-// rank spacing, and the centre-start-end post-process enabled.
+// Defaults match the settings the user landed on as a working baseline:
+// BK placement with favour-straight-edges on, equal node/rank spacing,
+// and the centre-start-end post-process enabled.
 export const DEFAULT_LAB_CONFIG: LabConfig = {
   rankdir: 'TB',
   nodePlacement: 'BRANDES_KOEPF',
   favorStraightEdges: true,
   centreStartEnd: true,
-  nodesep: 70,
-  ranksep: 20,
+  nodesep: 50,
+  ranksep: 50,
   nodeWidth: 200,
-  nodeHeight: 92,
-  cornerRadius: 20,
+  nodeHeight: 96,
+  cornerRadius: 12,
   arrowSize: 32,
 };
