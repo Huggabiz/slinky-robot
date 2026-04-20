@@ -308,24 +308,28 @@ function buildEdgePoints(
     return points;
   }
 
-  // Straight-line case: insert S-shape bends so the path stays
-  // orthogonal after the shift. The horizontal kink is pushed tight
-  // against whichever end was shifted, so it sits near the edge of
-  // the layout rather than cutting through the middle.
-  if (bends.length === 0) {
-    let kinkY: number;
+  // Compute the tight kink Y used for both the 0-bend insert and the
+  // 2-bend rewrite cases. Using the SAME formula in both cases means
+  // every edge from a centred START ends up sharing a single kink Y
+  // (startY + KINK_OFFSET_PX), so their horizontal segments line up
+  // with each other instead of drifting to whatever Y ELK originally
+  // chose for each.
+  const computeTightKinkY = (): number => {
+    let y: number;
     if (dxSource !== 0 && dxTarget === 0) {
-      // Source (START) shifted — kink just below START.
-      kinkY = startY + KINK_OFFSET_PX;
+      y = startY + KINK_OFFSET_PX;
     } else if (dxTarget !== 0 && dxSource === 0) {
-      // Target (END) shifted — kink just above END.
-      kinkY = endY - KINK_OFFSET_PX;
+      y = endY - KINK_OFFSET_PX;
     } else {
-      // Both shifted (rare) — kink just below the source.
-      kinkY = startY + KINK_OFFSET_PX;
+      y = startY + KINK_OFFSET_PX;
     }
-    // Clamp: the kink must sit between start and end Y.
-    kinkY = Math.max(startY + 1, Math.min(endY - 1, kinkY));
+    return Math.max(startY + 1, Math.min(endY - 1, y));
+  };
+
+  // Straight-line case: no bends originally, so insert a 2-bend
+  // S-shape at the tight kink Y.
+  if (bends.length === 0) {
+    const kinkY = computeTightKinkY();
     return [
       { x: startX, y: startY },
       { x: startX, y: kinkY },
@@ -334,48 +338,49 @@ function buildEdgePoints(
     ];
   }
 
-  // Bends exist — shift only the first (if source-aligned) and last
-  // (if target-aligned) to maintain vertical segments at the
-  // endpoints. Everything else gets centring only.
+  // 2-bend S-shape — the canonical case ELK produces for offset
+  // endpoints with FIXED_POS N/S ports. We rewrite it entirely to
+  // use the tight kink Y so both bends sit at the same Y (keeping
+  // the middle segment horizontal, not slightly diagonal) AND every
+  // edge from the same shifted endpoint shares that Y (so the
+  // horizontal segments all line up).
+  if (bends.length === 2 && (dxSource !== 0 || dxTarget !== 0)) {
+    const kinkY = computeTightKinkY();
+    return [
+      { x: startX, y: startY },
+      { x: startX, y: kinkY },
+      { x: endX, y: kinkY },
+      { x: endX, y: endY },
+    ];
+  }
+
+  // Fallback for more complex bend counts (3+, e.g. routed around an
+  // obstacle). Shift only the first (if source-aligned) and last (if
+  // target-aligned) bends to keep the vertical endpoints vertical;
+  // intermediate bends get centring only. Not as tidy as the 2-bend
+  // rewrite but preserves the original routing shape.
   const origStartX = section.startPoint.x + centringDx;
   const origEndX = section.endPoint.x + centringDx;
-
   const points: { x: number; y: number }[] = [{ x: startX, y: startY }];
-
   for (let i = 0; i < bends.length; i++) {
     const bpX = bends[i].x + centringDx;
     const bpY = bends[i].y;
-
     if (
       i === 0 &&
       dxSource !== 0 &&
       Math.abs(bpX - origStartX) < 0.5
     ) {
-      // First bend is source-aligned — shift X with the source AND
-      // pull the Y tight against the source if it would otherwise sit
-      // in the middle of the layout.
-      const tightY =
-        Math.abs(dxSource) > 0.5
-          ? Math.max(startY + 1, Math.min(bpY, startY + KINK_OFFSET_PX))
-          : bpY;
-      points.push({ x: bpX + dxSource, y: tightY });
+      points.push({ x: bpX + dxSource, y: bpY });
     } else if (
       i === bends.length - 1 &&
       dxTarget !== 0 &&
       Math.abs(bpX - origEndX) < 0.5
     ) {
-      // Last bend is target-aligned — shift X and pull Y tight
-      // against the target.
-      const tightY =
-        Math.abs(dxTarget) > 0.5
-          ? Math.min(endY - 1, Math.max(bpY, endY - KINK_OFFSET_PX))
-          : bpY;
-      points.push({ x: bpX + dxTarget, y: tightY });
+      points.push({ x: bpX + dxTarget, y: bpY });
     } else {
       points.push({ x: bpX, y: bpY });
     }
   }
-
   points.push({ x: endX, y: endY });
   return points;
 }
