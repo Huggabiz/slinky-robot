@@ -74,6 +74,22 @@ interface AppState {
   // exists its id is returned without creating a duplicate. Returns
   // the role id, or null if no file is open.
   addRole: (name: string, colour?: string | null) => string | null;
+  // Toggle a prereq on the given task (add if not present, remove if
+  // present). Used by Ctrl+click on the flow canvas.
+  togglePrerequisite: (taskId: string, prereqId: string) => void;
+  // Delete a task. Every task that listed the deleted one as a
+  // prerequisite inherits the deleted task's own prerequisites so the
+  // chain flows through without gaps. Clears the selection if the
+  // deleted task was selected.
+  deleteTask: (id: string) => void;
+  // Insert a new task on an existing edge: the new task gets sourceId
+  // as its prereq, and sourceId is replaced by the new task in the
+  // target's prerequisites. Returns the new task's internal id.
+  insertTaskOnEdge: (
+    sourceId: string,
+    targetId: string,
+    phaseId: string,
+  ) => string | null;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -250,6 +266,99 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
       dirty: true,
     });
+  },
+
+  togglePrerequisite: (taskId, prereqId) => {
+    const current = get().file;
+    if (!current) return;
+    const task = current.tasks.find((t) => t.id === taskId);
+    if (!task || taskId === prereqId) return;
+    const has = task.prerequisites.includes(prereqId);
+    const next = has
+      ? task.prerequisites.filter((p) => p !== prereqId)
+      : [...task.prerequisites, prereqId];
+    set({
+      file: {
+        ...current,
+        tasks: current.tasks.map((t) =>
+          t.id === taskId ? { ...t, prerequisites: next } : t,
+        ),
+      },
+      dirty: true,
+    });
+  },
+
+  deleteTask: (id) => {
+    const current = get().file;
+    if (!current) return;
+    const doomed = current.tasks.find((t) => t.id === id);
+    if (!doomed) return;
+    // Cascade: any task that depended on the deleted one inherits its
+    // prerequisites so the chain flows through without a gap.
+    const doomedPrereqs = doomed.prerequisites;
+    const updatedTasks = current.tasks
+      .filter((t) => t.id !== id)
+      .map((t) => {
+        if (!t.prerequisites.includes(id)) return t;
+        const withoutDoomed = t.prerequisites.filter((p) => p !== id);
+        // Merge the doomed task's prereqs, avoiding duplicates.
+        const merged = [
+          ...withoutDoomed,
+          ...doomedPrereqs.filter((p) => !withoutDoomed.includes(p)),
+        ];
+        return { ...t, prerequisites: merged };
+      });
+    set({
+      file: { ...current, tasks: updatedTasks },
+      selectedTaskId: get().selectedTaskId === id ? null : get().selectedTaskId,
+      dirty: true,
+    });
+  },
+
+  insertTaskOnEdge: (sourceId, targetId, phaseId) => {
+    const current = get().file;
+    if (!current) return null;
+    const phase = findPhaseById(current, phaseId);
+    if (!phase) return null;
+    const newTask: Task = {
+      id: makeId(),
+      taskId: generateTaskId(current, phaseId),
+      phaseId,
+      processId: null,
+      name: '',
+      activityType: '',
+      dateType: 'NONE',
+      description: '',
+      deliverables: '',
+      accountable: '',
+      contributors: [],
+      isMeetingTask: false,
+      meetingOrganiser: null,
+      pdmTemplate: null,
+      abbr: null,
+      keyDateRationale: null,
+      function: '',
+      prerequisites: [sourceId],
+      deliverableTargets: [],
+      extras: {},
+    };
+    // Replace sourceId with the new task in the target's prerequisites.
+    const updatedTasks = current.tasks.map((t) => {
+      if (t.id === targetId) {
+        return {
+          ...t,
+          prerequisites: t.prerequisites.map((p) =>
+            p === sourceId ? newTask.id : p,
+          ),
+        };
+      }
+      return t;
+    });
+    set({
+      file: { ...current, tasks: [...updatedTasks, newTask] },
+      dirty: true,
+    });
+    return newTask.id;
   },
 
   addRole: (name, colour = null) => {

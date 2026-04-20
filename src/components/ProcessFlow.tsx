@@ -52,8 +52,11 @@ export function ProcessFlow({
   fadeOver,
 }: Props) {
   const file = useAppStore((s) => s.file);
+  const mode = useAppStore((s) => s.mode);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const selectTask = useAppStore((s) => s.selectTask);
+  const togglePrerequisite = useAppStore((s) => s.togglePrerequisite);
+  const insertTaskOnEdge = useAppStore((s) => s.insertTaskOnEdge);
 
   const [layout, setLayout] = useState<LayoutResult>(EMPTY_LAYOUT);
 
@@ -134,6 +137,34 @@ export function ProcessFlow({
     );
   }
 
+  // In edit mode, Ctrl/Cmd+Click a node toggles it as a prereq of the
+  // currently-selected task; normal click still selects. Edge-click
+  // inserts a new task that splits the edge.
+  const handleNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (
+        mode === 'edit' &&
+        selectedTaskId &&
+        selectedTaskId !== node.id &&
+        (event.ctrlKey || event.metaKey)
+      ) {
+        togglePrerequisite(selectedTaskId, node.id);
+        return;
+      }
+      selectTask(node.id);
+    },
+    [mode, selectedTaskId, selectTask, togglePrerequisite],
+  );
+
+  const handleEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: { source: string; target: string }) => {
+      if (mode !== 'edit' || !phaseId) return;
+      const newId = insertTaskOnEdge(edge.source, edge.target, phaseId);
+      if (newId) selectTask(newId);
+    },
+    [mode, phaseId, insertTaskOnEdge, selectTask],
+  );
+
   return (
     <div className="process-flow">
       <ReactFlow
@@ -141,7 +172,8 @@ export function ProcessFlow({
         edges={layout.edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodeClick={(_, node) => selectTask(node.id)}
+        onNodeClick={handleNodeClick}
+        onEdgeClick={handleEdgeClick}
         onPaneClick={() => selectTask(null)}
         fitView
         fitViewOptions={{ padding: 0.15 }}

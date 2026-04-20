@@ -17,6 +17,7 @@ import './TaskDetail.css';
 export function TaskDetailEdit({ task }: { task: Task }) {
   const file = useAppStore((s) => s.file);
   const updateTask = useAppStore((s) => s.updateTask);
+  const deleteTask = useAppStore((s) => s.deleteTask);
   const selectTask = useAppStore((s) => s.selectTask);
 
   const phases = useMemo(
@@ -238,8 +239,8 @@ export function TaskDetailEdit({ task }: { task: Task }) {
 
       <Section title={`Prerequisites (${task.prerequisites.length})`}>
         <p className="task-edit-hint">
-          Tick tasks this one depends on. Click-to-toggle on the flow
-          canvas lands in the next commit.
+          Tick below, or <strong>Ctrl+Click</strong> (Cmd on Mac) tasks on
+          the flow to toggle.
         </p>
         <div className="task-edit-prereq-list">
           {eligiblePrereqs.length === 0 ? (
@@ -289,6 +290,22 @@ export function TaskDetailEdit({ task }: { task: Task }) {
         <p className="task-edit-hint">
           Read-only — manage on the dependent task's Prerequisites.
         </p>
+      </Section>
+
+      <Section title="Danger zone">
+        <button
+          type="button"
+          className="task-edit-delete-btn"
+          onClick={() => {
+            const ok = window.confirm(
+              `Delete "${task.taskId}: ${task.name || '(untitled)'}"?\n\n` +
+                `Dependents will inherit this task's prerequisites so the flow stays connected.`,
+            );
+            if (ok) deleteTask(task.id);
+          }}
+        >
+          Delete this task
+        </button>
       </Section>
 
       {file.deliverableItems.length > 0 && (

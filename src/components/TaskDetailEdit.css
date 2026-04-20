@@ -170,3 +170,22 @@
 .task-edit-checkbox input {
   margin: 0;
 }
+
+.task-edit-delete-btn {
+  appearance: none;
+  border: 1px solid #c0392b;
+  background: transparent;
+  color: #c0392b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  width: 100%;
+}
+
+.task-edit-delete-btn:hover {
+  background: #c0392b;
+  color: white;
+}
