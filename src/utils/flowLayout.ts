@@ -208,6 +208,11 @@ function buildResult(
         x: (child.x ?? 0) + centringDx + extraDx,
         y: child.y ?? 0,
       },
+      // Top-level width/height are what React Flow's MiniMap reads to
+      // size its node rectangles. Without them the minimap renders a
+      // blank viewport instead of a mini flow diagram.
+      width: config.nodeWidth,
+      height: config.nodeHeight,
       data: {
         task,
         width: config.nodeWidth,

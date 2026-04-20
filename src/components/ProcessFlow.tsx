@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  type Node,
   type NodeTypes,
   type EdgeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useAppStore } from '../store/useAppStore';
-import { layoutTasks, type LayoutResult } from '../utils/flowLayout';
+import {
+  layoutTasks,
+  type LayoutResult,
+  type TaskNodeData,
+} from '../utils/flowLayout';
 import { computeHighlights } from '../utils/highlight';
 // FLOW LAB: remove the LabConfig import and the labConfig prop below.
 import type { LabConfig } from '../utils/flowLab';
@@ -97,6 +102,32 @@ export function ProcessFlow({
     [layout.nodes, selectedTaskId, highlightMap],
   );
 
+  // Colour minimap rectangles by the task's phase colour so the
+  // navigator shows a recognisable mini process diagram rather than a
+  // uniform blob. Phase colours are inline hex values and render
+  // identically in both Navigate and Edit themes.
+  const phaseColourById = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!file) return m;
+    for (const p of file.phases) {
+      if (p.colour) m.set(p.id, p.colour);
+    }
+    return m;
+  }, [file]);
+
+  const minimapNodeColour = useCallback(
+    (node: Node) => {
+      const data = node.data as TaskNodeData | undefined;
+      const phaseId = data?.task.phaseId;
+      if (phaseId) {
+        const c = phaseColourById.get(phaseId);
+        if (c) return c;
+      }
+      return '#cbd5e1'; // neutral slate for uncoloured phases
+    },
+    [phaseColourById],
+  );
+
   if (!file || layout.nodes.length === 0) {
     return (
       <div className="process-flow-empty">No tasks to show in this phase.</div>
@@ -120,7 +151,13 @@ export function ProcessFlow({
       >
         <Background gap={20} />
         <Controls showInteractive={false} />
-        <MiniMap zoomable pannable />
+        <MiniMap
+          zoomable
+          pannable
+          nodeColor={minimapNodeColour}
+          nodeStrokeWidth={2}
+          nodeStrokeColor="rgba(0,0,0,0.25)"
+        />
       </ReactFlow>
     </div>
   );
