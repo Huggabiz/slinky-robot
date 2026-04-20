@@ -31,7 +31,103 @@ function migrate(raw: unknown): unknown {
   let migrated = obj;
   if (version < 2) migrated = migrateV1toV2(migrated);
   if (version < 3) migrated = migrateV2toV3(migrated);
+  // Always run the defensive normalisation pass regardless of starting
+  // version, so files with missing fields from any era (including
+  // earlier-in-development v2/v3 files that never hit the relevant
+  // migration) end up with a complete, predictable shape.
+  migrated = normaliseShape(migrated);
   return migrated;
+}
+
+/**
+ * Defensive normalisation — idempotent. Ensures every top-level array
+ * and every task/phase field the app expects is present with a
+ * sensible default, without clobbering any existing values. This
+ * runs after the version-specific migrations so a file can't reach
+ * the renderer in a partially-populated state (which was the root
+ * cause of "loading my previous file crashes").
+ */
+function normaliseShape(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const sentinels = new Set(['', 'n/a', 'na', 'none', '-']);
+  const inferIsMeeting = (organiser: unknown): boolean => {
+    if (typeof organiser !== 'string') return false;
+    return !sentinels.has(organiser.trim().toLowerCase());
+  };
+
+  const phases = Array.isArray(raw.phases) ? raw.phases : [];
+  const tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
+
+  return {
+    ...raw,
+    roles: Array.isArray(raw.roles) ? raw.roles : [],
+    deliverableItems: Array.isArray(raw.deliverableItems)
+      ? raw.deliverableItems
+      : [],
+    deliverableStates: Array.isArray(raw.deliverableStates)
+      ? raw.deliverableStates
+      : [...DEFAULT_DELIVERABLE_STATES],
+    phases: phases.map((p) => {
+      const o = (p ?? {}) as Record<string, unknown>;
+      return {
+        ...o,
+        intro: typeof o.intro === 'string' ? o.intro : '',
+        colour:
+          typeof o.colour === 'string' || o.colour === null
+            ? o.colour
+            : null,
+        order: typeof o.order === 'number' ? o.order : 0,
+        name: typeof o.name === 'string' ? o.name : 'Unnamed phase',
+      };
+    }),
+    tasks: tasks.map((t) => {
+      const o = (t ?? {}) as Record<string, unknown>;
+      const str = (v: unknown, fallback = ''): string =>
+        typeof v === 'string' ? v : fallback;
+      const strOrNull = (v: unknown): string | null =>
+        typeof v === 'string' ? v : null;
+      return {
+        ...o,
+        taskId: str(o.taskId),
+        phaseId: str(o.phaseId),
+        processId:
+          typeof o.processId === 'string' ? o.processId : null,
+        name: str(o.name),
+        activityType: str(o.activityType),
+        dateType: str(o.dateType, 'NONE'),
+        description: str(o.description),
+        deliverables: str(o.deliverables),
+        accountable: str(o.accountable),
+        contributors: Array.isArray(o.contributors)
+          ? (o.contributors as unknown[]).filter(
+              (c): c is string => typeof c === 'string',
+            )
+          : [],
+        isMeetingTask:
+          typeof o.isMeetingTask === 'boolean'
+            ? o.isMeetingTask
+            : inferIsMeeting(o.meetingOrganiser),
+        meetingOrganiser: strOrNull(o.meetingOrganiser),
+        pdmTemplate: strOrNull(o.pdmTemplate),
+        abbr: strOrNull(o.abbr),
+        keyDateRationale: strOrNull(o.keyDateRationale),
+        function: str(o.function),
+        prerequisites: Array.isArray(o.prerequisites)
+          ? (o.prerequisites as unknown[]).filter(
+              (p): p is string => typeof p === 'string',
+            )
+          : [],
+        deliverableTargets: Array.isArray(o.deliverableTargets)
+          ? o.deliverableTargets
+          : [],
+        extras:
+          o.extras && typeof o.extras === 'object'
+            ? (o.extras as Record<string, unknown>)
+            : {},
+      };
+    }),
+  };
 }
 
 /**
