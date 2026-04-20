@@ -35,6 +35,14 @@ export function PhaseSidebar({
   const editing = mode === 'edit';
 
   const handleDelete = (id: string) => {
+    const phase = phases.find((p) => p.id === id);
+    if (!phase) return;
+    const taskCount = getTasksInPhase(file, id).length;
+    const msg =
+      taskCount === 0
+        ? `Delete phase "${phase.name}"?`
+        : `Delete phase "${phase.name}" and its ${taskCount} task${taskCount === 1 ? '' : 's'}?\n\nThis cannot be undone.`;
+    if (!window.confirm(msg)) return;
     const result = deletePhase(id);
     if (!result.ok && result.error) {
       window.alert(result.error);
@@ -95,10 +103,9 @@ export function PhaseSidebar({
                     className="phase-sidebar-ctrl phase-sidebar-ctrl-danger"
                     title={
                       count > 0
-                        ? `Phase has ${count} task${count === 1 ? '' : 's'} — can't delete`
+                        ? `Delete phase and its ${count} task${count === 1 ? '' : 's'}`
                         : 'Delete phase'
                     }
-                    disabled={count > 0}
                     onClick={() => handleDelete(phase.id)}
                   >
                     ×

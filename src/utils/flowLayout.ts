@@ -356,15 +356,71 @@ function buildEdgePoints(
 
   // Fallback for more complex bend counts (3+, e.g. routed around an
   // obstacle). Shift only the first (if source-aligned) and last (if
-  // target-aligned) bends to keep the vertical endpoints vertical;
-  // intermediate bends get centring only. Not as tidy as the 2-bend
-  // rewrite but preserves the original routing shape.
+  // target-aligned) bends to keep the vertical endpoints vertical.
+  // Also tighten the LEADING and TRAILING horizontal segments so they
+  // share the same kink Y as simpler 2-bend siblings from the same
+  // shifted endpoint — keeps everything fanning out / collapsing at
+  // a single consistent Y.
   const origStartX = section.startPoint.x + centringDx;
   const origEndX = section.endPoint.x + centringDx;
+
+  // Detect how many leading bends form the first horizontal run
+  // (consecutive bends starting from bend 0 that share a Y). If
+  // ≥ 2 bends share the first Y, we have a horizontal segment that
+  // should be tightened. Only do this when the source was shifted.
+  let leadingRunEndIdx = -1;
+  if (dxSource !== 0 && bends.length >= 2) {
+    const firstBendX = bends[0].x + centringDx;
+    if (Math.abs(firstBendX - origStartX) < 0.5) {
+      const firstY = bends[0].y;
+      leadingRunEndIdx = 0;
+      for (let i = 1; i < bends.length; i++) {
+        if (Math.abs(bends[i].y - firstY) < 0.5) leadingRunEndIdx = i;
+        else break;
+      }
+      // Only apply if there's an actual horizontal segment (≥ 2 bends).
+      if (leadingRunEndIdx < 1) leadingRunEndIdx = -1;
+    }
+  }
+
+  let trailingRunStartIdx = -1;
+  if (dxTarget !== 0 && bends.length >= 2) {
+    const lastIdx = bends.length - 1;
+    const lastBendX = bends[lastIdx].x + centringDx;
+    if (Math.abs(lastBendX - origEndX) < 0.5) {
+      const lastY = bends[lastIdx].y;
+      trailingRunStartIdx = lastIdx;
+      for (let i = lastIdx - 1; i >= 0; i--) {
+        if (Math.abs(bends[i].y - lastY) < 0.5) trailingRunStartIdx = i;
+        else break;
+      }
+      if (trailingRunStartIdx > lastIdx - 1) trailingRunStartIdx = -1;
+    }
+  }
+
+  const leadingTightY =
+    leadingRunEndIdx !== -1
+      ? Math.max(startY + 1, Math.min(endY - 1, startY + KINK_OFFSET_PX))
+      : null;
+  const trailingTightY =
+    trailingRunStartIdx !== -1
+      ? Math.max(startY + 1, Math.min(endY - 1, endY - KINK_OFFSET_PX))
+      : null;
+
   const points: { x: number; y: number }[] = [{ x: startX, y: startY }];
   for (let i = 0; i < bends.length; i++) {
     const bpX = bends[i].x + centringDx;
-    const bpY = bends[i].y;
+    let bpY = bends[i].y;
+
+    // Tighten any bend that's part of the leading horizontal run.
+    if (leadingTightY !== null && i <= leadingRunEndIdx) {
+      bpY = leadingTightY;
+    }
+    // Same for the trailing horizontal run.
+    if (trailingTightY !== null && i >= trailingRunStartIdx) {
+      bpY = trailingTightY;
+    }
+
     if (
       i === 0 &&
       dxSource !== 0 &&

@@ -175,18 +175,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!current) return { ok: false, error: 'No file open' };
     const phase = current.phases.find((p) => p.id === id);
     if (!phase) return { ok: false, error: 'Phase not found' };
-    const taskCount = getTasksInPhase(current, id).length;
-    if (taskCount > 0) {
-      return {
-        ok: false,
-        error: `Phase "${phase.name}" still has ${taskCount} task${taskCount === 1 ? '' : 's'}. Move or delete them first.`,
-      };
-    }
+    // Cascade: all tasks in the phase are deleted too. Any task in
+    // ANOTHER phase that referenced a doomed task as a prerequisite
+    // has that reference removed from its prereq list (no prereq
+    // transfer for this path — the phase is gone entirely, so the
+    // cross-phase chain is intentionally broken).
+    const doomedTaskIds = new Set(
+      getTasksInPhase(current, id).map((t) => t.id),
+    );
+    const updatedTasks = current.tasks
+      .filter((t) => !doomedTaskIds.has(t.id))
+      .map((t) => ({
+        ...t,
+        prerequisites: t.prerequisites.filter((p) => !doomedTaskIds.has(p)),
+      }));
+    const newSelected = get().selectedTaskId;
     set({
       file: {
         ...current,
         phases: current.phases.filter((p) => p.id !== id),
+        tasks: updatedTasks,
       },
+      selectedTaskId:
+        newSelected && doomedTaskIds.has(newSelected) ? null : newSelected,
       dirty: true,
     });
     return { ok: true };
