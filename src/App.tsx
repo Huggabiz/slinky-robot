@@ -23,6 +23,8 @@ function App() {
   const loadFile = useAppStore((s) => s.loadFile);
   const markDirty = useAppStore((s) => s.markDirty);
   const addPhase = useAppStore((s) => s.addPhase);
+  const addTask = useAppStore((s) => s.addTask);
+  const selectTask = useAppStore((s) => s.selectTask);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
   // Display-tool state (FlowToolbar). These control how the flow
@@ -82,8 +84,20 @@ function App() {
   };
 
   const handleCreateTask = () => {
-    // Task editor lands in the next commit; flag unimplemented for now.
-    window.alert('Task creation lands in the next commit.');
+    if (!file) return;
+    if (!phaseId) {
+      window.alert(
+        'Select a phase in the sidebar first — new tasks land in the active phase.',
+      );
+      return;
+    }
+    // If a task is currently selected, auto-chain the new task after
+    // it as a prerequisite. Otherwise, the new task has no prereqs
+    // and the user sets them in the edit form.
+    const newId = addTask(phaseId, {
+      autoPrereqOfTaskId: selectedTaskId ?? null,
+    });
+    if (newId) selectTask(newId);
   };
 
   // The right-hand pane shows a pinned phase info bar above the task

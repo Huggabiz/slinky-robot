@@ -1,0 +1,54 @@
+.role-picker {
+  padding: 6px var(--space-sm);
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100%;
+}
+
+.role-picker:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.role-multi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.role-multi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.role-multi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2px var(--space-sm) 2px var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+.role-multi-chip-remove {
+  appearance: none;
+  border: none;
+  background: none;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.role-multi-chip-remove:hover {
+  color: #c0392b;
+}

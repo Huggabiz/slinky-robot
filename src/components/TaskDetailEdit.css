@@ -1,0 +1,158 @@
+.task-detail-edit {
+  /* Slightly tighter top spacing because the header controls are
+     taller than the read-view chips. */
+  padding-top: var(--space-md);
+}
+
+.task-edit-phase-select {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.task-edit-id-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--space-sm);
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.task-edit-name-input {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--space-sm);
+  min-width: 0;
+}
+
+.task-edit-id-input:focus,
+.task-edit-name-input:focus,
+.task-edit-input:focus,
+.task-edit-textarea:focus,
+.task-edit-phase-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.task-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-sm);
+}
+
+.task-edit-field-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.task-edit-input {
+  padding: 6px var(--space-sm);
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100%;
+}
+
+.task-edit-textarea {
+  padding: var(--space-sm);
+  font: inherit;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100%;
+  resize: vertical;
+}
+
+.task-edit-hint {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.task-edit-prereq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs);
+  background: var(--color-bg);
+}
+
+.task-edit-prereq-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.task-edit-prereq-row:hover {
+  background: var(--color-surface);
+}
+
+.task-edit-prereq-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  min-width: 48px;
+}
+
+.task-edit-prereq-name {
+  flex: 1;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.task-edit-deliverable-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.task-edit-deliverable-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.task-edit-deliverable-name {
+  font-size: 13px;
+  color: var(--color-text);
+}
