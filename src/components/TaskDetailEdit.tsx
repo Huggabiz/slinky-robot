@@ -30,16 +30,6 @@ export function TaskDetailEdit({ task }: { task: Task }) {
     [file],
   );
 
-  // Discovered function values from all tasks for the function picker.
-  const allFunctions = useMemo(() => {
-    if (!file) return [];
-    const fns = new Set<string>();
-    for (const t of file.tasks) {
-      if (t.function) fns.add(t.function);
-    }
-    return Array.from(fns).sort();
-  }, [file]);
-
   // Eligible prereqs: exclude self and direct dependents (naive cycle
   // guard). Full transitive cycle check can come later.
   const eligiblePrereqs = useMemo(() => {
@@ -154,33 +144,6 @@ export function TaskDetailEdit({ task }: { task: Task }) {
             />
           </Field>
         )}
-        <Field label="Function">
-          <select
-            className="task-edit-input"
-            value={allFunctions.includes(task.function) ? task.function : '__OTHER__'}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === '__NEW__') {
-                const newFn = window.prompt('Enter new function name:');
-                if (newFn?.trim()) patch({ function: newFn.trim() });
-                return;
-              }
-              if (v === '__OTHER__') return;
-              patch({ function: v });
-            }}
-          >
-            <option value="">— select —</option>
-            <option value="__NEW__">+ New Function…</option>
-            {task.function && !allFunctions.includes(task.function) && (
-              <option value="__OTHER__">{task.function}</option>
-            )}
-            {allFunctions.map((fn) => (
-              <option key={fn} value={fn}>
-                {fn}
-              </option>
-            ))}
-          </select>
-        </Field>
       </Section>
 
       <Section title="People">
@@ -199,30 +162,30 @@ export function TaskDetailEdit({ task }: { task: Task }) {
             suggestions={allRoleNames}
           />
         </Field>
-        <label className="task-edit-checkbox">
-          <input
-            type="checkbox"
-            checked={task.isMeetingTask}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              patch({
-                isMeetingTask: checked,
-                meetingOrganiser: checked ? task.meetingOrganiser : null,
-              });
-            }}
-          />
-          <span>Meeting task</span>
-        </label>
-        {task.isMeetingTask && (
-          <Field label="Meeting Organiser">
+        <Field label="Meeting Organiser">
+          <label className="task-edit-checkbox">
+            <input
+              type="checkbox"
+              checked={task.isMeetingTask}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                patch({
+                  isMeetingTask: checked,
+                  meetingOrganiser: checked ? task.meetingOrganiser : null,
+                });
+              }}
+            />
+            <span>Meeting task</span>
+          </label>
+          {task.isMeetingTask && (
             <RolePicker
               value={task.meetingOrganiser ?? ''}
               onChange={(v) => patch({ meetingOrganiser: v || null })}
               suggestions={allRoleNames}
               placeholder="Who organises the meeting?"
             />
-          </Field>
-        )}
+          )}
+        </Field>
       </Section>
 
       <Section title="Description">

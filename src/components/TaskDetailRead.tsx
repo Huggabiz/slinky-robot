@@ -48,7 +48,6 @@ export function TaskDetailRead({ task }: { task: Task }) {
         />
         <MetaRow label="Meeting Organiser" value={task.meetingOrganiser} />
         <MetaRow label="PDM Template" value={task.pdmTemplate} />
-        <MetaRow label="Function" value={task.function} />
       </dl>
 
       {task.description && (
