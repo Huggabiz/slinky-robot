@@ -1,0 +1,129 @@
+.phase-info-bar {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.phase-info-bar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  user-select: none;
+}
+
+.phase-info-bar-header:hover {
+  background: var(--color-bg);
+}
+
+.phase-info-bar-swatch {
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.phase-info-bar-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.phase-info-bar-chevron {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.phase-info-bar-body {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.phase-info-bar-intro {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.phase-info-bar-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.phase-info-bar-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.phase-info-bar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phase-info-bar-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+}
+
+.phase-info-bar-field input[type='text'],
+.phase-info-bar-field textarea {
+  padding: 6px var(--space-sm);
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.phase-info-bar-field textarea {
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.phase-info-bar-colour-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.phase-info-bar-colour-row input[type='color'] {
+  width: 60px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.phase-info-bar-clear {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.phase-info-bar-clear:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}

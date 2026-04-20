@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { type ProcessFile, makeEmptyProcessFile } from '../types';
+import {
+  type Phase,
+  type ProcessFile,
+  getPhasesOrdered,
+  getTasksInPhase,
+  makeEmptyProcessFile,
+} from '../types';
+import { makeId } from '../utils/id';
 
 // Review = read-only navigation; Edit = full editing (behind the
 // file's optional password gate, enforced at transition time in the UI).
@@ -32,9 +39,28 @@ interface AppState {
   setMode: (mode: EditorMode) => void;
   markDirty: () => void;
   markClean: () => void;
+
+  // ---- Edit mutations ----
+  // Generic updater that runs the given function against the current
+  // file and stores the result. Marks dirty automatically. Returns the
+  // new file, or null if there's no file open.
+  updateFile: (
+    updater: (file: ProcessFile) => ProcessFile,
+  ) => ProcessFile | null;
+  // Create a new phase at the end of the ordered list with sensible
+  // defaults and return its id.
+  addPhase: () => string | null;
+  // Shallow-merge a patch onto an existing phase.
+  updatePhase: (id: string, patch: Partial<Phase>) => void;
+  // Delete a phase. Refuses if the phase still has tasks, surfacing an
+  // error message the caller can show the user.
+  deletePhase: (id: string) => { ok: boolean; error?: string };
+  // Move a phase up or down in the ordered list, swapping its order
+  // value with its neighbour.
+  movePhase: (id: string, direction: 'up' | 'down') => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   file: null,
   fileName: null,
   fileHandle: null,
@@ -67,4 +93,97 @@ export const useAppStore = create<AppState>((set) => ({
   setMode: (mode) => set({ mode }),
   markDirty: () => set({ dirty: true }),
   markClean: () => set({ dirty: false }),
+
+  // ---- Edit mutations ----
+
+  updateFile: (updater) => {
+    const current = get().file;
+    if (!current) return null;
+    const next = updater(current);
+    set({ file: next, dirty: true });
+    return next;
+  },
+
+  addPhase: () => {
+    const current = get().file;
+    if (!current) return null;
+    const ordered = getPhasesOrdered(current);
+    const maxOrder =
+      ordered.length === 0 ? 0 : ordered[ordered.length - 1].order + 10;
+    const newPhase: Phase = {
+      id: makeId(),
+      order: maxOrder,
+      name: 'New Milestone',
+      intro: '',
+      colour: null,
+    };
+    set({
+      file: { ...current, phases: [...current.phases, newPhase] },
+      dirty: true,
+    });
+    return newPhase.id;
+  },
+
+  updatePhase: (id, patch) => {
+    const current = get().file;
+    if (!current) return;
+    set({
+      file: {
+        ...current,
+        phases: current.phases.map((p) =>
+          p.id === id ? { ...p, ...patch } : p,
+        ),
+      },
+      dirty: true,
+    });
+  },
+
+  deletePhase: (id) => {
+    const current = get().file;
+    if (!current) return { ok: false, error: 'No file open' };
+    const phase = current.phases.find((p) => p.id === id);
+    if (!phase) return { ok: false, error: 'Phase not found' };
+    const taskCount = getTasksInPhase(current, id).length;
+    if (taskCount > 0) {
+      return {
+        ok: false,
+        error: `Phase "${phase.name}" still has ${taskCount} task${taskCount === 1 ? '' : 's'}. Move or delete them first.`,
+      };
+    }
+    set({
+      file: {
+        ...current,
+        phases: current.phases.filter((p) => p.id !== id),
+      },
+      dirty: true,
+    });
+    return { ok: true };
+  },
+
+  movePhase: (id, direction) => {
+    const current = get().file;
+    if (!current) return;
+    const ordered = getPhasesOrdered(current);
+    const idx = ordered.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    const swapWithIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapWithIdx < 0 || swapWithIdx >= ordered.length) return;
+    const a = ordered[idx];
+    const b = ordered[swapWithIdx];
+    // Swap order values so the sort flips without reshuffling anything
+    // else.
+    const orderA = a.order;
+    const orderB = b.order;
+    set({
+      file: {
+        ...current,
+        phases: current.phases.map((p) => {
+          if (p.id === a.id) return { ...p, order: orderB };
+          if (p.id === b.id) return { ...p, order: orderA };
+          return p;
+        }),
+      },
+      dirty: true,
+    });
+  },
 }));

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Toolbar } from './components/Toolbar';
+import { EditToolbar } from './components/EditToolbar';
 import { PhaseSidebar } from './components/PhaseSidebar';
+import { PhaseInfoBar } from './components/PhaseInfoBar';
 import { FlowToolbar } from './components/FlowToolbar';
 import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
@@ -20,6 +22,7 @@ function App() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const loadFile = useAppStore((s) => s.loadFile);
   const markDirty = useAppStore((s) => s.markDirty);
+  const addPhase = useAppStore((s) => s.addPhase);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
   // Display-tool state (FlowToolbar). These control how the flow
@@ -73,12 +76,33 @@ function App() {
     }
   };
 
+  const handleCreatePhase = () => {
+    const newId = addPhase();
+    if (newId) setPhaseId(newId);
+  };
+
+  const handleCreateTask = () => {
+    // Task editor lands in the next commit; flag unimplemented for now.
+    window.alert('Task creation lands in the next commit.');
+  };
+
+  // The right-hand pane shows a pinned phase info bar above the task
+  // detail whenever a phase is active; the detail panel itself only
+  // renders when a task is also selected.
+  const showDetailColumn = file !== null && (selectedTaskId !== null || phaseId !== null);
+
   return (
     <div className={`app${mode === 'edit' ? ' edit-mode' : ''}`}>
       <Toolbar
         onOpenLab={() => setLabOpen(true)}
         onImportCsv={() => setCsvDialogOpen(true)}
       />
+      {mode === 'edit' && file && (
+        <EditToolbar
+          onCreatePhase={handleCreatePhase}
+          onCreateTask={handleCreateTask}
+        />
+      )}
       {!file ? (
         <main className="app-main">
           <div className="app-empty">
@@ -93,7 +117,11 @@ function App() {
         </main>
       ) : (
         <div className="app-workspace">
-          <PhaseSidebar selectedPhaseId={phaseId} onSelect={setPhaseId} />
+          <PhaseSidebar
+            selectedPhaseId={phaseId}
+            onSelect={setPhaseId}
+            onCreatePhase={handleCreatePhase}
+          />
           <div className="app-flow-column">
             <FlowToolbar
               highlightEnabled={highlightEnabled}
@@ -108,7 +136,7 @@ function App() {
               fadeOver={fadeOver}
             />
           </div>
-          {selectedTaskId && (
+          {showDetailColumn && (
             <>
               <DetailResizer
                 onResize={setDetailWidth}
@@ -118,7 +146,8 @@ function App() {
                 className="app-detail-column"
                 style={{ width: detailWidth }}
               >
-                <TaskDetail />
+                <PhaseInfoBar phaseId={phaseId} />
+                {selectedTaskId && <TaskDetail />}
               </aside>
             </>
           )}

@@ -1,5 +1,5 @@
 .phase-sidebar {
-  width: 220px;
+  width: 240px;
   flex-shrink: 0;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
@@ -26,6 +26,16 @@
   line-height: 1.5;
 }
 
+.phase-sidebar-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.phase-sidebar-row-active .phase-sidebar-item {
+  background: var(--color-accent);
+  color: white;
+}
+
 .phase-sidebar-item {
   appearance: none;
   border: none;
@@ -47,12 +57,7 @@
   background: var(--color-bg);
 }
 
-.phase-sidebar-item-active {
-  background: var(--color-accent);
-  color: white;
-}
-
-.phase-sidebar-item-active:hover {
+.phase-sidebar-row-active .phase-sidebar-item:hover {
   background: var(--color-accent);
 }
 
@@ -63,13 +68,9 @@
   flex-shrink: 0;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  /* Colours applied inline via Phase.colour render identically in both
-     Navigate and Edit themes. */
 }
 
-.phase-sidebar-item-active .phase-sidebar-swatch {
-  /* Give uncoloured phases a subtle outline against the accent bg so
-     the swatch space stays visible when the row is highlighted. */
+.phase-sidebar-row-active .phase-sidebar-swatch {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
@@ -87,7 +88,66 @@
   color: var(--color-text-muted);
 }
 
-.phase-sidebar-item-active .phase-sidebar-count {
+.phase-sidebar-row-active .phase-sidebar-count {
   background: rgba(255, 255, 255, 0.2);
   color: white;
+}
+
+.phase-sidebar-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 2px var(--space-md) var(--space-xs) calc(var(--space-md) + 26px);
+}
+
+.phase-sidebar-ctrl {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.phase-sidebar-ctrl:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.phase-sidebar-ctrl:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.phase-sidebar-ctrl-danger:hover:not(:disabled) {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.phase-sidebar-add {
+  appearance: none;
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 12px;
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.phase-sidebar-add:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  border-style: solid;
 }

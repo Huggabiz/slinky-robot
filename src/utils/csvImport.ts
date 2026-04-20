@@ -6,6 +6,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   DEFAULT_DELIVERABLE_STATES,
 } from '../types';
+import { makeId } from './id';
 
 // Target fields the importer knows how to populate. Anything else in the
 // source spreadsheet is ignored (for now — a later pass could drop
@@ -150,21 +151,6 @@ function leadingNumericPrefix(taskId: string): number {
   const match = /^(\d+)/.exec(taskId.trim());
   if (!match) return Number.POSITIVE_INFINITY;
   return Number(match[1]);
-}
-
-/**
- * Generate an internal id. crypto.randomUUID is available in all modern
- * browsers in a secure context; the fallback exists only so unit tests or
- * very old runtimes don't throw.
- */
-function makeId(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
-    return crypto.randomUUID();
-  }
-  return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 export interface ImportResult {
