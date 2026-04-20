@@ -156,3 +156,17 @@
   font-size: 13px;
   color: var(--color-text);
 }
+
+.task-edit-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+  margin-bottom: var(--space-sm);
+}
+
+.task-edit-checkbox input {
+  margin: 0;
+}

@@ -221,6 +221,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       deliverables: '',
       accountable: '',
       contributors: [],
+      isMeetingTask: false,
       meetingOrganiser: null,
       pdmTemplate: null,
       abbr: null,

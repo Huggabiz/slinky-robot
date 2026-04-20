@@ -5,7 +5,7 @@
 // utils/fileIO.ts — never by silently changing field shapes. Unknown fields
 // on a task are round-tripped via `extras` so forward-compat is free.
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 // Initial set of deliverable states a new empty file starts with. Users
 // can rename, reorder, and add/remove these in the deliverable-item
@@ -16,6 +16,26 @@ export const DEFAULT_DELIVERABLE_STATES: string[] = [
   'Approved',
   'Final',
 ];
+
+// Canonical activity types. The list is authoritative — the edit UI
+// restricts selection to these values. "Deliverable" was renamed to
+// "Key Output" in v3 to avoid confusion with the task-level
+// deliverables field; the v2→v3 migration handles the rename on load.
+export const ACTIVITY_TYPES = [
+  'Start',
+  'Key Output',
+  'Standard Process',
+  'Required',
+  'Optional',
+  'Conditional',
+  'Milestone',
+] as const;
+
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+// Sentinel values that CSV imports treat as "no meeting organiser"
+// rather than a meaningful role name.
+const MEETING_SENTINELS = new Set(['', 'n/a', 'na', 'none', '-']);
 
 export interface ProcessFile {
   schemaVersion: number;
@@ -96,14 +116,20 @@ export interface Task {
   phaseId: string;                  // → Phase.id
   processId: string | null;         // reserved for future Process container
   name: string;
-  activityType: string;             // free string, discovered from data
+  activityType: string;             // one of ACTIVITY_TYPES (enforced by UI, free on disk)
   dateType: string;                 // KEY DATE | MS DATE | NONE | custom
   description: string;
   deliverables: string;
   accountable: string;
   contributors: string[];
+  // Whether this task involves a meeting. When true, meetingOrganiser
+  // is shown in the UI. Inferred from meetingOrganiser on CSV import:
+  // if the value is null/N/A/None → false, otherwise true.
+  isMeetingTask: boolean;
   meetingOrganiser: string | null;
   pdmTemplate: string | null;
+  // Abbreviation — only meaningful when dateType is KEY DATE or MS DATE
+  // (e.g. "CR1", "VA MS"). Hidden in the edit UI when dateType is NONE.
   abbr: string | null;
   keyDateRationale: string | null;
   function: string;
@@ -204,4 +230,47 @@ export function getTasksInPhase(
 
 export function getPhasesOrdered(file: ProcessFile): Phase[] {
   return [...file.phases].sort((a, b) => a.order - b.order);
+}
+
+// ---- Activity type helpers ------------------------------------------------
+
+/**
+ * Normalize a raw activity-type string from imported data. Handles the
+ * v2→v3 rename ("Deliverable" → "Key Output") and trims whitespace.
+ * Unknown values are passed through as-is so no data is lost.
+ */
+export function normalizeActivityType(raw: string): string {
+  const trimmed = raw.trim();
+  if (/^deliverable$/i.test(trimmed)) return 'Key Output';
+  return trimmed;
+}
+
+// ---- Role helpers ---------------------------------------------------------
+
+/**
+ * Build a unified sorted list of role names from the explicit roles
+ * registry PLUS every unique name used across all tasks' accountable,
+ * contributors, and meetingOrganiser fields. This is what all role
+ * pickers should show as their suggestion list — it guarantees that
+ * any name used anywhere in the process is selectable everywhere.
+ */
+export function getAllRoleNames(file: ProcessFile): string[] {
+  const names = new Set<string>();
+  for (const r of file.roles) if (r.name) names.add(r.name);
+  for (const t of file.tasks) {
+    if (t.accountable) names.add(t.accountable);
+    for (const c of t.contributors) if (c) names.add(c);
+    if (t.meetingOrganiser) names.add(t.meetingOrganiser);
+  }
+  names.delete('');
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Infer whether a raw meetingOrganiser value from CSV/legacy data
+ * means "this is a meeting task" (true) or not (false).
+ */
+export function inferIsMeetingTask(meetingOrganiser: string | null): boolean {
+  if (!meetingOrganiser) return false;
+  return !MEETING_SENTINELS.has(meetingOrganiser.trim().toLowerCase());
 }

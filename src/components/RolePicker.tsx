@@ -1,20 +1,19 @@
 import { useId } from 'react';
-import type { Role } from '../types';
 import './RolePicker.css';
 
-// Single-role picker — text input with a datalist of known role names
-// for autocomplete. Users can type any name, known or not; unknown
-// names live on the task but aren't added to the roles registry
-// (that's what the roles-management panel is for).
+// Single-role picker — text input with a datalist of suggestion names
+// for autocomplete. Users can type any name; unknown names live on the
+// task but aren't added to the roles registry automatically (that's
+// what the roles-management panel is for).
 export function RolePicker({
   value,
   onChange,
-  roles,
+  suggestions,
   placeholder,
 }: {
   value: string;
   onChange: (next: string) => void;
-  roles: Role[];
+  suggestions: string[];
   placeholder?: string;
 }) {
   const listId = useId();
@@ -29,8 +28,8 @@ export function RolePicker({
         onChange={(e) => onChange(e.target.value)}
       />
       <datalist id={listId}>
-        {roles.map((r) => (
-          <option key={r.id} value={r.name} />
+        {suggestions.map((name) => (
+          <option key={name} value={name} />
         ))}
       </datalist>
     </>
@@ -39,16 +38,16 @@ export function RolePicker({
 
 // Multi-role picker — chip list of current values plus an input row
 // to add a new one. Removing a chip clicks out the name; submitting
-// the input adds it.
+// the input (Enter or blur) adds it.
 export function RoleMultiPicker({
   value,
   onChange,
-  roles,
+  suggestions,
   placeholder,
 }: {
   value: string[];
   onChange: (next: string[]) => void;
-  roles: Role[];
+  suggestions: string[];
   placeholder?: string;
 }) {
   const listId = useId();
@@ -104,10 +103,10 @@ export function RoleMultiPicker({
         }}
       />
       <datalist id={listId}>
-        {roles
-          .filter((r) => !value.includes(r.name))
-          .map((r) => (
-            <option key={r.id} value={r.name} />
+        {suggestions
+          .filter((name) => !value.includes(name))
+          .map((name) => (
+            <option key={name} value={name} />
           ))}
       </datalist>
     </div>

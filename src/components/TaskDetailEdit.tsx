@@ -1,6 +1,8 @@
 import { type ReactNode, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
+  ACTIVITY_TYPES,
+  getAllRoleNames,
   getPhasesOrdered,
   getDependentTasks,
   type DeliverableTarget,
@@ -11,9 +13,7 @@ import './TaskDetailEdit.css';
 import './TaskDetail.css';
 
 // Edit-mode task form. All fields inline-save on change via the
-// store's updateTask action, which marks the file dirty. The
-// top-row header renders the same structure as the read view so
-// switching modes feels continuous.
+// store's updateTask action, which marks the file dirty.
 export function TaskDetailEdit({ task }: { task: Task }) {
   const file = useAppStore((s) => s.file);
   const updateTask = useAppStore((s) => s.updateTask);
@@ -23,11 +23,25 @@ export function TaskDetailEdit({ task }: { task: Task }) {
     () => (file ? getPhasesOrdered(file) : []),
     [file],
   );
-  // Tasks in other parts of the file — eligible to be prerequisites.
-  // Filter out the task itself and any task that would create a cycle
-  // (one that already depends on this task). A full cycle-check is
-  // expensive; for v1 we just filter out direct dependents. Cycle
-  // avoidance for transitive cases can come later.
+
+  // Unified role suggestions: registry + every name used on any task.
+  const allRoleNames = useMemo(
+    () => (file ? getAllRoleNames(file) : []),
+    [file],
+  );
+
+  // Discovered function values from all tasks for the function picker.
+  const allFunctions = useMemo(() => {
+    if (!file) return [];
+    const fns = new Set<string>();
+    for (const t of file.tasks) {
+      if (t.function) fns.add(t.function);
+    }
+    return Array.from(fns).sort();
+  }, [file]);
+
+  // Eligible prereqs: exclude self and direct dependents (naive cycle
+  // guard). Full transitive cycle check can come later.
   const eligiblePrereqs = useMemo(() => {
     if (!file) return [];
     const dependentIds = new Set(
@@ -38,11 +52,14 @@ export function TaskDetailEdit({ task }: { task: Task }) {
     );
   }, [file, task]);
 
-  const prereqSet = useMemo(() => new Set(task.prerequisites), [task.prerequisites]);
+  const prereqSet = useMemo(
+    () => new Set(task.prerequisites),
+    [task.prerequisites],
+  );
 
   if (!file) return null;
 
-  const patch = (patch: Partial<Task>) => updateTask(task.id, patch);
+  const patch = (p: Partial<Task>) => updateTask(task.id, p);
 
   const togglePrereq = (id: string) => {
     const next = prereqSet.has(id)
@@ -102,13 +119,18 @@ export function TaskDetailEdit({ task }: { task: Task }) {
 
       <Section title="Classification">
         <Field label="Activity type">
-          <input
-            type="text"
+          <select
             className="task-edit-input"
             value={task.activityType}
             onChange={(e) => patch({ activityType: e.target.value })}
-            placeholder="e.g. Standard Process, Deliverable, Milestone"
-          />
+          >
+            <option value="">— select —</option>
+            {ACTIVITY_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Date type">
           <select
@@ -121,24 +143,43 @@ export function TaskDetailEdit({ task }: { task: Task }) {
             <option value="MS DATE">MS DATE</option>
           </select>
         </Field>
-        <Field label="Abbreviation">
-          <input
-            type="text"
-            className="task-edit-input"
-            value={task.abbr ?? ''}
-            placeholder="e.g. CR1, VA MS"
-            onChange={(e) =>
-              patch({ abbr: e.target.value || null })
-            }
-          />
-        </Field>
+        {task.dateType !== 'NONE' && (
+          <Field label="Abbreviation">
+            <input
+              type="text"
+              className="task-edit-input"
+              value={task.abbr ?? ''}
+              placeholder="e.g. CR1, VA MS"
+              onChange={(e) => patch({ abbr: e.target.value || null })}
+            />
+          </Field>
+        )}
         <Field label="Function">
-          <input
-            type="text"
+          <select
             className="task-edit-input"
-            value={task.function}
-            onChange={(e) => patch({ function: e.target.value })}
-          />
+            value={allFunctions.includes(task.function) ? task.function : '__OTHER__'}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__NEW__') {
+                const newFn = window.prompt('Enter new function name:');
+                if (newFn?.trim()) patch({ function: newFn.trim() });
+                return;
+              }
+              if (v === '__OTHER__') return;
+              patch({ function: v });
+            }}
+          >
+            <option value="">— select —</option>
+            <option value="__NEW__">+ New Function…</option>
+            {task.function && !allFunctions.includes(task.function) && (
+              <option value="__OTHER__">{task.function}</option>
+            )}
+            {allFunctions.map((fn) => (
+              <option key={fn} value={fn}>
+                {fn}
+              </option>
+            ))}
+          </select>
         </Field>
       </Section>
 
@@ -147,7 +188,7 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           <RolePicker
             value={task.accountable}
             onChange={(v) => patch({ accountable: v })}
-            roles={file.roles}
+            suggestions={allRoleNames}
             placeholder="Who's accountable?"
           />
         </Field>
@@ -155,19 +196,33 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           <RoleMultiPicker
             value={task.contributors}
             onChange={(v) => patch({ contributors: v })}
-            roles={file.roles}
+            suggestions={allRoleNames}
           />
         </Field>
-        <Field label="Meeting Organiser">
-          <RolePicker
-            value={task.meetingOrganiser ?? ''}
-            onChange={(v) =>
-              patch({ meetingOrganiser: v || null })
-            }
-            roles={file.roles}
-            placeholder="(optional)"
+        <label className="task-edit-checkbox">
+          <input
+            type="checkbox"
+            checked={task.isMeetingTask}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              patch({
+                isMeetingTask: checked,
+                meetingOrganiser: checked ? task.meetingOrganiser : null,
+              });
+            }}
           />
-        </Field>
+          <span>Meeting task</span>
+        </label>
+        {task.isMeetingTask && (
+          <Field label="Meeting Organiser">
+            <RolePicker
+              value={task.meetingOrganiser ?? ''}
+              onChange={(v) => patch({ meetingOrganiser: v || null })}
+              suggestions={allRoleNames}
+              placeholder="Who organises the meeting?"
+            />
+          </Field>
+        )}
       </Section>
 
       <Section title="Description">
@@ -269,7 +324,7 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           </ul>
         )}
         <p className="task-edit-hint">
-          Read-only here — manage on the dependent task's Prerequisites.
+          Read-only — manage on the dependent task's Prerequisites.
         </p>
       </Section>
 

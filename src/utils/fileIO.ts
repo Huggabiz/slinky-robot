@@ -30,6 +30,7 @@ function migrate(raw: unknown): unknown {
 
   let migrated = obj;
   if (version < 2) migrated = migrateV1toV2(migrated);
+  if (version < 3) migrated = migrateV2toV3(migrated);
   return migrated;
 }
 
@@ -74,6 +75,48 @@ function migrateV1toV2(
         deliverableTargets: Array.isArray(taskObj.deliverableTargets)
           ? taskObj.deliverableTargets
           : [],
+      };
+    }),
+  };
+}
+
+/**
+ * v2 → v3 migration.
+ *
+ * - Renames the "Deliverable" activity type to "Key Output" on every
+ *   task (case-insensitive match).
+ * - Adds the `isMeetingTask` boolean to every task, inferred from
+ *   meetingOrganiser: null / N/A / None / empty → false, else true.
+ */
+function migrateV2toV3(
+  file: Record<string, unknown>,
+): Record<string, unknown> {
+  const tasks = Array.isArray(file.tasks) ? file.tasks : [];
+  return {
+    ...file,
+    schemaVersion: 3,
+    tasks: tasks.map((t) => {
+      const taskObj = (t ?? {}) as Record<string, unknown>;
+      const rawType =
+        typeof taskObj.activityType === 'string'
+          ? taskObj.activityType
+          : '';
+      const rawOrganiser =
+        typeof taskObj.meetingOrganiser === 'string'
+          ? taskObj.meetingOrganiser
+          : null;
+      const sentinels = new Set(['', 'n/a', 'na', 'none', '-']);
+      const isMeeting =
+        !!rawOrganiser && !sentinels.has(rawOrganiser.trim().toLowerCase());
+      return {
+        ...taskObj,
+        activityType: /^deliverable$/i.test(rawType.trim())
+          ? 'Key Output'
+          : rawType,
+        isMeetingTask:
+          typeof taskObj.isMeetingTask === 'boolean'
+            ? taskObj.isMeetingTask
+            : isMeeting,
       };
     }),
   };

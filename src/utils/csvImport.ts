@@ -5,6 +5,8 @@ import {
   type Task,
   CURRENT_SCHEMA_VERSION,
   DEFAULT_DELIVERABLE_STATES,
+  normalizeActivityType,
+  inferIsMeetingTask,
 } from '../types';
 import { makeId } from './id';
 
@@ -224,19 +226,25 @@ export function buildProcessFileFromCsv(
       if (m) masterName = m;
     }
 
+    const meetingOrganiserRaw = cell(row, mapping.meetingOrganiser) || null;
     const task: Task = {
       id: makeId(),
       taskId: taskIdStr,
       phaseId: phase.id,
       processId: null,
       name: nameStr,
-      activityType: cell(row, mapping.activityType),
+      activityType: normalizeActivityType(
+        cell(row, mapping.activityType),
+      ),
       dateType: cell(row, mapping.dateType),
       description: cell(row, mapping.description),
       deliverables: cell(row, mapping.deliverables),
       accountable: cell(row, mapping.accountable),
       contributors: splitList(cell(row, mapping.contributors), /,/),
-      meetingOrganiser: cell(row, mapping.meetingOrganiser) || null,
+      isMeetingTask: inferIsMeetingTask(meetingOrganiserRaw),
+      meetingOrganiser: inferIsMeetingTask(meetingOrganiserRaw)
+        ? meetingOrganiserRaw
+        : null,
       pdmTemplate: cell(row, mapping.pdmTemplate) || null,
       abbr: cell(row, mapping.abbr) || null,
       keyDateRationale: cell(row, mapping.keyDateRationale) || null,
