@@ -24,3 +24,40 @@
 .edit-toolbar-btn:hover {
   filter: brightness(1.1);
 }
+
+.edit-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 var(--space-xs);
+}
+
+.edit-toolbar-icon-btn {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 28px;
+}
+
+.edit-toolbar-icon-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.edit-toolbar-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.edit-toolbar-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

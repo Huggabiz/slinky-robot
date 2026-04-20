@@ -15,6 +15,12 @@ import { makeId } from '../utils/id';
 // file's optional password gate, enforced at transition time in the UI).
 export type EditorMode = 'review' | 'edit';
 
+// Maximum history entries retained per direction (undo + redo each).
+// Snapshots are shallow references to ProcessFile objects, not deep
+// copies, so the memory cost per entry is small — the file reference
+// just holds the tasks/phases arrays from a previous render.
+const MAX_HISTORY = 50;
+
 interface AppState {
   // The currently loaded process file (null = nothing open).
   file: ProcessFile | null;
@@ -30,6 +36,16 @@ interface AppState {
   // Whether there are unsaved changes since last load/save.
   dirty: boolean;
 
+  // ---- Undo history ----
+  // Past file snapshots in chronological order (oldest first). Each
+  // mutation pushes the pre-change file here. Undo pops the most
+  // recent entry and restores it.
+  past: ProcessFile[];
+  // Future snapshots populated by undo. Each redo pops from here.
+  // Any fresh mutation clears this array — redo-after-new-edit is
+  // intentionally not supported (standard editor behaviour).
+  future: ProcessFile[];
+
   // Actions
   newEmptyFile: () => void;
   loadFile: (
@@ -43,48 +59,28 @@ interface AppState {
   markDirty: () => void;
   markClean: () => void;
 
+  // ---- Undo/redo ----
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+
   // ---- Edit mutations ----
-  // Generic updater that runs the given function against the current
-  // file and stores the result. Marks dirty automatically. Returns the
-  // new file, or null if there's no file open.
   updateFile: (
     updater: (file: ProcessFile) => ProcessFile,
   ) => ProcessFile | null;
-  // Create a new phase at the end of the ordered list with sensible
-  // defaults and return its id.
   addPhase: () => string | null;
-  // Shallow-merge a patch onto an existing phase.
   updatePhase: (id: string, patch: Partial<Phase>) => void;
-  // Delete a phase. Refuses if the phase still has tasks, surfacing an
-  // error message the caller can show the user.
   deletePhase: (id: string) => { ok: boolean; error?: string };
-  // Move a phase up or down in the ordered list, swapping its order
-  // value with its neighbour.
   movePhase: (id: string, direction: 'up' | 'down') => void;
-  // Create a new task in the given phase, optionally auto-adding a
-  // prerequisite (used by "+ Process Step" to chain from the current
-  // selection). Returns the new task's internal id.
   addTask: (
     phaseId: string,
     options?: { autoPrereqOfTaskId?: string | null },
   ) => string | null;
-  // Shallow-merge a patch onto an existing task.
   updateTask: (id: string, patch: Partial<Task>) => void;
-  // Add a role to the registry. If a role with the same name already
-  // exists its id is returned without creating a duplicate. Returns
-  // the role id, or null if no file is open.
   addRole: (name: string, colour?: string | null) => string | null;
-  // Toggle a prereq on the given task (add if not present, remove if
-  // present). Used by Ctrl+click on the flow canvas.
   togglePrerequisite: (taskId: string, prereqId: string) => void;
-  // Delete a task. Every task that listed the deleted one as a
-  // prerequisite inherits the deleted task's own prerequisites so the
-  // chain flows through without gaps. Clears the selection if the
-  // deleted task was selected.
   deleteTask: (id: string) => void;
-  // Insert a new task on an existing edge: the new task gets sourceId
-  // as its prereq, and sourceId is replaced by the new task in the
-  // target's prerequisites. Returns the new task's internal id.
   insertTaskOnEdge: (
     sourceId: string,
     targetId: string,
@@ -92,301 +88,331 @@ interface AppState {
   ) => string | null;
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
-  file: null,
-  fileName: null,
-  fileHandle: null,
-  mode: 'review',
-  selectedTaskId: null,
-  dirty: false,
-
-  newEmptyFile: () =>
-    set({
-      file: makeEmptyProcessFile(),
-      fileName: null,
-      fileHandle: null,
-      selectedTaskId: null,
-      dirty: false,
-      mode: 'review',
-    }),
-
-  loadFile: (file, fileName, handle) =>
-    set({
-      file,
-      fileName,
-      fileHandle: handle ?? null,
-      selectedTaskId: null,
-      dirty: false,
-      mode: 'review',
-    }),
-
-  setFileHandle: (handle) => set({ fileHandle: handle }),
-  selectTask: (id) => set({ selectedTaskId: id }),
-  setMode: (mode) => set({ mode }),
-  markDirty: () => set({ dirty: true }),
-  markClean: () => set({ dirty: false }),
-
-  // ---- Edit mutations ----
-
-  updateFile: (updater) => {
+export const useAppStore = create<AppState>((set, get) => {
+  /**
+   * Wrap a mutation that produces a new file. Pushes the current file
+   * onto the past history, clears the future (redo stack), applies the
+   * new file, and marks dirty. Used by every mutating action so undo
+   * just means "restore the most recent past snapshot".
+   */
+  const commit = (nextFile: ProcessFile): void => {
     const current = get().file;
-    if (!current) return null;
-    const next = updater(current);
-    set({ file: next, dirty: true });
-    return next;
-  },
-
-  addPhase: () => {
-    const current = get().file;
-    if (!current) return null;
-    const ordered = getPhasesOrdered(current);
-    const maxOrder =
-      ordered.length === 0 ? 0 : ordered[ordered.length - 1].order + 10;
-    const newPhase: Phase = {
-      id: makeId(),
-      order: maxOrder,
-      name: 'New Milestone',
-      intro: '',
-      colour: null,
-    };
+    if (!current) {
+      set({ file: nextFile, dirty: true });
+      return;
+    }
+    const nextPast = [...get().past, current];
+    // Cap the history so long editing sessions don't retain unbounded
+    // snapshots. Drop the oldest entries when over the limit.
+    if (nextPast.length > MAX_HISTORY) {
+      nextPast.splice(0, nextPast.length - MAX_HISTORY);
+    }
     set({
-      file: { ...current, phases: [...current.phases, newPhase] },
+      file: nextFile,
+      past: nextPast,
+      future: [],
       dirty: true,
     });
-    return newPhase.id;
-  },
+  };
 
-  updatePhase: (id, patch) => {
-    const current = get().file;
-    if (!current) return;
-    set({
-      file: {
+  return {
+    file: null,
+    fileName: null,
+    fileHandle: null,
+    mode: 'review',
+    selectedTaskId: null,
+    dirty: false,
+    past: [],
+    future: [],
+
+    newEmptyFile: () =>
+      set({
+        file: makeEmptyProcessFile(),
+        fileName: null,
+        fileHandle: null,
+        selectedTaskId: null,
+        dirty: false,
+        mode: 'review',
+        past: [],
+        future: [],
+      }),
+
+    loadFile: (file, fileName, handle) =>
+      set({
+        file,
+        fileName,
+        fileHandle: handle ?? null,
+        selectedTaskId: null,
+        dirty: false,
+        mode: 'review',
+        past: [],
+        future: [],
+      }),
+
+    setFileHandle: (handle) => set({ fileHandle: handle }),
+    selectTask: (id) => set({ selectedTaskId: id }),
+    setMode: (mode) => set({ mode }),
+    markDirty: () => set({ dirty: true }),
+    markClean: () => set({ dirty: false }),
+
+    // ---- Undo / redo ----
+
+    undo: () => {
+      const { past, file, future } = get();
+      if (past.length === 0 || !file) return;
+      const previous = past[past.length - 1];
+      set({
+        file: previous,
+        past: past.slice(0, -1),
+        future: [...future, file],
+        dirty: true,
+      });
+    },
+
+    redo: () => {
+      const { past, file, future } = get();
+      if (future.length === 0 || !file) return;
+      const next = future[future.length - 1];
+      set({
+        file: next,
+        past: [...past, file],
+        future: future.slice(0, -1),
+        dirty: true,
+      });
+    },
+
+    canUndo: () => get().past.length > 0,
+    canRedo: () => get().future.length > 0,
+
+    // ---- Edit mutations ----
+
+    updateFile: (updater) => {
+      const current = get().file;
+      if (!current) return null;
+      const next = updater(current);
+      commit(next);
+      return next;
+    },
+
+    addPhase: () => {
+      const current = get().file;
+      if (!current) return null;
+      const ordered = getPhasesOrdered(current);
+      const maxOrder =
+        ordered.length === 0 ? 0 : ordered[ordered.length - 1].order + 10;
+      const newPhase: Phase = {
+        id: makeId(),
+        order: maxOrder,
+        name: 'New Milestone',
+        intro: '',
+        colour: null,
+      };
+      commit({ ...current, phases: [...current.phases, newPhase] });
+      return newPhase.id;
+    },
+
+    updatePhase: (id, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
         ...current,
         phases: current.phases.map((p) =>
           p.id === id ? { ...p, ...patch } : p,
         ),
-      },
-      dirty: true,
-    });
-  },
+      });
+    },
 
-  deletePhase: (id) => {
-    const current = get().file;
-    if (!current) return { ok: false, error: 'No file open' };
-    const phase = current.phases.find((p) => p.id === id);
-    if (!phase) return { ok: false, error: 'Phase not found' };
-    // Cascade: all tasks in the phase are deleted too. Any task in
-    // ANOTHER phase that referenced a doomed task as a prerequisite
-    // has that reference removed from its prereq list (no prereq
-    // transfer for this path — the phase is gone entirely, so the
-    // cross-phase chain is intentionally broken).
-    const doomedTaskIds = new Set(
-      getTasksInPhase(current, id).map((t) => t.id),
-    );
-    const updatedTasks = current.tasks
-      .filter((t) => !doomedTaskIds.has(t.id))
-      .map((t) => ({
-        ...t,
-        prerequisites: t.prerequisites.filter((p) => !doomedTaskIds.has(p)),
-      }));
-    const newSelected = get().selectedTaskId;
-    set({
-      file: {
+    deletePhase: (id) => {
+      const current = get().file;
+      if (!current) return { ok: false, error: 'No file open' };
+      const phase = current.phases.find((p) => p.id === id);
+      if (!phase) return { ok: false, error: 'Phase not found' };
+      // Cascade: all tasks in the phase are deleted too. Any task in
+      // ANOTHER phase that referenced a doomed task as a prerequisite
+      // has that reference removed from its prereq list.
+      const doomedTaskIds = new Set(
+        getTasksInPhase(current, id).map((t) => t.id),
+      );
+      const updatedTasks = current.tasks
+        .filter((t) => !doomedTaskIds.has(t.id))
+        .map((t) => ({
+          ...t,
+          prerequisites: t.prerequisites.filter(
+            (p) => !doomedTaskIds.has(p),
+          ),
+        }));
+      const currentSelected = get().selectedTaskId;
+      commit({
         ...current,
         phases: current.phases.filter((p) => p.id !== id),
         tasks: updatedTasks,
-      },
-      selectedTaskId:
-        newSelected && doomedTaskIds.has(newSelected) ? null : newSelected,
-      dirty: true,
-    });
-    return { ok: true };
-  },
+      });
+      if (currentSelected && doomedTaskIds.has(currentSelected)) {
+        set({ selectedTaskId: null });
+      }
+      return { ok: true };
+    },
 
-  movePhase: (id, direction) => {
-    const current = get().file;
-    if (!current) return;
-    const ordered = getPhasesOrdered(current);
-    const idx = ordered.findIndex((p) => p.id === id);
-    if (idx === -1) return;
-    const swapWithIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapWithIdx < 0 || swapWithIdx >= ordered.length) return;
-    const a = ordered[idx];
-    const b = ordered[swapWithIdx];
-    // Swap order values so the sort flips without reshuffling anything
-    // else.
-    const orderA = a.order;
-    const orderB = b.order;
-    set({
-      file: {
+    movePhase: (id, direction) => {
+      const current = get().file;
+      if (!current) return;
+      const ordered = getPhasesOrdered(current);
+      const idx = ordered.findIndex((p) => p.id === id);
+      if (idx === -1) return;
+      const swapWithIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapWithIdx < 0 || swapWithIdx >= ordered.length) return;
+      const a = ordered[idx];
+      const b = ordered[swapWithIdx];
+      const orderA = a.order;
+      const orderB = b.order;
+      commit({
         ...current,
         phases: current.phases.map((p) => {
           if (p.id === a.id) return { ...p, order: orderB };
           if (p.id === b.id) return { ...p, order: orderA };
           return p;
         }),
-      },
-      dirty: true,
-    });
-  },
+      });
+    },
 
-  addTask: (phaseId, options = {}) => {
-    const current = get().file;
-    if (!current) return null;
-    const phase = findPhaseById(current, phaseId);
-    if (!phase) return null;
-    const autoPrereq = options.autoPrereqOfTaskId;
-    const newTask: Task = {
-      id: makeId(),
-      taskId: generateTaskId(current, phaseId),
-      phaseId,
-      processId: null,
-      name: '',
-      activityType: '',
-      dateType: 'NONE',
-      description: '',
-      deliverables: '',
-      accountable: '',
-      contributors: [],
-      isMeetingTask: false,
-      meetingOrganiser: null,
-      pdmTemplate: null,
-      abbr: null,
-      keyDateRationale: null,
-      function: '',
-      prerequisites: autoPrereq ? [autoPrereq] : [],
-      deliverableTargets: [],
-      extras: {},
-    };
-    set({
-      file: { ...current, tasks: [...current.tasks, newTask] },
-      dirty: true,
-    });
-    return newTask.id;
-  },
+    addTask: (phaseId, options = {}) => {
+      const current = get().file;
+      if (!current) return null;
+      const phase = findPhaseById(current, phaseId);
+      if (!phase) return null;
+      const autoPrereq = options.autoPrereqOfTaskId;
+      const newTask: Task = {
+        id: makeId(),
+        taskId: generateTaskId(current, phaseId),
+        phaseId,
+        processId: null,
+        name: '',
+        activityType: '',
+        dateType: 'NONE',
+        description: '',
+        deliverables: '',
+        accountable: '',
+        contributors: [],
+        isMeetingTask: false,
+        meetingOrganiser: null,
+        pdmTemplate: null,
+        abbr: null,
+        keyDateRationale: null,
+        function: '',
+        prerequisites: autoPrereq ? [autoPrereq] : [],
+        deliverableTargets: [],
+        extras: {},
+      };
+      commit({ ...current, tasks: [...current.tasks, newTask] });
+      return newTask.id;
+    },
 
-  updateTask: (id, patch) => {
-    const current = get().file;
-    if (!current) return;
-    set({
-      file: {
+    updateTask: (id, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
         ...current,
         tasks: current.tasks.map((t) =>
           t.id === id ? { ...t, ...patch } : t,
         ),
-      },
-      dirty: true,
-    });
-  },
+      });
+    },
 
-  togglePrerequisite: (taskId, prereqId) => {
-    const current = get().file;
-    if (!current) return;
-    const task = current.tasks.find((t) => t.id === taskId);
-    if (!task || taskId === prereqId) return;
-    const has = task.prerequisites.includes(prereqId);
-    const next = has
-      ? task.prerequisites.filter((p) => p !== prereqId)
-      : [...task.prerequisites, prereqId];
-    set({
-      file: {
+    togglePrerequisite: (taskId, prereqId) => {
+      const current = get().file;
+      if (!current) return;
+      const task = current.tasks.find((t) => t.id === taskId);
+      if (!task || taskId === prereqId) return;
+      const has = task.prerequisites.includes(prereqId);
+      const next = has
+        ? task.prerequisites.filter((p) => p !== prereqId)
+        : [...task.prerequisites, prereqId];
+      commit({
         ...current,
         tasks: current.tasks.map((t) =>
           t.id === taskId ? { ...t, prerequisites: next } : t,
         ),
-      },
-      dirty: true,
-    });
-  },
-
-  deleteTask: (id) => {
-    const current = get().file;
-    if (!current) return;
-    const doomed = current.tasks.find((t) => t.id === id);
-    if (!doomed) return;
-    // Cascade: any task that depended on the deleted one inherits its
-    // prerequisites so the chain flows through without a gap.
-    const doomedPrereqs = doomed.prerequisites;
-    const updatedTasks = current.tasks
-      .filter((t) => t.id !== id)
-      .map((t) => {
-        if (!t.prerequisites.includes(id)) return t;
-        const withoutDoomed = t.prerequisites.filter((p) => p !== id);
-        // Merge the doomed task's prereqs, avoiding duplicates.
-        const merged = [
-          ...withoutDoomed,
-          ...doomedPrereqs.filter((p) => !withoutDoomed.includes(p)),
-        ];
-        return { ...t, prerequisites: merged };
       });
-    set({
-      file: { ...current, tasks: updatedTasks },
-      selectedTaskId: get().selectedTaskId === id ? null : get().selectedTaskId,
-      dirty: true,
-    });
-  },
+    },
 
-  insertTaskOnEdge: (sourceId, targetId, phaseId) => {
-    const current = get().file;
-    if (!current) return null;
-    const phase = findPhaseById(current, phaseId);
-    if (!phase) return null;
-    const newTask: Task = {
-      id: makeId(),
-      taskId: generateTaskId(current, phaseId),
-      phaseId,
-      processId: null,
-      name: '',
-      activityType: '',
-      dateType: 'NONE',
-      description: '',
-      deliverables: '',
-      accountable: '',
-      contributors: [],
-      isMeetingTask: false,
-      meetingOrganiser: null,
-      pdmTemplate: null,
-      abbr: null,
-      keyDateRationale: null,
-      function: '',
-      prerequisites: [sourceId],
-      deliverableTargets: [],
-      extras: {},
-    };
-    // Replace sourceId with the new task in the target's prerequisites.
-    const updatedTasks = current.tasks.map((t) => {
-      if (t.id === targetId) {
-        return {
-          ...t,
-          prerequisites: t.prerequisites.map((p) =>
-            p === sourceId ? newTask.id : p,
-          ),
-        };
+    deleteTask: (id) => {
+      const current = get().file;
+      if (!current) return;
+      const doomed = current.tasks.find((t) => t.id === id);
+      if (!doomed) return;
+      const doomedPrereqs = doomed.prerequisites;
+      const updatedTasks = current.tasks
+        .filter((t) => t.id !== id)
+        .map((t) => {
+          if (!t.prerequisites.includes(id)) return t;
+          const withoutDoomed = t.prerequisites.filter((p) => p !== id);
+          const merged = [
+            ...withoutDoomed,
+            ...doomedPrereqs.filter((p) => !withoutDoomed.includes(p)),
+          ];
+          return { ...t, prerequisites: merged };
+        });
+      commit({ ...current, tasks: updatedTasks });
+      if (get().selectedTaskId === id) {
+        set({ selectedTaskId: null });
       }
-      return t;
-    });
-    set({
-      file: { ...current, tasks: [...updatedTasks, newTask] },
-      dirty: true,
-    });
-    return newTask.id;
-  },
+    },
 
-  addRole: (name, colour = null) => {
-    const current = get().file;
-    if (!current) return null;
-    const trimmed = name.trim();
-    if (!trimmed) return null;
-    const existing = current.roles.find((r) => r.name === trimmed);
-    if (existing) return existing.id;
-    const newRole: Role = { id: makeId(), name: trimmed, colour };
-    set({
-      file: { ...current, roles: [...current.roles, newRole] },
-      dirty: true,
-    });
-    return newRole.id;
-  },
-}));
+    insertTaskOnEdge: (sourceId, targetId, phaseId) => {
+      const current = get().file;
+      if (!current) return null;
+      const phase = findPhaseById(current, phaseId);
+      if (!phase) return null;
+      const newTask: Task = {
+        id: makeId(),
+        taskId: generateTaskId(current, phaseId),
+        phaseId,
+        processId: null,
+        name: '',
+        activityType: '',
+        dateType: 'NONE',
+        description: '',
+        deliverables: '',
+        accountable: '',
+        contributors: [],
+        isMeetingTask: false,
+        meetingOrganiser: null,
+        pdmTemplate: null,
+        abbr: null,
+        keyDateRationale: null,
+        function: '',
+        prerequisites: [sourceId],
+        deliverableTargets: [],
+        extras: {},
+      };
+      const updatedTasks = current.tasks.map((t) => {
+        if (t.id === targetId) {
+          return {
+            ...t,
+            prerequisites: t.prerequisites.map((p) =>
+              p === sourceId ? newTask.id : p,
+            ),
+          };
+        }
+        return t;
+      });
+      commit({ ...current, tasks: [...updatedTasks, newTask] });
+      return newTask.id;
+    },
+
+    addRole: (name, colour = null) => {
+      const current = get().file;
+      if (!current) return null;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const existing = current.roles.find((r) => r.name === trimmed);
+      if (existing) return existing.id;
+      const newRole: Role = { id: makeId(), name: trimmed, colour };
+      commit({ ...current, roles: [...current.roles, newRole] });
+      return newRole.id;
+    },
+  };
+});
 
 /**
  * Generate a task-id code for a new task following the host process's

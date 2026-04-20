@@ -25,7 +25,33 @@ function App() {
   const addPhase = useAppStore((s) => s.addPhase);
   const addTask = useAppStore((s) => s.addTask);
   const selectTask = useAppStore((s) => s.selectTask);
+  const undo = useAppStore((s) => s.undo);
+  const redo = useAppStore((s) => s.redo);
   const [phaseId, setPhaseId] = useState<string | null>(null);
+
+  // Global undo/redo keyboard shortcuts. We intentionally skip when
+  // focus is in an input/textarea/select so the browser's native
+  // text-undo keeps working for typed fields — app-level undo only
+  // applies to structural changes and clicks outside text editing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const inTextField =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (inTextField) return;
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
 
   // Display-tool state (FlowToolbar). These control how the flow
   // renders but don't affect the layout itself.
