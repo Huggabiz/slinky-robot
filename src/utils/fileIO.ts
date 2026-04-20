@@ -148,6 +148,85 @@ export function downloadJsonFile(file: ProcessFile, fileName: string): void {
   URL.revokeObjectURL(url);
 }
 
+// Whether the browser supports the File System Access API (Chrome, Edge).
+export const supportsFileSystemAccess =
+  typeof window !== 'undefined' && 'showSaveFilePicker' in window;
+
+const JSON_PICKER_TYPES: FilePickerAcceptType[] = [
+  { description: 'JSON files', accept: { 'application/json': ['.json'] } },
+];
+
+/**
+ * Open a file using the File System Access API. Returns the parsed
+ * ProcessFile, the filename, and the FileSystemFileHandle (so Save
+ * can overwrite in place). Falls back to null if FSAA is unavailable
+ * or the user cancels.
+ */
+export async function openWithFileSystemAccess(): Promise<{
+  file: ProcessFile;
+  fileName: string;
+  handle: FileSystemFileHandle;
+} | null> {
+  if (!supportsFileSystemAccess) return null;
+  try {
+    const [handle] = await window.showOpenFilePicker!({
+      types: JSON_PICKER_TYPES,
+      multiple: false,
+    });
+    const blob = await handle.getFile();
+    const text = await blob.text();
+    const parsed = parseProcessFile(text);
+    return { file: parsed, fileName: handle.name, handle };
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return null;
+    throw err;
+  }
+}
+
+/**
+ * Save As — shows the native save dialog and writes the file. Returns
+ * the new FileSystemFileHandle for subsequent Save operations. Returns
+ * null if the user cancels or FSAA is unavailable.
+ */
+export async function saveAsWithFileSystemAccess(
+  file: ProcessFile,
+  suggestedName: string,
+): Promise<FileSystemFileHandle | null> {
+  if (!supportsFileSystemAccess) return null;
+  try {
+    const handle = await window.showSaveFilePicker!({
+      suggestedName,
+      types: JSON_PICKER_TYPES,
+    });
+    await writeToHandle(handle, file);
+    return handle;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return null;
+    throw err;
+  }
+}
+
+/**
+ * Save (overwrite) — writes to an existing FileSystemFileHandle
+ * without prompting.
+ */
+export async function saveToHandle(
+  handle: FileSystemFileHandle,
+  file: ProcessFile,
+): Promise<void> {
+  await writeToHandle(handle, file);
+}
+
+async function writeToHandle(
+  handle: FileSystemFileHandle,
+  file: ProcessFile,
+): Promise<void> {
+  const text = serializeProcessFile(file);
+  const writable = await handle.createWritable();
+  await writable.write(text);
+  await writable.close();
+}
+
 // Open the native file picker and return the parsed process file plus the
 // original filename. If the user cancels, the promise resolves with null so
 // callers can distinguish cancellation from error.

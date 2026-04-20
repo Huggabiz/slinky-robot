@@ -5,16 +5,21 @@ import { FlowToolbar } from './components/FlowToolbar';
 import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
 import { DetailResizer } from './components/DetailResizer';
+import { ImportCsvDialog } from './components/ImportCsvDialog';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
 import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
+import { type ImportResult } from './utils/csvImport';
 import { useAppStore } from './store/useAppStore';
 import { getPhasesOrdered } from './types';
 import './App.css';
 
 function App() {
   const file = useAppStore((s) => s.file);
+  const mode = useAppStore((s) => s.mode);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const loadFile = useAppStore((s) => s.loadFile);
+  const markDirty = useAppStore((s) => s.markDirty);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
   // Display-tool state (FlowToolbar). These control how the flow
@@ -25,6 +30,9 @@ function App() {
   // FLOW LAB: labConfig state + lab open toggle.
   const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
   const [labOpen, setLabOpen] = useState(false);
+
+  // CSV import dialog — opened from the File menu.
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
 
   // Right-hand detail panel width, user-resizable via DetailResizer.
   const [detailWidth, setDetailWidth] = useState(420);
@@ -47,17 +55,39 @@ function App() {
     }
   }, [file, phaseId]);
 
+  const handleImported = (result: ImportResult) => {
+    loadFile(result.file, null);
+    markDirty();
+    setCsvDialogOpen(false);
+    if (result.warnings.length > 0) {
+      const shown = result.warnings.slice(0, 20);
+      const more =
+        result.warnings.length > 20
+          ? `\n\n…and ${result.warnings.length - 20} more.`
+          : '';
+      window.alert(
+        `Imported with ${result.warnings.length} warning(s):\n\n` +
+          shown.join('\n') +
+          more,
+      );
+    }
+  };
+
   return (
-    <div className="app">
-      <Toolbar onOpenLab={() => setLabOpen(true)} />
+    <div className={`app${mode === 'edit' ? ' edit-mode' : ''}`}>
+      <Toolbar
+        onOpenLab={() => setLabOpen(true)}
+        onImportCsv={() => setCsvDialogOpen(true)}
+      />
       {!file ? (
         <main className="app-main">
           <div className="app-empty">
             <h1>No process file open</h1>
             <p>
-              Use <strong>Open…</strong> to load an existing process JSON
-              file, <strong>Import CSV…</strong> to bring in a spreadsheet,
-              or <strong>New</strong> to start an empty one.
+              Use <strong>File → Open</strong> to load an existing process
+              JSON file, <strong>File → Import CSV</strong> to bring in a
+              spreadsheet, or <strong>File → New</strong> to start an empty
+              one.
             </p>
           </div>
         </main>
@@ -102,6 +132,11 @@ function App() {
           onClose={() => setLabOpen(false)}
         />
       )}
+      <ImportCsvDialog
+        isOpen={csvDialogOpen}
+        onClose={() => setCsvDialogOpen(false)}
+        onImport={handleImported}
+      />
     </div>
   );
 }

@@ -1,0 +1,61 @@
+.file-menu {
+  position: relative;
+}
+
+.file-menu-trigger {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.file-menu-trigger:hover {
+  border-color: var(--color-accent);
+}
+
+.file-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.file-menu-dropdown button {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px var(--space-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-menu-dropdown button:hover:not(:disabled) {
+  background: var(--color-bg);
+}
+
+.file-menu-dropdown button:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.file-menu-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}

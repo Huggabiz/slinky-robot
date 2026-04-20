@@ -5,6 +5,22 @@
   display: flex;
   flex-direction: column;
   color: var(--color-text);
+  background: var(--color-bg);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* ---- Edit-mode dark theme ---- */
+/* Charcoal + amber palette. Phase colour swatches use inline
+   backgroundColor via Phase.colour and are therefore unaffected by
+   the theme swap — identical across Navigate and Edit modes. */
+.app.edit-mode {
+  --color-bg: #1a1a2e;
+  --color-surface: #25253e;
+  --color-border: #3a3a54;
+  --color-text: #e2e2ec;
+  --color-text-muted: #8888a4;
+  --color-accent: #f59e0b;
+  --color-edit-accent: #f59e0b;
 }
 
 .app-main {

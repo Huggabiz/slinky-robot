@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { type ProcessFile, makeEmptyProcessFile } from '../types';
 
-// Review = read-only navigation; Edit = form controls unlocked (behind the
-// file's optional password gate, enforced at mode-transition time in the UI).
+// Review = read-only navigation; Edit = full editing (behind the
+// file's optional password gate, enforced at transition time in the UI).
 export type EditorMode = 'review' | 'edit';
 
 interface AppState {
@@ -10,6 +10,10 @@ interface AppState {
   file: ProcessFile | null;
   // Last-used filename for save default. Null until opened/saved.
   fileName: string | null;
+  // File System Access API handle — when present, Save can overwrite
+  // in place instead of prompting a download dialog. Set by Open
+  // (when FSAA is available) or by Save As.
+  fileHandle: FileSystemFileHandle | null;
   mode: EditorMode;
   // Selected task by internal id, drives the detail panel.
   selectedTaskId: string | null;
@@ -18,7 +22,12 @@ interface AppState {
 
   // Actions
   newEmptyFile: () => void;
-  loadFile: (file: ProcessFile, fileName: string | null) => void;
+  loadFile: (
+    file: ProcessFile,
+    fileName: string | null,
+    handle?: FileSystemFileHandle | null,
+  ) => void;
+  setFileHandle: (handle: FileSystemFileHandle | null) => void;
   selectTask: (id: string | null) => void;
   setMode: (mode: EditorMode) => void;
   markDirty: () => void;
@@ -28,6 +37,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   file: null,
   fileName: null,
+  fileHandle: null,
   mode: 'review',
   selectedTaskId: null,
   dirty: false,
@@ -36,20 +46,23 @@ export const useAppStore = create<AppState>((set) => ({
     set({
       file: makeEmptyProcessFile(),
       fileName: null,
+      fileHandle: null,
       selectedTaskId: null,
       dirty: false,
       mode: 'review',
     }),
 
-  loadFile: (file, fileName) =>
+  loadFile: (file, fileName, handle) =>
     set({
       file,
       fileName,
+      fileHandle: handle ?? null,
       selectedTaskId: null,
       dirty: false,
       mode: 'review',
     }),
 
+  setFileHandle: (handle) => set({ fileHandle: handle }),
   selectTask: (id) => set({ selectedTaskId: id }),
   setMode: (mode) => set({ mode }),
   markDirty: () => set({ dirty: true }),

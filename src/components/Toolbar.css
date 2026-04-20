@@ -23,12 +23,16 @@
   line-height: 1;
 }
 
+.toolbar-spacer {
+  flex: 1;
+}
+
 .toolbar-actions {
   display: flex;
   gap: var(--space-xs);
 }
 
-.toolbar-actions button {
+.toolbar-btn {
   appearance: none;
   border: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -40,18 +44,8 @@
   cursor: pointer;
 }
 
-.toolbar-actions button:hover:not(:disabled) {
-  background: var(--color-surface);
+.toolbar-btn:hover {
   border-color: var(--color-accent);
-}
-
-.toolbar-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toolbar-spacer {
-  flex: 1;
 }
 
 .toolbar-version {
