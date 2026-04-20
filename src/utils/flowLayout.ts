@@ -274,9 +274,18 @@ function buildResult(
  * - All other bends get only centringDx (unchanged relative to the
  *   rest of the graph).
  * - If the edge had 0 bends (straight line) and either endpoint
- *   shifted, 2 S-shape bends are inserted at the midpoint Y to
- *   keep the path orthogonal.
+ *   shifted, 2 S-shape bends are inserted with the horizontal kink
+ *   TIGHT against the shifted node — not at the midpoint. This
+ *   keeps the horizontal segment near the top (for START edges) or
+ *   near the bottom (for END edges), minimising the chance it runs
+ *   behind unrelated tasks in between.
+ *
+ * KINK_OFFSET_PX controls how far below/above the shifted node the
+ * horizontal segment sits. 20 px is enough clearance for the corner
+ * radius arc without looking separated.
  */
+const KINK_OFFSET_PX = 20;
+
 function buildEdgePoints(
   section: ElkOutputSection,
   centringDx: number,
@@ -300,13 +309,27 @@ function buildEdgePoints(
   }
 
   // Straight-line case: insert S-shape bends so the path stays
-  // orthogonal after the shift.
+  // orthogonal after the shift. The horizontal kink is pushed tight
+  // against whichever end was shifted, so it sits near the edge of
+  // the layout rather than cutting through the middle.
   if (bends.length === 0) {
-    const midY = (startY + endY) / 2;
+    let kinkY: number;
+    if (dxSource !== 0 && dxTarget === 0) {
+      // Source (START) shifted — kink just below START.
+      kinkY = startY + KINK_OFFSET_PX;
+    } else if (dxTarget !== 0 && dxSource === 0) {
+      // Target (END) shifted — kink just above END.
+      kinkY = endY - KINK_OFFSET_PX;
+    } else {
+      // Both shifted (rare) — kink just below the source.
+      kinkY = startY + KINK_OFFSET_PX;
+    }
+    // Clamp: the kink must sit between start and end Y.
+    kinkY = Math.max(startY + 1, Math.min(endY - 1, kinkY));
     return [
       { x: startX, y: startY },
-      { x: startX, y: midY },
-      { x: endX, y: midY },
+      { x: startX, y: kinkY },
+      { x: endX, y: kinkY },
       { x: endX, y: endY },
     ];
   }
@@ -328,13 +351,26 @@ function buildEdgePoints(
       dxSource !== 0 &&
       Math.abs(bpX - origStartX) < 0.5
     ) {
-      points.push({ x: bpX + dxSource, y: bpY });
+      // First bend is source-aligned — shift X with the source AND
+      // pull the Y tight against the source if it would otherwise sit
+      // in the middle of the layout.
+      const tightY =
+        Math.abs(dxSource) > 0.5
+          ? Math.max(startY + 1, Math.min(bpY, startY + KINK_OFFSET_PX))
+          : bpY;
+      points.push({ x: bpX + dxSource, y: tightY });
     } else if (
       i === bends.length - 1 &&
       dxTarget !== 0 &&
       Math.abs(bpX - origEndX) < 0.5
     ) {
-      points.push({ x: bpX + dxTarget, y: bpY });
+      // Last bend is target-aligned — shift X and pull Y tight
+      // against the target.
+      const tightY =
+        Math.abs(dxTarget) > 0.5
+          ? Math.min(endY - 1, Math.max(bpY, endY - KINK_OFFSET_PX))
+          : bpY;
+      points.push({ x: bpX + dxTarget, y: tightY });
     } else {
       points.push({ x: bpX, y: bpY });
     }
