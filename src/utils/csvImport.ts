@@ -4,7 +4,6 @@ import {
   type Role,
   type Task,
   CURRENT_SCHEMA_VERSION,
-  DEFAULT_DELIVERABLE_STATES,
   normalizeActivityType,
   inferIsMeetingTask,
 } from '../types';
@@ -311,9 +310,9 @@ export function buildProcessFileFromCsv(
     },
     phases,
     tasks,
+    departments: [],
     roles,
     deliverableItems: [],
-    deliverableStates: [...DEFAULT_DELIVERABLE_STATES],
   };
 
   return { file, warnings };
@@ -333,7 +332,7 @@ function discoverRoles(tasks: Task[]): Role[] {
   }
   return Array.from(names)
     .sort((a, b) => a.localeCompare(b))
-    .map((name) => ({ id: makeId(), name, colour: null }));
+    .map((name) => ({ id: makeId(), name, departmentId: null }));
 }
 
 function isSentinelRole(name: string): boolean {

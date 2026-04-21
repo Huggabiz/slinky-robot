@@ -318,3 +318,21 @@
   color: var(--color-text-muted);
   min-width: 20px;
 }
+
+.registry-item-states {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.registry-item-states-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}

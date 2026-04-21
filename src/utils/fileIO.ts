@@ -31,6 +31,7 @@ function migrate(raw: unknown): unknown {
   let migrated = obj;
   if (version < 2) migrated = migrateV1toV2(migrated);
   if (version < 3) migrated = migrateV2toV3(migrated);
+  if (version < 4) migrated = migrateV3toV4(migrated);
   // Always run the defensive normalisation pass regardless of starting
   // version, so files with missing fields from any era (including
   // earlier-in-development v2/v3 files that never hit the relevant
@@ -61,13 +62,20 @@ function normaliseShape(
 
   return {
     ...raw,
-    roles: Array.isArray(raw.roles) ? raw.roles : [],
-    deliverableItems: Array.isArray(raw.deliverableItems)
-      ? raw.deliverableItems
+    departments: Array.isArray(raw.departments) ? raw.departments : [],
+    roles: Array.isArray(raw.roles)
+      ? (raw.roles as Record<string, unknown>[]).map((r) => ({
+          ...r,
+          departmentId:
+            typeof r.departmentId === 'string' ? r.departmentId : null,
+        }))
       : [],
-    deliverableStates: Array.isArray(raw.deliverableStates)
-      ? raw.deliverableStates
-      : [...DEFAULT_DELIVERABLE_STATES],
+    deliverableItems: Array.isArray(raw.deliverableItems)
+      ? (raw.deliverableItems as Record<string, unknown>[]).map((di) => ({
+          ...di,
+          states: Array.isArray(di.states) ? di.states : [],
+        }))
+      : [],
     phases: phases.map((p) => {
       const o = (p ?? {}) as Record<string, unknown>;
       return {
@@ -218,6 +226,57 @@ function migrateV2toV3(
   };
 }
 
+/**
+ * v3 → v4 migration.
+ *
+ * - Adds the `departments` top-level array (empty — user curates).
+ * - Adds `departmentId: null` to every Role.
+ * - Moves the global `deliverableStates` list into each
+ *   DeliverableItem as a per-item `states` array. Items that already
+ *   have `states` are left alone.
+ * - Removes `deliverableStates` from the top level (the normaliser
+ *   won't re-add it since it's no longer in the type).
+ */
+function migrateV3toV4(
+  file: Record<string, unknown>,
+): Record<string, unknown> {
+  const globalStates = Array.isArray(file.deliverableStates)
+    ? (file.deliverableStates as string[])
+    : [];
+  const items = Array.isArray(file.deliverableItems)
+    ? file.deliverableItems
+    : [];
+  const roles = Array.isArray(file.roles) ? file.roles : [];
+
+  const result: Record<string, unknown> = {
+    ...file,
+    schemaVersion: 4,
+    departments: Array.isArray(file.departments) ? file.departments : [],
+    roles: roles.map((r) => {
+      const roleObj = (r ?? {}) as Record<string, unknown>;
+      return {
+        ...roleObj,
+        departmentId:
+          typeof roleObj.departmentId === 'string'
+            ? roleObj.departmentId
+            : null,
+      };
+    }),
+    deliverableItems: items.map((item) => {
+      const itemObj = (item ?? {}) as Record<string, unknown>;
+      return {
+        ...itemObj,
+        states: Array.isArray(itemObj.states)
+          ? itemObj.states
+          : [...globalStates],
+      };
+    }),
+  };
+  // Remove the deprecated global list.
+  delete result.deliverableStates;
+  return result;
+}
+
 // Lenient structural validation. We want the app to open any reasonably
 // shaped file and surface field-level issues inline rather than refusing
 // to load. Migration has already filled in the new top-level arrays by
@@ -239,14 +298,14 @@ function validateProcessFile(raw: unknown): ProcessFile {
   if (!Array.isArray(obj.tasks)) {
     throw new InvalidFileError('tasks must be an array');
   }
+  if (!Array.isArray(obj.departments)) {
+    throw new InvalidFileError('departments must be an array');
+  }
   if (!Array.isArray(obj.roles)) {
     throw new InvalidFileError('roles must be an array');
   }
   if (!Array.isArray(obj.deliverableItems)) {
     throw new InvalidFileError('deliverableItems must be an array');
-  }
-  if (!Array.isArray(obj.deliverableStates)) {
-    throw new InvalidFileError('deliverableStates must be an array');
   }
   return raw as ProcessFile;
 }

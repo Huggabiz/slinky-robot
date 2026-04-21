@@ -211,40 +211,76 @@ export function TaskDetailEdit({ task }: { task: Task }) {
 
       {file.deliverableItems.length > 0 && (
         <Section title="Deliverable targets">
-          <p className="task-edit-hint">
-            For each tracked document, the state it reaches at this task.
-          </p>
-          <div className="task-edit-deliverable-list">
-            {file.deliverableItems.map((item) => {
-              const target = task.deliverableTargets.find(
-                (t) => t.itemId === item.id,
-              );
-              return (
-                <div key={item.id} className="task-edit-deliverable-row">
-                  <span className="task-edit-deliverable-name">
+          {task.deliverableTargets.length > 0 && (
+            <div className="task-edit-deliverable-list">
+              {task.deliverableTargets.map((dt) => {
+                const item = file.deliverableItems.find(
+                  (i) => i.id === dt.itemId,
+                );
+                if (!item) return null;
+                return (
+                  <div key={dt.itemId} className="task-edit-deliverable-row">
+                    <span className="task-edit-deliverable-name">
+                      {item.name}
+                    </span>
+                    <select
+                      className="task-edit-input"
+                      value={dt.state}
+                      onChange={(e) =>
+                        setDeliverableTarget(dt.itemId, e.target.value || null)
+                      }
+                    >
+                      {item.states.map((state) => (
+                        <option key={state} value={state}>
+                          {state}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="task-edit-deliverable-remove"
+                      onClick={() => setDeliverableTarget(dt.itemId, null)}
+                      aria-label={`Remove ${item.name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {(() => {
+            const assignedIds = new Set(
+              task.deliverableTargets.map((dt) => dt.itemId),
+            );
+            const unassigned = file.deliverableItems.filter(
+              (i) => !assignedIds.has(i.id) && i.states.length > 0,
+            );
+            if (unassigned.length === 0) return null;
+            return (
+              <select
+                className="task-edit-input"
+                value=""
+                onChange={(e) => {
+                  const itemId = e.target.value;
+                  if (!itemId) return;
+                  const item = file.deliverableItems.find(
+                    (i) => i.id === itemId,
+                  );
+                  if (item && item.states.length > 0) {
+                    setDeliverableTarget(itemId, item.states[0]);
+                  }
+                }}
+              >
+                <option value="">+ Add deliverable target…</option>
+                {unassigned.map((item) => (
+                  <option key={item.id} value={item.id}>
                     {item.name}
-                  </span>
-                  <select
-                    className="task-edit-input"
-                    value={target?.state ?? ''}
-                    onChange={(e) =>
-                      setDeliverableTarget(
-                        item.id,
-                        e.target.value || null,
-                      )
-                    }
-                  >
-                    <option value="">— not tracked —</option>
-                    {file.deliverableStates.map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-          </div>
+                  </option>
+                ))}
+              </select>
+            );
+          })()}
         </Section>
       )}
 

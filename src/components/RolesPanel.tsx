@@ -7,15 +7,18 @@ interface Props {
   onClose: () => void;
 }
 
-// Modal pop-out for managing the roles registry. Rename propagates
-// through every task automatically; delete removes from the registry
-// but leaves task values as-is (free text).
+// Modal panel for managing departments and roles. Two-level hierarchy:
+// departments carry colours, roles are assigned to departments.
 export function RolesPanel({ isOpen, onClose }: Props) {
   const file = useAppStore((s) => s.file);
+  const addDepartment = useAppStore((s) => s.addDepartment);
+  const updateDepartment = useAppStore((s) => s.updateDepartment);
+  const deleteDepartment = useAppStore((s) => s.deleteDepartment);
   const addRole = useAppStore((s) => s.addRole);
   const updateRole = useAppStore((s) => s.updateRole);
   const deleteRole = useAppStore((s) => s.deleteRole);
-  const [newName, setNewName] = useState('');
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newRoleName, setNewRoleName] = useState('');
 
   if (!isOpen || !file) return null;
 
@@ -27,16 +30,32 @@ export function RolesPanel({ isOpen, onClose }: Props) {
       return acc;
     }, 0);
 
-  const handleAdd = () => {
-    const id = addRole(newName);
-    if (id) setNewName('');
+  const rolesInDept = (deptId: string): number =>
+    file.roles.filter((r) => r.departmentId === deptId).length;
+
+  const handleAddDept = () => {
+    if (addDepartment(newDeptName)) setNewDeptName('');
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleAddRole = () => {
+    if (addRole(newRoleName)) setNewRoleName('');
+  };
+
+  const handleDeleteDept = (id: string, name: string) => {
+    const count = rolesInDept(id);
+    const msg =
+      count > 0
+        ? `Delete department "${name}"?\n\n${count} role${count === 1 ? '' : 's'} will become unassigned.`
+        : `Delete department "${name}"?`;
+    if (!window.confirm(msg)) return;
+    deleteDepartment(id);
+  };
+
+  const handleDeleteRole = (id: string, name: string) => {
     const count = tasksUsingRole(name);
     const msg =
       count > 0
-        ? `Delete role "${name}"?\n\nIt's still referenced by ${count} field${count === 1 ? '' : 's'} on tasks — those will keep the name as free text. You can re-add it anytime.`
+        ? `Delete role "${name}"?\n\nReferenced by ${count} field${count === 1 ? '' : 's'} on tasks — those will keep the name as free text.`
         : `Delete role "${name}"?`;
     if (!window.confirm(msg)) return;
     deleteRole(id);
@@ -45,13 +64,13 @@ export function RolesPanel({ isOpen, onClose }: Props) {
   return (
     <div className="registry-backdrop" onClick={onClose}>
       <div
-        className="registry-panel"
+        className="registry-panel registry-panel-wide"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label="Manage roles"
+        aria-label="Departments & Roles"
       >
         <header className="registry-header">
-          <h2>Roles</h2>
+          <h2>Departments &amp; Roles</h2>
           <button
             type="button"
             className="registry-close"
@@ -62,66 +81,141 @@ export function RolesPanel({ isOpen, onClose }: Props) {
           </button>
         </header>
 
-        <p className="registry-hint">
-          Renaming a role propagates to every task. Deleting removes
-          the entry from this list but keeps whatever value already
-          exists on tasks as free text.
-        </p>
+        <div className="registry-split">
+          {/* ---- Departments ---- */}
+          <section className="registry-section">
+            <h3>Departments</h3>
+            <p className="registry-hint">
+              Departments carry colours used for node tinting. Roles
+              assigned to a department inherit its colour.
+            </p>
+            <div className="registry-add-row">
+              <input
+                type="text"
+                className="registry-input"
+                placeholder="New department name"
+                value={newDeptName}
+                onChange={(e) => setNewDeptName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddDept();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="registry-add-btn"
+                onClick={handleAddDept}
+                disabled={!newDeptName.trim()}
+              >
+                + Add
+              </button>
+            </div>
+            {file.departments.length === 0 ? (
+              <p className="registry-empty">No departments yet.</p>
+            ) : (
+              <div className="registry-item-list">
+                {file.departments.map((dept) => (
+                  <div key={dept.id} className="registry-item-card">
+                    <div className="registry-item-head">
+                      <input
+                        type="text"
+                        className="registry-input"
+                        defaultValue={dept.name}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next && next !== dept.name) {
+                            updateDepartment(dept.id, { name: next });
+                          } else if (!next) {
+                            e.target.value = dept.name;
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur();
+                        }}
+                      />
+                      <input
+                        type="color"
+                        className="registry-colour"
+                        value={dept.colour ?? '#4f46e5'}
+                        onChange={(e) =>
+                          updateDepartment(dept.id, {
+                            colour: e.target.value,
+                          })
+                        }
+                      />
+                      <span className="registry-count">
+                        {rolesInDept(dept.id)}
+                      </span>
+                      <button
+                        type="button"
+                        className="registry-delete-btn"
+                        onClick={() =>
+                          handleDeleteDept(dept.id, dept.name)
+                        }
+                        aria-label={`Delete ${dept.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
-        <div className="registry-add-row">
-          <input
-            type="text"
-            className="registry-input"
-            placeholder="New role name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleAdd();
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="registry-add-btn"
-            onClick={handleAdd}
-            disabled={!newName.trim()}
-          >
-            + Add role
-          </button>
-        </div>
-
-        {file.roles.length === 0 ? (
-          <p className="registry-empty">
-            No roles defined yet. Roles are auto-discovered from CSV
-            imports; add more here as your process grows.
-          </p>
-        ) : (
-          <table className="registry-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Colour</th>
-                <th>Uses</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {file.roles.map((role) => (
-                <tr key={role.id}>
-                  <td>
+          {/* ---- Roles ---- */}
+          <section className="registry-section">
+            <h3>Roles</h3>
+            <p className="registry-hint">
+              Roles are the specific functions used on tasks (Accountable,
+              Contributors). Assign each to a department for colour
+              grouping. Renaming propagates through every task.
+            </p>
+            <div className="registry-add-row">
+              <input
+                type="text"
+                className="registry-input"
+                placeholder="New role name"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddRole();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="registry-add-btn"
+                onClick={handleAddRole}
+                disabled={!newRoleName.trim()}
+              >
+                + Add
+              </button>
+            </div>
+            {file.roles.length === 0 ? (
+              <p className="registry-empty">
+                No roles defined yet. Roles are auto-discovered from CSV
+                imports.
+              </p>
+            ) : (
+              <div className="registry-item-list">
+                {file.roles.map((role) => (
+                  <div key={role.id} className="registry-state-row">
                     <input
                       type="text"
                       className="registry-input"
-                      value={role.name}
+                      defaultValue={role.name}
                       onBlur={(e) => {
-                        const nextName = e.target.value.trim();
-                        if (nextName === role.name) return;
-                        const ok = updateRole(role.id, { name: nextName });
+                        const next = e.target.value.trim();
+                        if (next === role.name) return;
+                        const ok = updateRole(role.id, { name: next });
                         if (!ok) {
                           window.alert(
-                            `Couldn't rename — "${nextName}" is either empty or already taken.`,
+                            `Couldn't rename — "${next}" is either empty or already taken.`,
                           );
                           e.target.value = role.name;
                         }
@@ -129,50 +223,43 @@ export function RolesPanel({ isOpen, onClose }: Props) {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') e.currentTarget.blur();
                       }}
-                      defaultValue={role.name}
                     />
-                  </td>
-                  <td>
-                    <div className="registry-colour-cell">
-                      <input
-                        type="color"
-                        className="registry-colour"
-                        value={role.colour ?? '#4f46e5'}
-                        onChange={(e) =>
-                          updateRole(role.id, { colour: e.target.value })
-                        }
-                      />
-                      {role.colour && (
-                        <button
-                          type="button"
-                          className="registry-clear-btn"
-                          onClick={() =>
-                            updateRole(role.id, { colour: null })
-                          }
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="registry-count">
-                    {tasksUsingRole(role.name)}
-                  </td>
-                  <td>
+                    <select
+                      className="registry-input"
+                      style={{ width: 'auto', minWidth: 100 }}
+                      value={role.departmentId ?? ''}
+                      onChange={(e) =>
+                        updateRole(role.id, {
+                          departmentId: e.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">— No dept —</option>
+                      {file.departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="registry-count">
+                      {tasksUsingRole(role.name)}
+                    </span>
                     <button
                       type="button"
                       className="registry-delete-btn"
-                      onClick={() => handleDelete(role.id, role.name)}
+                      onClick={() =>
+                        handleDeleteRole(role.id, role.name)
+                      }
                       aria-label={`Delete ${role.name}`}
                     >
                       ×
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

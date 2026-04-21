@@ -5,11 +5,10 @@
 // utils/fileIO.ts — never by silently changing field shapes. Unknown fields
 // on a task are round-tripped via `extras` so forward-compat is free.
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
-// Initial set of deliverable states a new empty file starts with. Users
-// can rename, reorder, and add/remove these in the deliverable-item
-// management panel.
+// Starter deliverable states seeded onto new deliverable items so users
+// have something to pick from before defining their own per-item list.
 export const DEFAULT_DELIVERABLE_STATES: string[] = [
   'Draft',
   'In Review',
@@ -42,20 +41,18 @@ export interface ProcessFile {
   meta: FileMeta;
   phases: Phase[];
   tasks: Task[];
+  // Organisational groupings. Departments carry colours; roles are
+  // assigned to departments for colour-based node tinting.
+  departments: Department[];
   // Registry of roles used across tasks. Tasks still store accountable /
   // contributor NAMES (strings), not IDs — the list is a directory for
-  // pickers and colour metadata. Adding a role here is optional; tasks
-  // can reference names that aren't in the list.
+  // pickers. Roles link to a department for colour derivation.
   roles: Role[];
   // Fixed-list document types tracked through the process, e.g. "Vision
-  // Specification", "Business Case", "FMEA". Tasks declare which items
-  // they advance and to what state via Task.deliverableTargets.
+  // Specification", "Business Case", "FMEA". Each item carries its own
+  // ordered list of resolution states. Tasks declare which items they
+  // advance and to what state via Task.deliverableTargets.
   deliverableItems: DeliverableItem[];
-  // Allowed target states for deliverable items, e.g.
-  // ["Draft", "In Review", "Approved", "Final"]. Ordered — later states
-  // are "further progressed". Task.deliverableTargets[].state references
-  // a value from here.
-  deliverableStates: string[];
 }
 
 export interface FileMeta {
@@ -83,26 +80,38 @@ export interface Phase {
   colour: string | null;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  // Hex colour used for node tinting when the task's accountable role
+  // belongs to this department. Renders identically in both themes.
+  colour: string | null;
+}
+
 export interface Role {
   id: string;
   name: string;
-  // Optional colour for role-based node tinting (deferred feature).
-  colour: string | null;
+  // Links to Department.id. Null = unassigned. Colour comes from the
+  // linked department, not from the role directly.
+  departmentId: string | null;
 }
 
 export interface DeliverableItem {
   id: string;
   name: string;
   description: string;
+  // Per-item resolution states, e.g. ["Draft", "Reviewed", "Approved"].
+  // Each item can have its own progression ladder. Tasks reference a
+  // state from this list in DeliverableTarget.state.
+  states: string[];
 }
 
 export interface DeliverableTarget {
   // References DeliverableItem.id on the file.
   itemId: string;
-  // References a value in ProcessFile.deliverableStates. Free-form
-  // string at the storage layer so renaming a state doesn't orphan
-  // targets — the UI warns when a target's state isn't in the current
-  // list.
+  // References a value in the corresponding DeliverableItem.states.
+  // Free-form string at the storage layer so renaming a state doesn't
+  // orphan targets.
   state: string;
 }
 
@@ -155,10 +164,26 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
     },
     phases: [],
     tasks: [],
+    departments: [],
     roles: [],
     deliverableItems: [],
-    deliverableStates: [...DEFAULT_DELIVERABLE_STATES],
   };
+}
+
+export function findDepartmentById(
+  file: ProcessFile,
+  id: string,
+): Department | undefined {
+  return file.departments.find((d) => d.id === id);
+}
+
+export function getDepartmentForRole(
+  file: ProcessFile,
+  roleName: string,
+): Department | undefined {
+  const role = file.roles.find((r) => r.name === roleName);
+  if (!role?.departmentId) return undefined;
+  return findDepartmentById(file, role.departmentId);
 }
 
 // ---- Lookup helpers -----------------------------------------------------

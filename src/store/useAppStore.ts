@@ -4,6 +4,7 @@ import {
   type ProcessFile,
   type Role,
   type Task,
+  DEFAULT_DELIVERABLE_STATES,
   findPhaseById,
   getPhasesOrdered,
   getTasksInPhase,
@@ -97,31 +98,36 @@ interface AppState {
     options?: { autoPrereqOfTaskId?: string | null },
   ) => string | null;
   updateTask: (id: string, patch: Partial<Task>) => void;
-  addRole: (name: string, colour?: string | null) => string | null;
-  // Update a role (name and/or colour). If `name` changes, the rename
-  // propagates through every task's accountable, contributors, and
-  // meetingOrganiser fields so no task silently points at a missing
-  // name. Returns false if the new name is empty or collides with
-  // another existing role.
+  // ---- Departments ----
+  addDepartment: (name: string, colour?: string | null) => string | null;
+  updateDepartment: (
+    id: string,
+    patch: Partial<{ name: string; colour: string | null }>,
+  ) => void;
+  deleteDepartment: (id: string) => void;
+  // ---- Roles ----
+  addRole: (name: string, departmentId?: string | null) => string | null;
   updateRole: (id: string, patch: Partial<Role>) => boolean;
-  // Remove a role from the registry. Does NOT modify tasks — names
-  // still live on the tasks as free text. Callers can warn the user
-  // if the role was still in use.
   deleteRole: (id: string) => void;
-  // Deliverable items: add / update / delete. Delete cascades to
-  // every task's deliverableTargets so no task points at a missing
-  // item.
+  // ---- Deliverable items (with per-item states) ----
   addDeliverableItem: (name: string, description?: string) => string | null;
   updateDeliverableItem: (
     id: string,
     patch: Partial<{ name: string; description: string }>,
   ) => void;
   deleteDeliverableItem: (id: string) => void;
-  // Deliverable states (ordered string list).
-  addDeliverableState: (name: string) => boolean;
-  renameDeliverableState: (oldName: string, newName: string) => boolean;
-  removeDeliverableState: (name: string) => void;
-  moveDeliverableState: (name: string, direction: 'up' | 'down') => void;
+  addItemState: (itemId: string, stateName: string) => boolean;
+  renameItemState: (
+    itemId: string,
+    oldName: string,
+    newName: string,
+  ) => boolean;
+  removeItemState: (itemId: string, stateName: string) => void;
+  moveItemState: (
+    itemId: string,
+    stateName: string,
+    direction: 'up' | 'down',
+  ) => void;
   togglePrerequisite: (taskId: string, prereqId: string) => void;
   deleteTask: (id: string) => void;
   insertTaskOnEdge: (
@@ -540,14 +546,51 @@ export const useAppStore = create<AppState>((set, get) => {
       return newTask.id;
     },
 
-    addRole: (name, colour = null) => {
+    // ---- Departments ----
+
+    addDepartment: (name, colour = null) => {
+      const current = get().file;
+      if (!current) return null;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const dept = { id: makeId(), name: trimmed, colour };
+      commit({ ...current, departments: [...current.departments, dept] });
+      return dept.id;
+    },
+
+    updateDepartment: (id, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        departments: current.departments.map((d) =>
+          d.id === id ? { ...d, ...patch } : d,
+        ),
+      });
+    },
+
+    deleteDepartment: (id) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        departments: current.departments.filter((d) => d.id !== id),
+        roles: current.roles.map((r) =>
+          r.departmentId === id ? { ...r, departmentId: null } : r,
+        ),
+      });
+    },
+
+    // ---- Roles ----
+
+    addRole: (name, departmentId = null) => {
       const current = get().file;
       if (!current) return null;
       const trimmed = name.trim();
       if (!trimmed) return null;
       const existing = current.roles.find((r) => r.name === trimmed);
       if (existing) return existing.id;
-      const newRole: Role = { id: makeId(), name: trimmed, colour };
+      const newRole: Role = { id: makeId(), name: trimmed, departmentId };
       commit({ ...current, roles: [...current.roles, newRole] });
       return newRole.id;
     },
@@ -557,9 +600,9 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!current) return false;
       const role = current.roles.find((r) => r.id === id);
       if (!role) return false;
-      const nextName = patch.name === undefined ? role.name : patch.name.trim();
+      const nextName =
+        patch.name === undefined ? role.name : patch.name.trim();
       if (!nextName) return false;
-      // Reject collisions (unless it's the same role keeping its name).
       if (
         nextName !== role.name &&
         current.roles.some((r) => r.id !== id && r.name === nextName)
@@ -570,22 +613,26 @@ export const useAppStore = create<AppState>((set, get) => {
       const nextRole: Role = {
         ...role,
         name: nextName,
-        colour: patch.colour === undefined ? role.colour : patch.colour,
+        departmentId:
+          patch.departmentId === undefined
+            ? role.departmentId
+            : patch.departmentId,
       };
       const updatedRoles = current.roles.map((r) =>
         r.id === id ? nextRole : r,
       );
-      // If the name changed, propagate through every task field that
-      // references role names as strings.
       const updatedTasks = nameChanged
         ? current.tasks.map((t) => ({
             ...t,
-            accountable: t.accountable === role.name ? nextName : t.accountable,
+            accountable:
+              t.accountable === role.name ? nextName : t.accountable,
             contributors: t.contributors.map((c) =>
               c === role.name ? nextName : c,
             ),
             meetingOrganiser:
-              t.meetingOrganiser === role.name ? nextName : t.meetingOrganiser,
+              t.meetingOrganiser === role.name
+                ? nextName
+                : t.meetingOrganiser,
           }))
         : current.tasks;
       commit({ ...current, roles: updatedRoles, tasks: updatedTasks });
@@ -601,12 +648,19 @@ export const useAppStore = create<AppState>((set, get) => {
       });
     },
 
+    // ---- Deliverable items (per-item states) ----
+
     addDeliverableItem: (name, description = '') => {
       const current = get().file;
       if (!current) return null;
       const trimmed = name.trim();
       if (!trimmed) return null;
-      const newItem = { id: makeId(), name: trimmed, description };
+      const newItem = {
+        id: makeId(),
+        name: trimmed,
+        description,
+        states: [...DEFAULT_DELIVERABLE_STATES],
+      };
       commit({
         ...current,
         deliverableItems: [...current.deliverableItems, newItem],
@@ -637,11 +691,11 @@ export const useAppStore = create<AppState>((set, get) => {
     deleteDeliverableItem: (id) => {
       const current = get().file;
       if (!current) return;
-      // Cascade: strip references to the doomed item from every task's
-      // deliverableTargets so no task points at a missing id.
       commit({
         ...current,
-        deliverableItems: current.deliverableItems.filter((i) => i.id !== id),
+        deliverableItems: current.deliverableItems.filter(
+          (i) => i.id !== id,
+        ),
         tasks: current.tasks.map((t) => ({
           ...t,
           deliverableTargets: t.deliverableTargets.filter(
@@ -651,70 +705,87 @@ export const useAppStore = create<AppState>((set, get) => {
       });
     },
 
-    addDeliverableState: (name) => {
+    addItemState: (itemId, stateName) => {
       const current = get().file;
       if (!current) return false;
-      const trimmed = name.trim();
+      const trimmed = stateName.trim();
       if (!trimmed) return false;
-      if (current.deliverableStates.includes(trimmed)) return false;
+      const item = current.deliverableItems.find((i) => i.id === itemId);
+      if (!item || item.states.includes(trimmed)) return false;
       commit({
         ...current,
-        deliverableStates: [...current.deliverableStates, trimmed],
+        deliverableItems: current.deliverableItems.map((i) =>
+          i.id === itemId ? { ...i, states: [...i.states, trimmed] } : i,
+        ),
       });
       return true;
     },
 
-    renameDeliverableState: (oldName, newName) => {
+    renameItemState: (itemId, oldName, newName) => {
       const current = get().file;
       if (!current) return false;
       const trimmed = newName.trim();
-      if (!trimmed) return false;
-      if (oldName === trimmed) return true;
-      if (current.deliverableStates.includes(trimmed)) return false;
-      // Propagate through every task's deliverableTargets so targets
-      // using the old state name now use the new one.
+      if (!trimmed || oldName === trimmed) return false;
+      const item = current.deliverableItems.find((i) => i.id === itemId);
+      if (!item || item.states.includes(trimmed)) return false;
       commit({
         ...current,
-        deliverableStates: current.deliverableStates.map((s) =>
-          s === oldName ? trimmed : s,
+        deliverableItems: current.deliverableItems.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                states: i.states.map((s) => (s === oldName ? trimmed : s)),
+              }
+            : i,
         ),
         tasks: current.tasks.map((t) => ({
           ...t,
           deliverableTargets: t.deliverableTargets.map((dt) =>
-            dt.state === oldName ? { ...dt, state: trimmed } : dt,
+            dt.itemId === itemId && dt.state === oldName
+              ? { ...dt, state: trimmed }
+              : dt,
           ),
         })),
       });
       return true;
     },
 
-    removeDeliverableState: (name) => {
+    removeItemState: (itemId, stateName) => {
       const current = get().file;
       if (!current) return;
-      // Strip references to the doomed state from every task's
-      // deliverableTargets so nothing points at a missing state.
       commit({
         ...current,
-        deliverableStates: current.deliverableStates.filter((s) => s !== name),
+        deliverableItems: current.deliverableItems.map((i) =>
+          i.id === itemId
+            ? { ...i, states: i.states.filter((s) => s !== stateName) }
+            : i,
+        ),
         tasks: current.tasks.map((t) => ({
           ...t,
           deliverableTargets: t.deliverableTargets.filter(
-            (dt) => dt.state !== name,
+            (dt) => !(dt.itemId === itemId && dt.state === stateName),
           ),
         })),
       });
     },
 
-    moveDeliverableState: (name, direction) => {
+    moveItemState: (itemId, stateName, direction) => {
       const current = get().file;
       if (!current) return;
-      const idx = current.deliverableStates.indexOf(name);
+      const item = current.deliverableItems.find((i) => i.id === itemId);
+      if (!item) return;
+      const idx = item.states.indexOf(stateName);
       if (idx === -1) return;
       const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= current.deliverableStates.length) return;
-      const next = [...current.deliverableStates];
+      if (swapIdx < 0 || swapIdx >= item.states.length) return;
+      const next = [...item.states];
       [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
-      commit({ ...current, deliverableStates: next });
+      commit({
+        ...current,
+        deliverableItems: current.deliverableItems.map((i) =>
+          i.id === itemId ? { ...i, states: next } : i,
+        ),
+      });
     },
   };
 });

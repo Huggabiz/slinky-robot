@@ -146,10 +146,40 @@
 }
 
 .task-edit-deliverable-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: var(--space-sm);
   align-items: center;
+}
+
+.task-edit-deliverable-row .task-edit-deliverable-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-edit-deliverable-row select {
+  width: auto;
+  min-width: 100px;
+}
+
+.task-edit-deliverable-remove {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.task-edit-deliverable-remove:hover {
+  border-color: #c0392b;
+  color: #c0392b;
 }
 
 .task-edit-deliverable-name {
