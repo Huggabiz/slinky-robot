@@ -1,0 +1,359 @@
+/* ===========================================================
+   Book View — screen + print styles
+   =========================================================== */
+
+.book-view {
+  flex: 1;
+  overflow-y: auto;
+  background: #f7f6f2;
+  color: #1a1a1a;
+  padding: var(--space-xl) 0;
+}
+
+/* Reset edit-mode dark palette inside the book since it's designed
+   to look like a printed document regardless of mode. */
+.app.edit-mode .book-view {
+  background: #f7f6f2;
+  color: #1a1a1a;
+}
+
+.book-cover,
+.book-toc,
+.book-chapter {
+  max-width: 720px;
+  margin: 0 auto var(--space-xl);
+  padding: var(--space-xl) var(--space-xl);
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.book-cover {
+  text-align: center;
+  padding: 80px var(--space-xl);
+}
+
+.book-cover h1 {
+  font-size: 32px;
+  margin: 0 0 var(--space-sm);
+  color: #1a1a1a;
+}
+
+.book-cover-sub {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 var(--space-md);
+}
+
+.book-cover-date {
+  font-size: 13px;
+  color: #999;
+  margin: var(--space-xl) 0 0;
+}
+
+.book-toc h2 {
+  font-size: 20px;
+  margin: 0 0 var(--space-md);
+  color: #1a1a1a;
+}
+
+.book-toc ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.book-toc li {
+  padding: 4px 0;
+}
+
+.book-toc a {
+  color: #1a1a1a;
+  text-decoration: none;
+}
+
+.book-toc a:hover {
+  text-decoration: underline;
+}
+
+.book-toc-num {
+  display: inline-block;
+  min-width: 24px;
+  color: #888;
+}
+
+.book-chapter-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 2px solid #1a1a1a;
+  margin-bottom: var(--space-lg);
+}
+
+.book-chapter-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.book-chapter-heading {
+  flex: 1;
+}
+
+.book-chapter-number {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.book-chapter-heading h2 {
+  margin: 0;
+  font-size: 26px;
+  color: #1a1a1a;
+}
+
+.book-chapter-intro {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #333;
+  margin-bottom: var(--space-xl);
+}
+
+.book-chapter-intro p {
+  margin: 0 0 var(--space-md);
+}
+
+.book-empty {
+  font-style: italic;
+  color: #999;
+}
+
+.book-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.book-step {
+  border-left: 3px solid #e0ddd4;
+  padding: var(--space-md) var(--space-lg);
+  background: #fafaf7;
+  border-radius: 3px;
+}
+
+.book-step-header {
+  margin-bottom: var(--space-sm);
+}
+
+.book-step-id-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.book-step-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+}
+
+.book-step-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  background: #e8e5de;
+  color: #555;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-radius: 2px;
+}
+
+.book-step-chip-accent {
+  background: #1a1a1a;
+  color: white;
+}
+
+.book-step-chip-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: none;
+}
+
+.book-step-name {
+  margin: 0;
+  font-size: 17px;
+  color: #1a1a1a;
+}
+
+.book-step-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-md);
+  font-size: 12px;
+  margin: var(--space-sm) 0;
+}
+
+.book-meta-row {
+  display: contents;
+}
+
+.book-meta-row dt {
+  color: #888;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.book-meta-row dd {
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.book-step-section {
+  margin-top: var(--space-sm);
+}
+
+.book-step-section h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.book-step-prose {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #222;
+  white-space: pre-wrap;
+}
+
+.book-step-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.book-step-table th,
+.book-step-table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #e8e5de;
+}
+
+.book-step-table th {
+  background: #f2f0e9;
+  font-weight: 600;
+  color: #555;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.book-step-refs {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed #ddd;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.book-step-refs strong {
+  color: #444;
+}
+
+/* ===========================================================
+   Print styles — A4 layout with page breaks + running header
+   =========================================================== */
+
+@media print {
+  /* A4 page with named margins; browser prints the @top-center and
+     @bottom-center margin boxes as running head / page number. */
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm 18mm;
+    @bottom-center {
+      content: counter(page);
+      font-family: Georgia, serif;
+      font-size: 10pt;
+      color: #666;
+    }
+  }
+
+  @page:first {
+    @bottom-center {
+      content: '';
+    }
+  }
+
+  body,
+  .app,
+  .app-workspace,
+  .app-flow-column {
+    background: white !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide everything except the book view itself. */
+  .toolbar,
+  .app-ribbon,
+  .app-left-sidebar,
+  .app-detail-column,
+  .detail-resizer,
+  .flow-toolbar {
+    display: none !important;
+  }
+
+  .book-view {
+    background: white !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .book-cover,
+  .book-toc,
+  .book-chapter {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    background: white;
+  }
+
+  .book-cover {
+    text-align: center;
+    padding: 40mm 0;
+    page-break-after: always;
+  }
+
+  .book-toc {
+    page-break-after: always;
+  }
+
+  .book-chapter {
+    page-break-before: always;
+  }
+
+  /* Avoid splitting a step card across two pages when possible. */
+  .book-step {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    background: white;
+    border-left: 2px solid #1a1a1a;
+  }
+
+  .book-step-prose,
+  .book-chapter-intro p {
+    orphans: 3;
+    widows: 3;
+  }
+}

@@ -9,6 +9,8 @@ import { TaskDetail } from './components/TaskDetail';
 import { DetailResizer } from './components/DetailResizer';
 import { ImportCsvDialog } from './components/ImportCsvDialog';
 import { PerspectivesPanel } from './components/PerspectivesPanel';
+import { BookView } from './components/BookView';
+import type { AppView } from './components/AppRibbon';
 import type { PerspectiveFilter } from './utils/perspective';
 import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
@@ -74,6 +76,9 @@ function App() {
   const [perspectiveFilter, setPerspectiveFilter] =
     useState<PerspectiveFilter | null>(null);
   const [perspectiveHideOthers, setPerspectiveHideOthers] = useState(false);
+
+  // View toggle: flow chart vs book view.
+  const [view, setView] = useState<AppView>('flow');
 
   // Dialogs / panels.
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
@@ -158,6 +163,8 @@ function App() {
         onCreatePhase={handleCreatePhase}
         onCreateTask={handleCreateTask}
         onCreateDeliverableItem={handleCreateDeliverableItem}
+        view={view}
+        onViewChange={setView}
       />
       {autosave.pending && !file && (
         <RestoreBanner
@@ -181,6 +188,8 @@ function App() {
             </p>
           </div>
         </main>
+      ) : view === 'book' ? (
+        <BookView />
       ) : (
         <div className="app-workspace">
           <aside className="app-left-sidebar">

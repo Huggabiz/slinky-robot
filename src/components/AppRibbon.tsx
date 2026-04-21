@@ -15,6 +15,8 @@ import {
 } from './DropdownButton';
 import './AppRibbon.css';
 
+export type AppView = 'flow' | 'book';
+
 interface Props {
   onImportCsv: () => void;
   onSaveComplete: () => void;
@@ -24,6 +26,8 @@ interface Props {
   onCreatePhase: () => void;
   onCreateTask: () => void;
   onCreateDeliverableItem: () => void;
+  view: AppView;
+  onViewChange: (view: AppView) => void;
 }
 
 // Unified ribbon bar that replaces the old EditToolbar + FileMenu.
@@ -38,6 +42,8 @@ export function AppRibbon({
   onCreatePhase,
   onCreateTask,
   onCreateDeliverableItem,
+  view,
+  onViewChange,
 }: Props) {
   const file = useAppStore((s) => s.file);
   const fileName = useAppStore((s) => s.fileName);
@@ -154,6 +160,29 @@ export function AppRibbon({
           label="Save as…"
           onClick={handleSaveAs}
           disabled={!file}
+        />
+      </DropdownButton>
+
+      {/* ---- View menu ---- */}
+      <DropdownButton label="View" disabled={!file}>
+        <DropdownItem
+          label={view === 'flow' ? '✓ Flow chart' : 'Flow chart'}
+          onClick={() => onViewChange('flow')}
+        />
+        <DropdownItem
+          label={view === 'book' ? '✓ Book view' : 'Book view'}
+          onClick={() => onViewChange('book')}
+        />
+        <DropdownDivider />
+        <DropdownItem
+          label="Print book view…"
+          onClick={() => {
+            onViewChange('book');
+            // Delay to let the book render before the print dialog fires.
+            setTimeout(() => window.print(), 100);
+          }}
+          shortcut="Ctrl+P"
+          disabled={view !== 'book' && !file}
         />
       </DropdownButton>
 
