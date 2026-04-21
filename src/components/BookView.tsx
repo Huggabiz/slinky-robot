@@ -6,6 +6,7 @@ import {
   type Task,
 } from '../types';
 import { topoSortTasksInPhase } from '../utils/topoSort';
+import { BookFlowDiagram } from './BookFlowDiagram';
 import './BookView.css';
 
 // Full-document reading view. Renders every phase as a chapter,
@@ -86,6 +87,8 @@ function BookChapter({
           ))}
         </div>
       )}
+
+      <BookFlowDiagram phaseId={phase.id} />
 
       {tasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>

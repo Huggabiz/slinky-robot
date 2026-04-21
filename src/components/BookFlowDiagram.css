@@ -1,0 +1,22 @@
+.book-flow-diagram {
+  margin: var(--space-lg) 0;
+  border: 1px solid #e8e5de;
+  border-radius: 4px;
+  background: #fefefe;
+  padding: var(--space-sm);
+  overflow-x: auto;
+}
+
+.book-flow-diagram svg {
+  display: block;
+  margin: 0 auto;
+}
+
+@media print {
+  .book-flow-diagram {
+    border: 1px solid #ccc;
+    padding: 4mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
