@@ -10,6 +10,7 @@ import { DetailResizer } from './components/DetailResizer';
 import { ImportCsvDialog } from './components/ImportCsvDialog';
 import { PerspectivesPanel } from './components/PerspectivesPanel';
 import { IntroChaptersPanel } from './components/IntroChaptersPanel';
+import { IntroChapterEditor } from './components/IntroChapterEditor';
 import { BookView } from './components/BookView';
 import type { AppView } from './components/AppRibbon';
 import type { PerspectiveFilter } from './utils/perspective';
@@ -82,6 +83,18 @@ function App() {
   // View toggle: flow chart vs book view.
   const [view, setView] = useState<AppView>('flow');
 
+  // Intro chapter selection — when set, the right panel shows the
+  // chapter editor instead of the task detail. Cleared whenever a
+  // task is selected on the flow.
+  const [selectedIntroChapterId, setSelectedIntroChapterId] = useState<
+    string | null
+  >(null);
+
+  // Clear intro chapter selection when a task gets selected.
+  useEffect(() => {
+    if (selectedTaskId) setSelectedIntroChapterId(null);
+  }, [selectedTaskId]);
+
   // Dialogs / panels.
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
@@ -151,7 +164,8 @@ function App() {
   };
 
   const showDetailColumn =
-    file !== null && (selectedTaskId !== null || phaseId !== null);
+    file !== null &&
+    (selectedTaskId !== null || phaseId !== null || selectedIntroChapterId !== null);
 
   return (
     <div className={`app${mode === 'edit' ? ' edit-mode' : ''}`}>
@@ -196,7 +210,13 @@ function App() {
       ) : (
         <div className="app-workspace">
           <aside className="app-left-sidebar">
-            <IntroChaptersPanel />
+            <IntroChaptersPanel
+              selectedChapterId={selectedIntroChapterId}
+              onSelect={(id) => {
+                setSelectedIntroChapterId(id);
+                if (id) selectTask(null);
+              }}
+            />
             <PhaseSidebar
               selectedPhaseId={phaseId}
               onSelect={setPhaseId}
@@ -235,8 +255,14 @@ function App() {
                 className="app-detail-column"
                 style={{ width: detailWidth }}
               >
-                <PhaseInfoBar phaseId={phaseId} />
-                {selectedTaskId && <TaskDetail />}
+                {selectedIntroChapterId ? (
+                  <IntroChapterEditor chapterId={selectedIntroChapterId} />
+                ) : (
+                  <>
+                    <PhaseInfoBar phaseId={phaseId} />
+                    {selectedTaskId && <TaskDetail />}
+                  </>
+                )}
               </aside>
             </>
           )}

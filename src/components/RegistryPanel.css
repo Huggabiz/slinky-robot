@@ -327,6 +327,90 @@
   min-width: 20px;
 }
 
+/* ---- Deliverables panel accordion ---- */
+
+.deliv-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.deliv-item-expanded {
+  border-color: var(--color-accent);
+}
+
+.deliv-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  user-select: none;
+}
+
+.deliv-item-row:hover {
+  background: var(--color-surface);
+}
+
+.deliv-item-chevron {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.deliv-item-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.deliv-item-states-badge {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.deliv-detail {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.deliv-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deliv-detail-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+.deliv-detail-delete {
+  appearance: none;
+  border: 1px solid #c0392b;
+  background: transparent;
+  color: #c0392b;
+  font: inherit;
+  font-size: 12px;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.deliv-detail-delete:hover {
+  background: #c0392b;
+  color: white;
+}
+
 .registry-item-states {
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);

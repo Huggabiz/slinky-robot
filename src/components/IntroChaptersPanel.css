@@ -12,47 +12,47 @@
   font-weight: 600;
 }
 
-.intro-ch {
-  display: flex;
-  flex-direction: column;
+.intro-ch-empty {
+  padding: var(--space-xs) var(--space-md);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
 }
 
 .intro-ch-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px var(--space-md);
+  padding: 0 var(--space-md);
 }
 
-.intro-ch-expand {
+.intro-ch-row-active .intro-ch-name {
+  background: var(--color-accent);
+  color: white;
+}
+
+.intro-ch-name {
   appearance: none;
   border: none;
   background: none;
-  font-size: 10px;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  width: 16px;
-  flex-shrink: 0;
-}
-
-.intro-ch-title {
-  flex: 1;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
   color: var(--color-text);
-  background: transparent;
-  border: 1px solid transparent;
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  text-align: left;
+  flex: 1;
   border-radius: var(--radius-sm);
-  padding: 2px 4px;
-  min-width: 0;
+  word-break: break-word;
 }
 
-.intro-ch-title:focus {
+.intro-ch-name:hover {
   background: var(--color-bg);
-  border-color: var(--color-accent);
-  outline: none;
+}
+
+.intro-ch-row-active .intro-ch-name:hover {
+  background: var(--color-accent);
 }
 
 .intro-ch-del {
@@ -64,6 +64,7 @@
   cursor: pointer;
   padding: 0 4px;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
 .intro-ch-del:hover {
@@ -71,78 +72,6 @@
   border-color: #c0392b;
 }
 
-.intro-ch-sections {
-  padding: var(--space-xs) var(--space-md) var(--space-sm) calc(var(--space-md) + 20px);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.intro-sec {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-}
-
-.intro-sec-input {
-  font: inherit;
-  font-size: 12px;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 4px var(--space-xs);
-}
-
-.intro-sec-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.intro-sec-sub {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.intro-sec-body {
-  font: inherit;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 4px var(--space-xs);
-  resize: vertical;
-  line-height: 1.5;
-}
-
-.intro-sec-body:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.intro-sec-del {
-  appearance: none;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px 0;
-  text-align: left;
-}
-
-.intro-sec-del:hover {
-  color: #c0392b;
-}
-
-.intro-sec-add,
 .intro-ch-add {
   appearance: none;
   border: 1px dashed var(--color-border);
@@ -154,15 +83,11 @@
   margin: var(--space-xs) var(--space-md);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  width: calc(100% - 2 * var(--space-md));
 }
 
-.intro-sec-add:hover,
 .intro-ch-add:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
   border-style: solid;
-}
-
-.intro-sec-add {
-  margin: 0;
 }

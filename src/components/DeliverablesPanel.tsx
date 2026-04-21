@@ -7,8 +7,9 @@ interface Props {
   onClose: () => void;
 }
 
-// Modal panel for managing deliverable items. Each item carries its
-// own ordered list of resolution states (per-item, not global).
+// Modal panel for managing deliverable items. Items are shown as a
+// collapsed list; click one to expand and edit its name, description,
+// and per-item resolution states. Only one item is expanded at a time.
 export function DeliverablesPanel({ isOpen, onClose }: Props) {
   const file = useAppStore((s) => s.file);
   const addDeliverableItem = useAppStore((s) => s.addDeliverableItem);
@@ -20,6 +21,7 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
   const moveItemState = useAppStore((s) => s.moveItemState);
 
   const [newItemName, setNewItemName] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (!isOpen || !file) return null;
 
@@ -34,7 +36,10 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
 
   const handleAddItem = () => {
     const id = addDeliverableItem(newItemName);
-    if (id) setNewItemName('');
+    if (id) {
+      setNewItemName('');
+      setExpandedId(id);
+    }
   };
 
   const handleDeleteItem = (id: string, name: string) => {
@@ -45,12 +50,13 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
         : `Delete "${name}"?`;
     if (!window.confirm(msg)) return;
     deleteDeliverableItem(id);
+    if (expandedId === id) setExpandedId(null);
   };
 
   return (
     <div className="registry-backdrop" onClick={onClose}>
       <div
-        className="registry-panel registry-panel-wide"
+        className="registry-panel"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Deliverable items"
@@ -67,92 +73,108 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
           </button>
         </header>
 
-        <div
-          className="registry-split"
-          style={{ gridTemplateColumns: '1fr' }}
-        >
-          <section className="registry-section">
-            <p className="registry-hint">
-              Each item is a tracked document type (e.g. Vision Spec,
-              Business Case, FMEA). Each carries its own ordered list of
-              resolution states — define what "done" means for each
-              document independently.
-            </p>
-            <div className="registry-add-row">
-              <input
-                type="text"
-                className="registry-input"
-                placeholder="New item name"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddItem();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="registry-add-btn"
-                onClick={handleAddItem}
-                disabled={!newItemName.trim()}
-              >
-                + Add item
-              </button>
-            </div>
+        <div style={{ padding: 'var(--space-md) var(--space-lg)', overflow: 'auto', flex: 1 }}>
+          <p className="registry-hint">
+            Click an item to expand and edit its details and resolution
+            states.
+          </p>
 
-            {file.deliverableItems.length === 0 ? (
-              <p className="registry-empty">No deliverable items yet.</p>
-            ) : (
-              <div className="registry-item-list">
-                {file.deliverableItems.map((item) => (
-                  <ItemCard
+          <div className="registry-add-row">
+            <input
+              type="text"
+              className="registry-input"
+              placeholder="New item name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddItem();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="registry-add-btn"
+              onClick={handleAddItem}
+              disabled={!newItemName.trim()}
+            >
+              + Add
+            </button>
+          </div>
+
+          {file.deliverableItems.length === 0 ? (
+            <p className="registry-empty">No deliverable items yet.</p>
+          ) : (
+            <div className="registry-item-list">
+              {file.deliverableItems.map((item) => {
+                const isExpanded = expandedId === item.id;
+                return (
+                  <div
                     key={item.id}
-                    item={item}
-                    useCount={tasksUsingItem(item.id)}
-                    onUpdateItem={updateDeliverableItem}
-                    onDeleteItem={() =>
-                      handleDeleteItem(item.id, item.name)
-                    }
-                    onAddState={(name) => addItemState(item.id, name)}
-                    onRenameState={(old, next) =>
-                      renameItemState(item.id, old, next)
-                    }
-                    onRemoveState={(name) =>
-                      removeItemState(item.id, name)
-                    }
-                    onMoveState={(name, dir) =>
-                      moveItemState(item.id, name, dir)
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+                    className={`deliv-item${isExpanded ? ' deliv-item-expanded' : ''}`}
+                  >
+                    <div
+                      className="deliv-item-row"
+                      onClick={() =>
+                        setExpandedId(isExpanded ? null : item.id)
+                      }
+                    >
+                      <span className="deliv-item-chevron">
+                        {isExpanded ? '▾' : '▸'}
+                      </span>
+                      <span className="deliv-item-name">{item.name}</span>
+                      <span className="registry-count">
+                        {tasksUsingItem(item.id)}
+                      </span>
+                      <span className="deliv-item-states-badge">
+                        {item.states.length} state{item.states.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {isExpanded && (
+                      <ItemDetail
+                        item={item}
+                        onUpdate={updateDeliverableItem}
+                        onDelete={() => handleDeleteItem(item.id, item.name)}
+                        onAddState={(name) => addItemState(item.id, name)}
+                        onRenameState={(old, next) =>
+                          renameItemState(item.id, old, next)
+                        }
+                        onRemoveState={(name) =>
+                          removeItemState(item.id, name)
+                        }
+                        onMoveState={(name, dir) =>
+                          moveItemState(item.id, name, dir)
+                        }
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ItemCard({
+function ItemDetail({
   item,
-  useCount,
-  onUpdateItem,
-  onDeleteItem,
+  onUpdate,
+  onDelete,
   onAddState,
   onRenameState,
   onRemoveState,
   onMoveState,
 }: {
   item: { id: string; name: string; description: string; states: string[] };
-  useCount: number;
-  onUpdateItem: (
+  onUpdate: (
     id: string,
     patch: Partial<{ name: string; description: string }>,
   ) => void;
-  onDeleteItem: () => void;
+  onDelete: () => void;
   onAddState: (name: string) => boolean;
   onRenameState: (old: string, next: string) => boolean;
   onRemoveState: (name: string) => void;
@@ -160,13 +182,10 @@ function ItemCard({
 }) {
   const [newState, setNewState] = useState('');
 
-  const handleAddState = () => {
-    if (onAddState(newState)) setNewState('');
-  };
-
   return (
-    <div className="registry-item-card">
-      <div className="registry-item-head">
+    <div className="deliv-detail">
+      <div className="deliv-detail-field">
+        <label className="deliv-detail-label">Name</label>
         <input
           type="text"
           className="registry-input"
@@ -174,7 +193,7 @@ function ItemCard({
           onBlur={(e) => {
             const next = e.target.value.trim();
             if (next && next !== item.name) {
-              onUpdateItem(item.id, { name: next });
+              onUpdate(item.id, { name: next });
             } else if (!next) {
               e.target.value = item.name;
             }
@@ -183,29 +202,27 @@ function ItemCard({
             if (e.key === 'Enter') e.currentTarget.blur();
           }}
         />
-        <span className="registry-count">{useCount}</span>
-        <button
-          type="button"
-          className="registry-delete-btn"
-          onClick={onDeleteItem}
-          aria-label={`Delete ${item.name}`}
-        >
-          ×
-        </button>
       </div>
-      <textarea
-        className="registry-textarea"
-        defaultValue={item.description}
-        rows={2}
-        placeholder="Description (optional)"
-        onBlur={(e) => {
-          if (e.target.value !== item.description) {
-            onUpdateItem(item.id, { description: e.target.value });
-          }
-        }}
-      />
-      <div className="registry-item-states">
-        <span className="registry-item-states-label">States:</span>
+
+      <div className="deliv-detail-field">
+        <label className="deliv-detail-label">Description</label>
+        <textarea
+          className="registry-textarea"
+          defaultValue={item.description}
+          rows={3}
+          placeholder="What this document is for…"
+          onBlur={(e) => {
+            if (e.target.value !== item.description) {
+              onUpdate(item.id, { description: e.target.value });
+            }
+          }}
+        />
+      </div>
+
+      <div className="deliv-detail-field">
+        <label className="deliv-detail-label">
+          Resolution states ({item.states.length})
+        </label>
         {item.states.map((state, idx) => (
           <div key={state} className="registry-state-row">
             <span className="registry-state-order">{idx + 1}</span>
@@ -267,14 +284,16 @@ function ItemCard({
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                handleAddState();
+                if (onAddState(newState)) setNewState('');
               }
             }}
           />
           <button
             type="button"
             className="registry-add-btn"
-            onClick={handleAddState}
+            onClick={() => {
+              if (onAddState(newState)) setNewState('');
+            }}
             disabled={!newState.trim()}
             style={{ fontSize: 11, padding: '2px 8px' }}
           >
@@ -282,6 +301,14 @@ function ItemCard({
           </button>
         </div>
       </div>
+
+      <button
+        type="button"
+        className="deliv-detail-delete"
+        onClick={onDelete}
+      >
+        Delete this item
+      </button>
     </div>
   );
 }

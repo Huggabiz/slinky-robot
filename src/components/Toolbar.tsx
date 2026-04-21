@@ -8,10 +8,12 @@ import './Toolbar.css';
 export function Toolbar() {
   const file = useAppStore((s) => s.file);
   const dirty = useAppStore((s) => s.dirty);
+  const mode = useAppStore((s) => s.mode);
   const updateFile = useAppStore((s) => s.updateFile);
   const [editing, setEditing] = useState(false);
 
   const title = file?.meta.title ?? 'Slinky Robot';
+  const canEdit = mode === 'edit' && file !== null;
 
   const handleTitleCommit = (value: string) => {
     const trimmed = value.trim();
@@ -29,7 +31,7 @@ export function Toolbar() {
       <ModeToggle />
 
       <div className="toolbar-title">
-        {editing && file ? (
+        {editing && canEdit ? (
           <input
             type="text"
             className="toolbar-title-input"
@@ -43,9 +45,9 @@ export function Toolbar() {
           />
         ) : (
           <span
-            className={file ? 'toolbar-title-text toolbar-title-editable' : 'toolbar-title-text'}
-            onClick={() => file && setEditing(true)}
-            title={file ? 'Click to rename' : undefined}
+            className={canEdit ? 'toolbar-title-text toolbar-title-editable' : 'toolbar-title-text'}
+            onClick={() => canEdit && setEditing(true)}
+            title={canEdit ? 'Click to rename' : undefined}
           >
             {title}
           </span>

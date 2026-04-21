@@ -1,0 +1,159 @@
+.intro-editor {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xl);
+}
+
+.intro-editor-header {
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.intro-editor-title {
+  margin: 0;
+  font-size: 22px;
+  color: var(--color-text);
+}
+
+.intro-editor-title-input {
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  width: 100%;
+}
+
+.intro-editor-title-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.intro-editor-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.intro-editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.intro-editor-sec-title {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-sm);
+  width: 100%;
+}
+
+.intro-editor-sec-subtitle {
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--space-sm);
+  width: 100%;
+}
+
+.intro-editor-sec-body {
+  font: inherit;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  width: 100%;
+  resize: vertical;
+}
+
+.intro-editor-sec-title:focus,
+.intro-editor-sec-subtitle:focus,
+.intro-editor-sec-body:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.intro-editor-sec-del {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 0;
+  text-align: left;
+  align-self: flex-start;
+}
+
+.intro-editor-sec-del:hover {
+  color: #c0392b;
+}
+
+.intro-editor-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.intro-editor-empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 13px;
+  margin: 0;
+}
+
+.intro-editor-add-sec {
+  appearance: none;
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 13px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.intro-editor-add-sec:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  border-style: solid;
+}
+
+.intro-editor-read-title {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+.intro-editor-read-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.intro-editor-read-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
