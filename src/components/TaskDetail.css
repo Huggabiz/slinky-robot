@@ -13,6 +13,64 @@
   font-size: 14px;
 }
 
+.task-detail-bulk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.task-detail-bulk-title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--color-text);
+}
+
+.task-detail-bulk-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.task-detail-bulk-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.task-detail-bulk-move {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.task-detail-bulk-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+.task-detail-bulk-phase-btn {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.task-detail-bulk-phase-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .task-detail-header {
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-md);

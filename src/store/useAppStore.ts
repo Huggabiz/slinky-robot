@@ -31,8 +31,13 @@ interface AppState {
   // (when FSAA is available) or by Save As.
   fileHandle: FileSystemFileHandle | null;
   mode: EditorMode;
-  // Selected task by internal id, drives the detail panel.
+  // Primary selection — drives the detail panel. Single-select for
+  // Navigate mode; multi-select (Shift/Ctrl+Click) available in Edit.
   selectedTaskId: string | null;
+  // Multi-selection set. Always includes selectedTaskId when non-null.
+  // Used by bulk operations (delete, move-to-phase). Empty in Navigate
+  // mode or when nothing is selected.
+  selectedTaskIds: Set<string>;
   // Whether there are unsaved changes since last load/save.
   dirty: boolean;
 
@@ -55,7 +60,21 @@ interface AppState {
   ) => void;
   setFileHandle: (handle: FileSystemFileHandle | null) => void;
   selectTask: (id: string | null) => void;
+  // Toggle a task in/out of the multi-selection (Ctrl+Click in edit mode).
+  toggleSelectTask: (id: string) => void;
+  // Range-select: select all tasks between the current selection and
+  // the given id (Shift+Click). Only useful in edit mode; ordered by
+  // their position in the file's task array.
+  rangeSelectTask: (id: string) => void;
+  // Clear multi-selection back to single (or none).
+  clearMultiSelect: () => void;
   setMode: (mode: EditorMode) => void;
+  // ---- Bulk edit operations ----
+  // Delete every task in selectedTaskIds, one at a time in reverse
+  // order so the cascade logic applies to each independently.
+  bulkDeleteTasks: () => void;
+  // Move every task in selectedTaskIds to a different phase.
+  bulkMoveTasksToPhase: (targetPhaseId: string) => void;
   markDirty: () => void;
   markClean: () => void;
 
@@ -145,6 +164,7 @@ export const useAppStore = create<AppState>((set, get) => {
     fileHandle: null,
     mode: 'review',
     selectedTaskId: null,
+    selectedTaskIds: new Set<string>(),
     dirty: false,
     past: [],
     future: [],
@@ -155,6 +175,7 @@ export const useAppStore = create<AppState>((set, get) => {
         fileName: null,
         fileHandle: null,
         selectedTaskId: null,
+        selectedTaskIds: new Set<string>(),
         dirty: false,
         mode: 'review',
         past: [],
@@ -167,6 +188,7 @@ export const useAppStore = create<AppState>((set, get) => {
         fileName,
         fileHandle: handle ?? null,
         selectedTaskId: null,
+        selectedTaskIds: new Set<string>(),
         dirty: false,
         mode: 'review',
         past: [],
@@ -174,8 +196,102 @@ export const useAppStore = create<AppState>((set, get) => {
       }),
 
     setFileHandle: (handle) => set({ fileHandle: handle }),
-    selectTask: (id) => set({ selectedTaskId: id }),
-    setMode: (mode) => set({ mode }),
+    selectTask: (id) =>
+      set({
+        selectedTaskId: id,
+        selectedTaskIds: id ? new Set([id]) : new Set<string>(),
+      }),
+
+    toggleSelectTask: (id) => {
+      const { selectedTaskIds, selectedTaskId } = get();
+      const next = new Set(selectedTaskIds);
+      if (next.has(id)) {
+        next.delete(id);
+        // If we removed the primary selection, pick another from the set.
+        const newPrimary =
+          selectedTaskId === id
+            ? (next.size > 0 ? [...next][0] : null)
+            : selectedTaskId;
+        set({ selectedTaskIds: next, selectedTaskId: newPrimary });
+      } else {
+        next.add(id);
+        set({
+          selectedTaskIds: next,
+          selectedTaskId: selectedTaskId ?? id,
+        });
+      }
+    },
+
+    rangeSelectTask: (id) => {
+      const { file, selectedTaskId } = get();
+      if (!file || !selectedTaskId) {
+        set({
+          selectedTaskId: id,
+          selectedTaskIds: new Set([id]),
+        });
+        return;
+      }
+      // Find the indices of the anchor and the target in the file's task array.
+      const ids = file.tasks.map((t) => t.id);
+      const anchorIdx = ids.indexOf(selectedTaskId);
+      const targetIdx = ids.indexOf(id);
+      if (anchorIdx === -1 || targetIdx === -1) return;
+      const lo = Math.min(anchorIdx, targetIdx);
+      const hi = Math.max(anchorIdx, targetIdx);
+      const rangeIds = ids.slice(lo, hi + 1);
+      set({
+        selectedTaskIds: new Set(rangeIds),
+        // Primary stays at the anchor so the detail panel doesn't jump.
+      });
+    },
+
+    clearMultiSelect: () => {
+      const primary = get().selectedTaskId;
+      set({
+        selectedTaskIds: primary ? new Set([primary]) : new Set<string>(),
+      });
+    },
+
+    setMode: (mode) => {
+      // Entering Navigate mode collapses multi-selection to single.
+      if (mode === 'review') {
+        const primary = get().selectedTaskId;
+        set({
+          mode,
+          selectedTaskIds: primary ? new Set([primary]) : new Set<string>(),
+        });
+      } else {
+        set({ mode });
+      }
+    },
+
+    bulkDeleteTasks: () => {
+      const { selectedTaskIds, file } = get();
+      if (!file || selectedTaskIds.size === 0) return;
+      // Delete one at a time in reverse file order so each deletion's
+      // cascade sees the state left by the previous.
+      const idsInOrder = file.tasks
+        .filter((t) => selectedTaskIds.has(t.id))
+        .map((t) => t.id)
+        .reverse();
+      for (const id of idsInOrder) {
+        get().deleteTask(id);
+      }
+      set({ selectedTaskId: null, selectedTaskIds: new Set<string>() });
+    },
+
+    bulkMoveTasksToPhase: (targetPhaseId) => {
+      const { selectedTaskIds, file } = get();
+      if (!file || selectedTaskIds.size === 0) return;
+      commit({
+        ...file,
+        tasks: file.tasks.map((t) =>
+          selectedTaskIds.has(t.id)
+            ? { ...t, phaseId: targetPhaseId }
+            : t,
+        ),
+      });
+    },
     markDirty: () => set({ dirty: true }),
     markClean: () => set({ dirty: false }),
 

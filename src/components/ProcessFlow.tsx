@@ -54,7 +54,10 @@ export function ProcessFlow({
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const selectedTaskIds = useAppStore((s) => s.selectedTaskIds);
   const selectTask = useAppStore((s) => s.selectTask);
+  const toggleSelectTask = useAppStore((s) => s.toggleSelectTask);
+  const rangeSelectTask = useAppStore((s) => s.rangeSelectTask);
   const togglePrerequisite = useAppStore((s) => s.togglePrerequisite);
   const insertTaskOnEdge = useAppStore((s) => s.insertTaskOnEdge);
 
@@ -96,13 +99,14 @@ export function ProcessFlow({
     () =>
       layout.nodes.map((n) => ({
         ...n,
-        selected: n.id === selectedTaskId,
+        // Mark as selected if it's the primary OR in the multi-set.
+        selected: n.id === selectedTaskId || selectedTaskIds.has(n.id),
         data: {
           ...n.data,
           highlight: highlightMap?.get(n.id),
         },
       })),
-    [layout.nodes, selectedTaskId, highlightMap],
+    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap],
   );
 
   // Colour minimap rectangles by the task's phase colour so the
@@ -131,27 +135,52 @@ export function ProcessFlow({
     [phaseColourById],
   );
 
-  // In edit mode, Ctrl/Cmd+Click a node toggles it as a prereq of the
-  // currently-selected task; normal click still selects. Edge-click
-  // inserts a new task that splits the edge.
-  // These callbacks MUST sit above the early return below — React's
-  // rules-of-hooks require every render to call the same hooks in the
-  // same order, and an early return that happens before a hook call
-  // will produce different hook counts across renders (error #310).
+  // Node click behaviour varies by mode and modifier keys:
+  //
+  //   Navigate mode:
+  //     - Click          → single-select
+  //
+  //   Edit mode:
+  //     - Click          → single-select (clears multi)
+  //     - Ctrl/Cmd+Click → toggle prereq of the primary selection
+  //                         (if a single task is selected)
+  //     - Shift+Click    → range-select (multi)
+  //     - Alt+Click      → toggle in/out of multi-selection
+  //
+  // All callbacks MUST sit above the early return — rules of hooks.
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      if (
-        mode === 'edit' &&
-        selectedTaskId &&
-        selectedTaskId !== node.id &&
-        (event.ctrlKey || event.metaKey)
-      ) {
-        togglePrerequisite(selectedTaskId, node.id);
-        return;
+      if (mode === 'edit') {
+        // Alt+Click: toggle multi-select membership.
+        if (event.altKey) {
+          toggleSelectTask(node.id);
+          return;
+        }
+        // Shift+Click: range-select.
+        if (event.shiftKey) {
+          rangeSelectTask(node.id);
+          return;
+        }
+        // Ctrl/Cmd+Click: toggle prerequisite of the primary selection.
+        if (
+          (event.ctrlKey || event.metaKey) &&
+          selectedTaskId &&
+          selectedTaskId !== node.id
+        ) {
+          togglePrerequisite(selectedTaskId, node.id);
+          return;
+        }
       }
       selectTask(node.id);
     },
-    [mode, selectedTaskId, selectTask, togglePrerequisite],
+    [
+      mode,
+      selectedTaskId,
+      selectTask,
+      toggleSelectTask,
+      rangeSelectTask,
+      togglePrerequisite,
+    ],
   );
 
   const handleEdgeClick = useCallback(

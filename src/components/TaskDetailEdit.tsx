@@ -209,6 +209,45 @@ export function TaskDetailEdit({ task }: { task: Task }) {
         />
       </Section>
 
+      {file.deliverableItems.length > 0 && (
+        <Section title="Deliverable targets">
+          <p className="task-edit-hint">
+            For each tracked document, the state it reaches at this task.
+          </p>
+          <div className="task-edit-deliverable-list">
+            {file.deliverableItems.map((item) => {
+              const target = task.deliverableTargets.find(
+                (t) => t.itemId === item.id,
+              );
+              return (
+                <div key={item.id} className="task-edit-deliverable-row">
+                  <span className="task-edit-deliverable-name">
+                    {item.name}
+                  </span>
+                  <select
+                    className="task-edit-input"
+                    value={target?.state ?? ''}
+                    onChange={(e) =>
+                      setDeliverableTarget(
+                        item.id,
+                        e.target.value || null,
+                      )
+                    }
+                  >
+                    <option value="">— not tracked —</option>
+                    {file.deliverableStates.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
       {task.dateType !== 'NONE' && (
         <Section title="Key Date Rationale">
           <textarea
@@ -307,45 +346,6 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           Delete this task
         </button>
       </Section>
-
-      {file.deliverableItems.length > 0 && (
-        <Section title="Deliverable targets">
-          <p className="task-edit-hint">
-            For each tracked document, the state it reaches at this task.
-          </p>
-          <div className="task-edit-deliverable-list">
-            {file.deliverableItems.map((item) => {
-              const target = task.deliverableTargets.find(
-                (t) => t.itemId === item.id,
-              );
-              return (
-                <div key={item.id} className="task-edit-deliverable-row">
-                  <span className="task-edit-deliverable-name">
-                    {item.name}
-                  </span>
-                  <select
-                    className="task-edit-input"
-                    value={target?.state ?? ''}
-                    onChange={(e) =>
-                      setDeliverableTarget(
-                        item.id,
-                        e.target.value || null,
-                      )
-                    }
-                  >
-                    <option value="">— not tracked —</option>
-                    {file.deliverableStates.map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-          </div>
-        </Section>
-      )}
     </section>
   );
 }
