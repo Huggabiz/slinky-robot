@@ -79,6 +79,30 @@ interface AppState {
   ) => string | null;
   updateTask: (id: string, patch: Partial<Task>) => void;
   addRole: (name: string, colour?: string | null) => string | null;
+  // Update a role (name and/or colour). If `name` changes, the rename
+  // propagates through every task's accountable, contributors, and
+  // meetingOrganiser fields so no task silently points at a missing
+  // name. Returns false if the new name is empty or collides with
+  // another existing role.
+  updateRole: (id: string, patch: Partial<Role>) => boolean;
+  // Remove a role from the registry. Does NOT modify tasks — names
+  // still live on the tasks as free text. Callers can warn the user
+  // if the role was still in use.
+  deleteRole: (id: string) => void;
+  // Deliverable items: add / update / delete. Delete cascades to
+  // every task's deliverableTargets so no task points at a missing
+  // item.
+  addDeliverableItem: (name: string, description?: string) => string | null;
+  updateDeliverableItem: (
+    id: string,
+    patch: Partial<{ name: string; description: string }>,
+  ) => void;
+  deleteDeliverableItem: (id: string) => void;
+  // Deliverable states (ordered string list).
+  addDeliverableState: (name: string) => boolean;
+  renameDeliverableState: (oldName: string, newName: string) => boolean;
+  removeDeliverableState: (name: string) => void;
+  moveDeliverableState: (name: string, direction: 'up' | 'down') => void;
   togglePrerequisite: (taskId: string, prereqId: string) => void;
   deleteTask: (id: string) => void;
   insertTaskOnEdge: (
@@ -410,6 +434,171 @@ export const useAppStore = create<AppState>((set, get) => {
       const newRole: Role = { id: makeId(), name: trimmed, colour };
       commit({ ...current, roles: [...current.roles, newRole] });
       return newRole.id;
+    },
+
+    updateRole: (id, patch) => {
+      const current = get().file;
+      if (!current) return false;
+      const role = current.roles.find((r) => r.id === id);
+      if (!role) return false;
+      const nextName = patch.name === undefined ? role.name : patch.name.trim();
+      if (!nextName) return false;
+      // Reject collisions (unless it's the same role keeping its name).
+      if (
+        nextName !== role.name &&
+        current.roles.some((r) => r.id !== id && r.name === nextName)
+      ) {
+        return false;
+      }
+      const nameChanged = nextName !== role.name;
+      const nextRole: Role = {
+        ...role,
+        name: nextName,
+        colour: patch.colour === undefined ? role.colour : patch.colour,
+      };
+      const updatedRoles = current.roles.map((r) =>
+        r.id === id ? nextRole : r,
+      );
+      // If the name changed, propagate through every task field that
+      // references role names as strings.
+      const updatedTasks = nameChanged
+        ? current.tasks.map((t) => ({
+            ...t,
+            accountable: t.accountable === role.name ? nextName : t.accountable,
+            contributors: t.contributors.map((c) =>
+              c === role.name ? nextName : c,
+            ),
+            meetingOrganiser:
+              t.meetingOrganiser === role.name ? nextName : t.meetingOrganiser,
+          }))
+        : current.tasks;
+      commit({ ...current, roles: updatedRoles, tasks: updatedTasks });
+      return true;
+    },
+
+    deleteRole: (id) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        roles: current.roles.filter((r) => r.id !== id),
+      });
+    },
+
+    addDeliverableItem: (name, description = '') => {
+      const current = get().file;
+      if (!current) return null;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const newItem = { id: makeId(), name: trimmed, description };
+      commit({
+        ...current,
+        deliverableItems: [...current.deliverableItems, newItem],
+      });
+      return newItem.id;
+    },
+
+    updateDeliverableItem: (id, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        deliverableItems: current.deliverableItems.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                name: patch.name === undefined ? i.name : patch.name,
+                description:
+                  patch.description === undefined
+                    ? i.description
+                    : patch.description,
+              }
+            : i,
+        ),
+      });
+    },
+
+    deleteDeliverableItem: (id) => {
+      const current = get().file;
+      if (!current) return;
+      // Cascade: strip references to the doomed item from every task's
+      // deliverableTargets so no task points at a missing id.
+      commit({
+        ...current,
+        deliverableItems: current.deliverableItems.filter((i) => i.id !== id),
+        tasks: current.tasks.map((t) => ({
+          ...t,
+          deliverableTargets: t.deliverableTargets.filter(
+            (dt) => dt.itemId !== id,
+          ),
+        })),
+      });
+    },
+
+    addDeliverableState: (name) => {
+      const current = get().file;
+      if (!current) return false;
+      const trimmed = name.trim();
+      if (!trimmed) return false;
+      if (current.deliverableStates.includes(trimmed)) return false;
+      commit({
+        ...current,
+        deliverableStates: [...current.deliverableStates, trimmed],
+      });
+      return true;
+    },
+
+    renameDeliverableState: (oldName, newName) => {
+      const current = get().file;
+      if (!current) return false;
+      const trimmed = newName.trim();
+      if (!trimmed) return false;
+      if (oldName === trimmed) return true;
+      if (current.deliverableStates.includes(trimmed)) return false;
+      // Propagate through every task's deliverableTargets so targets
+      // using the old state name now use the new one.
+      commit({
+        ...current,
+        deliverableStates: current.deliverableStates.map((s) =>
+          s === oldName ? trimmed : s,
+        ),
+        tasks: current.tasks.map((t) => ({
+          ...t,
+          deliverableTargets: t.deliverableTargets.map((dt) =>
+            dt.state === oldName ? { ...dt, state: trimmed } : dt,
+          ),
+        })),
+      });
+      return true;
+    },
+
+    removeDeliverableState: (name) => {
+      const current = get().file;
+      if (!current) return;
+      // Strip references to the doomed state from every task's
+      // deliverableTargets so nothing points at a missing state.
+      commit({
+        ...current,
+        deliverableStates: current.deliverableStates.filter((s) => s !== name),
+        tasks: current.tasks.map((t) => ({
+          ...t,
+          deliverableTargets: t.deliverableTargets.filter(
+            (dt) => dt.state !== name,
+          ),
+        })),
+      });
+    },
+
+    moveDeliverableState: (name, direction) => {
+      const current = get().file;
+      if (!current) return;
+      const idx = current.deliverableStates.indexOf(name);
+      if (idx === -1) return;
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= current.deliverableStates.length) return;
+      const next = [...current.deliverableStates];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      commit({ ...current, deliverableStates: next });
     },
   };
 });

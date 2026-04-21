@@ -25,6 +25,18 @@
   filter: brightness(1.1);
 }
 
+.edit-toolbar-btn-secondary {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.edit-toolbar-btn-secondary:hover {
+  filter: none;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .edit-toolbar-divider {
   width: 1px;
   height: 20px;

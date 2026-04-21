@@ -8,6 +8,8 @@ import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
 import { DetailResizer } from './components/DetailResizer';
 import { ImportCsvDialog } from './components/ImportCsvDialog';
+import { RolesPanel } from './components/RolesPanel';
+import { DeliverablesPanel } from './components/DeliverablesPanel';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
 import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
@@ -64,6 +66,10 @@ function App() {
 
   // CSV import dialog — opened from the File menu.
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
+
+  // Registry management panels (edit mode only).
+  const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
+  const [deliverablesPanelOpen, setDeliverablesPanelOpen] = useState(false);
 
   // Right-hand detail panel width, user-resizable via DetailResizer.
   const [detailWidth, setDetailWidth] = useState(420);
@@ -141,6 +147,8 @@ function App() {
         <EditToolbar
           onCreatePhase={handleCreatePhase}
           onCreateTask={handleCreateTask}
+          onOpenRoles={() => setRolesPanelOpen(true)}
+          onOpenDeliverables={() => setDeliverablesPanelOpen(true)}
         />
       )}
       {!file ? (
@@ -205,6 +213,14 @@ function App() {
         isOpen={csvDialogOpen}
         onClose={() => setCsvDialogOpen(false)}
         onImport={handleImported}
+      />
+      <RolesPanel
+        isOpen={rolesPanelOpen}
+        onClose={() => setRolesPanelOpen(false)}
+      />
+      <DeliverablesPanel
+        isOpen={deliverablesPanelOpen}
+        onClose={() => setDeliverablesPanelOpen(false)}
       />
     </div>
   );

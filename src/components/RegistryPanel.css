@@ -1,0 +1,320 @@
+/* Shared styles for RolesPanel + DeliverablesPanel modal panels. */
+
+.registry-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--space-md);
+}
+
+.registry-panel {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 640px;
+  width: 100%;
+  max-height: calc(100vh - var(--space-xl));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--color-text);
+}
+
+.registry-panel-wide {
+  max-width: 1040px;
+}
+
+.registry-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.registry-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+}
+
+.registry-close {
+  appearance: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-sm);
+}
+
+.registry-close:hover {
+  color: var(--color-text);
+}
+
+.registry-hint {
+  margin: 0 0 var(--space-md) 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.registry-empty {
+  margin: var(--space-md) 0 0 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.registry-add-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.registry-add-row .registry-input {
+  flex: 1;
+}
+
+.registry-input {
+  padding: 6px var(--space-sm);
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100%;
+}
+
+.registry-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.registry-textarea {
+  padding: 6px var(--space-sm);
+  font: inherit;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.5;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100%;
+  resize: vertical;
+  margin-top: var(--space-xs);
+}
+
+.registry-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.registry-add-btn {
+  appearance: none;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: white;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.registry-add-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.registry-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.registry-panel > :not(.registry-header) {
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+}
+
+.registry-panel > .registry-hint {
+  padding-top: var(--space-md);
+}
+
+.registry-panel > *:last-child {
+  padding-bottom: var(--space-lg);
+}
+
+.registry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.registry-table th,
+.registry-table td {
+  text-align: left;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.registry-table th {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.registry-colour-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.registry-colour {
+  width: 44px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.registry-clear-btn {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.registry-clear-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.registry-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  display: inline-block;
+  min-width: 22px;
+}
+
+.registry-delete-btn {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 13px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.registry-delete-btn:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.registry-ctrl {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.registry-ctrl:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.registry-ctrl:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.registry-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  overflow-y: auto;
+  flex: 1;
+  /* Override the default panel body padding for the split layout. */
+  padding: var(--space-md) var(--space-lg) var(--space-lg) !important;
+}
+
+.registry-panel > .registry-split {
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+}
+
+.registry-section h3 {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.registry-item-list,
+.registry-state-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.registry-item-card {
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.registry-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.registry-state-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.registry-state-order {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  min-width: 20px;
+}

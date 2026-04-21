@@ -6,12 +6,20 @@ interface Props {
   onCreatePhase: () => void;
   // Callback for creating a new process step.
   onCreateTask: () => void;
+  // Callbacks to open the registry management panels.
+  onOpenRoles: () => void;
+  onOpenDeliverables: () => void;
 }
 
 // Second-row toolbar only visible in edit mode. Hosts "Create …"
 // actions and the Undo/Redo controls. The dividers separate the
 // add-item buttons from the history controls.
-export function EditToolbar({ onCreatePhase, onCreateTask }: Props) {
+export function EditToolbar({
+  onCreatePhase,
+  onCreateTask,
+  onOpenRoles,
+  onOpenDeliverables,
+}: Props) {
   const file = useAppStore((s) => s.file);
   const undo = useAppStore((s) => s.undo);
   const redo = useAppStore((s) => s.redo);
@@ -29,6 +37,21 @@ export function EditToolbar({ onCreatePhase, onCreateTask }: Props) {
       </button>
       <button type="button" className="edit-toolbar-btn" onClick={onCreateTask}>
         + Process Step
+      </button>
+      <div className="edit-toolbar-divider" aria-hidden />
+      <button
+        type="button"
+        className="edit-toolbar-btn edit-toolbar-btn-secondary"
+        onClick={onOpenRoles}
+      >
+        Roles…
+      </button>
+      <button
+        type="button"
+        className="edit-toolbar-btn edit-toolbar-btn-secondary"
+        onClick={onOpenDeliverables}
+      >
+        Deliverables…
       </button>
       <div className="edit-toolbar-divider" aria-hidden />
       <button
