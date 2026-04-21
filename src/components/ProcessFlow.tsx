@@ -137,12 +137,11 @@ export function ProcessFlow({
   const minimapNodeColour = useCallback(
     (node: Node) => {
       const data = node.data as TaskNodeData | undefined;
-      const phaseId = data?.task.phaseId;
-      if (phaseId) {
-        const c = phaseColourById.get(phaseId);
-        if (c) return c;
-      }
-      return '#cbd5e1'; // neutral slate for uncoloured phases
+      // Guard: cross-phase indicator nodes don't have a .task property.
+      const task = data?.task;
+      if (!task) return '#e2e8f0';
+      const c = phaseColourById.get(task.phaseId);
+      return c ?? '#cbd5e1';
     },
     [phaseColourById],
   );
