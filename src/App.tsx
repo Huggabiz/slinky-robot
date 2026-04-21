@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Toolbar } from './components/Toolbar';
-import { EditToolbar } from './components/EditToolbar';
+import { AppRibbon } from './components/AppRibbon';
 import { PhaseSidebar } from './components/PhaseSidebar';
 import { PhaseInfoBar } from './components/PhaseInfoBar';
 import { FlowToolbar } from './components/FlowToolbar';
@@ -29,20 +29,17 @@ function App() {
   const markDirty = useAppStore((s) => s.markDirty);
   const addPhase = useAppStore((s) => s.addPhase);
   const addTask = useAppStore((s) => s.addTask);
+  const addDeliverableItem = useAppStore((s) => s.addDeliverableItem);
   const selectTask = useAppStore((s) => s.selectTask);
   const undo = useAppStore((s) => s.undo);
   const redo = useAppStore((s) => s.redo);
   const [phaseId, setPhaseId] = useState<string | null>(null);
 
-  // localStorage crash-recovery: auto-saves every 3 s when dirty.
-  // On mount, if a stash exists, `pending` is non-null and we show a
-  // restore banner. After explicit save, call clear() to wipe it.
+  // localStorage crash-recovery.
   const autosave = useAutosave(file, dirty);
 
-  // Global undo/redo keyboard shortcuts. We intentionally skip when
-  // focus is in an input/textarea/select so the browser's native
-  // text-undo keeps working for typed fields — app-level undo only
-  // applies to structural changes and clicks outside text editing.
+  // Global undo/redo keyboard shortcuts. Skipped when focus is in a
+  // text field so browser-native text undo keeps working.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -63,8 +60,7 @@ function App() {
     return () => document.removeEventListener('keydown', onKey);
   }, [undo, redo]);
 
-  // Display-tool state (FlowToolbar). These control how the flow
-  // renders but don't affect the layout itself.
+  // Display-tool state (FlowToolbar).
   const [highlightEnabled, setHighlightEnabled] = useState(false);
   const [fadeOver, setFadeOver] = useState<number | null>(3);
 
@@ -72,14 +68,12 @@ function App() {
   const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
   const [labOpen, setLabOpen] = useState(false);
 
-  // CSV import dialog — opened from the File menu.
+  // Dialogs / panels.
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
-
-  // Registry management panels (edit mode only).
   const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
   const [deliverablesPanelOpen, setDeliverablesPanelOpen] = useState(false);
 
-  // Right-hand detail panel width, user-resizable via DetailResizer.
+  // Right-hand detail panel width, user-resizable.
   const [detailWidth, setDetailWidth] = useState(420);
   const detailWidthRef = useRef(detailWidth);
   detailWidthRef.current = detailWidth;
@@ -131,26 +125,32 @@ function App() {
       );
       return;
     }
-    // If a task is currently selected, auto-chain the new task after
-    // it as a prerequisite. Otherwise, the new task has no prereqs
-    // and the user sets them in the edit form.
     const newId = addTask(phaseId, {
       autoPrereqOfTaskId: selectedTaskId ?? null,
     });
     if (newId) selectTask(newId);
   };
 
-  // The right-hand pane shows a pinned phase info bar above the task
-  // detail whenever a phase is active; the detail panel itself only
-  // renders when a task is also selected.
-  const showDetailColumn = file !== null && (selectedTaskId !== null || phaseId !== null);
+  const handleCreateDeliverableItem = () => {
+    const name = window.prompt('New deliverable item name:');
+    if (name?.trim()) addDeliverableItem(name.trim());
+  };
+
+  const showDetailColumn =
+    file !== null && (selectedTaskId !== null || phaseId !== null);
 
   return (
     <div className={`app${mode === 'edit' ? ' edit-mode' : ''}`}>
-      <Toolbar
-        onOpenLab={() => setLabOpen(true)}
+      <Toolbar />
+      <AppRibbon
         onImportCsv={() => setCsvDialogOpen(true)}
         onSaveComplete={autosave.clear}
+        onOpenLab={() => setLabOpen(true)}
+        onOpenRoles={() => setRolesPanelOpen(true)}
+        onOpenDeliverables={() => setDeliverablesPanelOpen(true)}
+        onCreatePhase={handleCreatePhase}
+        onCreateTask={handleCreateTask}
+        onCreateDeliverableItem={handleCreateDeliverableItem}
       />
       {autosave.pending && !file && (
         <RestoreBanner
@@ -160,14 +160,6 @@ function App() {
             if (restored) loadFile(restored, null);
           }}
           onDismiss={autosave.dismiss}
-        />
-      )}
-      {mode === 'edit' && file && (
-        <EditToolbar
-          onCreatePhase={handleCreatePhase}
-          onCreateTask={handleCreateTask}
-          onOpenRoles={() => setRolesPanelOpen(true)}
-          onOpenDeliverables={() => setDeliverablesPanelOpen(true)}
         />
       )}
       {!file ? (

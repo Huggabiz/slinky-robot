@@ -1,18 +1,11 @@
 import { ModeToggle } from './ModeToggle';
-import { FileMenu } from './FileMenu';
 import { APP_VERSION } from '../version';
 import { useAppStore } from '../store/useAppStore';
 import './Toolbar.css';
 
-// FLOW LAB: drop onOpenLab from the props and the Layout Lab button
-// when the lab is removed.
-interface Props {
-  onOpenLab?: () => void;
-  onImportCsv: () => void;
-  onSaveComplete?: () => void;
-}
-
-export function Toolbar({ onOpenLab, onImportCsv, onSaveComplete }: Props) {
+// Top bar: mode toggle, file title with dirty indicator, version badge.
+// All file/tool/create operations now live in AppRibbon below this bar.
+export function Toolbar() {
   const file = useAppStore((s) => s.file);
   const dirty = useAppStore((s) => s.dirty);
 
@@ -31,20 +24,9 @@ export function Toolbar({ onOpenLab, onImportCsv, onSaveComplete }: Props) {
 
       <div className="toolbar-spacer" />
 
-      <div className="toolbar-actions">
-        {/* FLOW LAB: delete this button when the lab is removed. */}
-        {onOpenLab && file && (
-          <button type="button" className="toolbar-btn" onClick={onOpenLab}>
-            Layout Lab…
-          </button>
-        )}
-      </div>
-
       <div className="toolbar-version" title="App version">
         v{APP_VERSION}
       </div>
-
-      <FileMenu onImportCsv={onImportCsv} onSaveComplete={onSaveComplete} />
     </header>
   );
 }
