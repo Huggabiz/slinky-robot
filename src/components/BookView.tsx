@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { topoSortTasksInPhase } from '../utils/topoSort';
 import { BookFlowDiagram } from './BookFlowDiagram';
+import { Markdown } from './Markdown';
 import './BookView.css';
 
 // Full-document reading view. Renders every phase as a chapter,
@@ -101,7 +102,7 @@ function BookIntroChapter({
               {sec.subtitle && (
                 <h4 className="book-intro-section-subtitle">{sec.subtitle}</h4>
               )}
-              {sec.body && <p className="book-step-prose">{sec.body}</p>}
+              {sec.body && <Markdown text={sec.body} className="book-step-prose" />}
             </div>
           ))}
         </div>
@@ -140,7 +141,7 @@ function BookChapter({
 
       {phase.intro && (
         <div className="book-chapter-intro">
-          <p className="book-step-prose">{phase.intro}</p>
+          <Markdown text={phase.intro} className="book-step-prose" />
         </div>
       )}
 
@@ -216,13 +217,13 @@ function BookStepCard({ task }: { task: Task }) {
 
       {task.description && (
         <BookSection title="Description">
-          <Prose text={task.description} />
+          <Markdown text={task.description} className="book-step-prose" />
         </BookSection>
       )}
 
       {task.deliverables && (
         <BookSection title="Deliverables">
-          <Prose text={task.deliverables} />
+          <Markdown text={task.deliverables} className="book-step-prose" />
         </BookSection>
       )}
 
@@ -237,7 +238,7 @@ function BookStepCard({ task }: { task: Task }) {
 
       {task.keyDateRationale && (
         <BookSection title="Key date rationale">
-          <Prose text={task.keyDateRationale} />
+          <Markdown text={task.keyDateRationale} className="book-step-prose" />
         </BookSection>
       )}
 
@@ -285,13 +286,6 @@ function BookSection({
       {children}
     </section>
   );
-}
-
-function Prose({ text }: { text: string }) {
-  if (!text.trim()) return null;
-  // Render with white-space: pre-wrap so single newlines (numbered
-  // lists, line breaks) are honoured as-is from the source data.
-  return <p className="book-step-prose">{text}</p>;
 }
 
 function DeliverableTable({

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { findPhaseById } from '../types';
+import { Markdown } from './Markdown';
 import './PhaseInfoBar.css';
 
 interface Props {
@@ -106,7 +107,7 @@ export function PhaseInfoBar({ phaseId }: Props) {
           ) : (
             <div className="phase-info-bar-read">
               {phase.intro ? (
-                <p className="phase-info-bar-intro">{phase.intro}</p>
+                <Markdown text={phase.intro} className="phase-info-bar-intro" />
               ) : (
                 <p className="phase-info-bar-empty">
                   No intro written for this phase yet.

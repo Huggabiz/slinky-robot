@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import { Markdown } from './Markdown';
 import './IntroChapterEditor.css';
 
 interface Props {
@@ -95,7 +96,7 @@ export function IntroChapterEditor({ chapterId }: Props) {
                   <h4 className="intro-editor-read-subtitle">{sec.subtitle}</h4>
                 )}
                 {sec.body && (
-                  <p className="intro-editor-read-body">{sec.body}</p>
+                  <Markdown text={sec.body} className="intro-editor-read-body" />
                 )}
               </>
             )}

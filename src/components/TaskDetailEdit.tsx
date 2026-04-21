@@ -197,6 +197,7 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           rows={6}
           placeholder="What does this task involve?"
         />
+        <span className="task-edit-md-hint">Supports Markdown: - bullets, 1. numbered, **bold**</span>
       </Section>
 
       <Section title="Deliverables">
@@ -207,6 +208,7 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           rows={4}
           placeholder="What comes out of this task?"
         />
+        <span className="task-edit-md-hint">Supports Markdown</span>
       </Section>
 
       {file.deliverableItems.length > 0 && (

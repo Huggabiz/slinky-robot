@@ -6,6 +6,7 @@ import {
   getPrerequisiteTasks,
   type Task,
 } from '../types';
+import { Markdown } from './Markdown';
 import './TaskDetail.css';
 
 // Read-only task view shown in Navigate mode. The edit-mode form is a
@@ -52,19 +53,19 @@ export function TaskDetailRead({ task }: { task: Task }) {
 
       {task.description && (
         <Section title="Description">
-          <Prose text={task.description} />
+          <Markdown text={task.description} />
         </Section>
       )}
 
       {task.deliverables && (
         <Section title="Deliverables">
-          <Prose text={task.deliverables} />
+          <Markdown text={task.deliverables} />
         </Section>
       )}
 
       {task.keyDateRationale && (
         <Section title="Key Date Rationale">
-          <Prose text={task.keyDateRationale} />
+          <Markdown text={task.keyDateRationale} />
         </Section>
       )}
 
@@ -124,10 +125,6 @@ function Section({
       {children}
     </section>
   );
-}
-
-function Prose({ text }: { text: string }) {
-  return <p className="task-detail-prose">{text}</p>;
 }
 
 function TaskLinkList({

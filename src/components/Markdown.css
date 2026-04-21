@@ -1,0 +1,67 @@
+/* Markdown rendered output styling. Scoped under .markdown-body so
+   it doesn't leak into the rest of the app. Kept minimal — just
+   enough to make lists, paragraphs, and inline formatting look good
+   in both the detail panel and the book view. */
+
+.markdown-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: inherit;
+  word-break: break-word;
+}
+
+.markdown-body p {
+  margin: 0 0 0.5em;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.25em 0 0.5em;
+  padding-left: 1.5em;
+}
+
+.markdown-body li {
+  margin-bottom: 0.15em;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 0.75em 0 0.25em;
+  line-height: 1.3;
+}
+
+.markdown-body h1 { font-size: 1.4em; }
+.markdown-body h2 { font-size: 1.2em; }
+.markdown-body h3 { font-size: 1.05em; }
+.markdown-body h4 { font-size: 1em; color: var(--color-text-muted); }
+
+.markdown-body strong {
+  font-weight: 600;
+}
+
+.markdown-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--color-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.markdown-body blockquote {
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+/* Book view uses a slightly larger base size. */
+.book-step-prose.markdown-body,
+.book-chapter-intro .markdown-body {
+  font-size: 14px;
+}
