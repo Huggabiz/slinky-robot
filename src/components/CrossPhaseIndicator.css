@@ -1,0 +1,58 @@
+.cross-phase-indicator {
+  padding: 4px var(--space-sm);
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.7;
+  min-width: 120px;
+}
+
+.cross-phase-indicator:hover {
+  opacity: 1;
+}
+
+.cross-phase-arrow {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cross-phase-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.cross-phase-phase {
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cross-phase-task {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hide the handles — they exist for React Flow's graph model but
+   shouldn't show since these are indicator-only nodes. */
+.cross-phase-indicator .react-flow__handle {
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+  background: transparent;
+  border: none;
+}
