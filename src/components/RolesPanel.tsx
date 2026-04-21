@@ -198,8 +198,8 @@ export function RolesPanel({ isOpen, onClose }: Props) {
             </div>
             {file.roles.length === 0 ? (
               <p className="registry-empty">
-                No roles defined yet. Roles are auto-discovered from CSV
-                imports.
+                No roles defined yet. Roles are auto-discovered from
+                task data on every file load.
               </p>
             ) : (
               <div className="registry-item-list">

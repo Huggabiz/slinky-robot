@@ -3,6 +3,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   DEFAULT_DELIVERABLE_STATES,
 } from '../types';
+import { makeId } from './id';
 
 export class InvalidFileError extends Error {
   readonly cause?: unknown;
@@ -317,7 +318,40 @@ export function parseProcessFile(text: string): ProcessFile {
   } catch (err) {
     throw new InvalidFileError('File is not valid JSON', err);
   }
-  return validateProcessFile(migrate(raw));
+  const file = validateProcessFile(migrate(raw));
+  return discoverMissingRoles(file);
+}
+
+/**
+ * Scan every task's accountable, contributors, and meetingOrganiser
+ * fields and add any name that isn't already in the roles registry.
+ * Runs on every file load (JSON or CSV) so the registry is always a
+ * superset of what the process actually references — not just what was
+ * present at CSV-import time.
+ */
+function discoverMissingRoles(file: ProcessFile): ProcessFile {
+  const existing = new Set(file.roles.map((r) => r.name));
+  const sentinels = new Set(['', 'n/a', 'na', 'none', '-']);
+  const discovered: { id: string; name: string; departmentId: null }[] = [];
+
+  for (const task of file.tasks) {
+    const names = [
+      task.accountable,
+      ...task.contributors,
+      task.meetingOrganiser ?? '',
+    ].filter(
+      (n) => n.length > 0 && !sentinels.has(n.trim().toLowerCase()),
+    );
+    for (const name of names) {
+      if (!existing.has(name)) {
+        existing.add(name);
+        discovered.push({ id: makeId(), name, departmentId: null });
+      }
+    }
+  }
+
+  if (discovered.length === 0) return file;
+  return { ...file, roles: [...file.roles, ...discovered] };
 }
 
 export function serializeProcessFile(file: ProcessFile): string {
