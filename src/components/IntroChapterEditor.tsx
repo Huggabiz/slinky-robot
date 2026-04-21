@@ -1,5 +1,6 @@
 import { useAppStore } from '../store/useAppStore';
 import { Markdown } from './Markdown';
+import { MarkdownEditor } from './MarkdownEditor';
 import './IntroChapterEditor.css';
 
 interface Props {
@@ -68,16 +69,13 @@ export function IntroChapterEditor({ chapterId }: Props) {
                     })
                   }
                 />
-                <textarea
-                  className="intro-editor-sec-body"
+                <MarkdownEditor
                   value={sec.body}
-                  placeholder="Body text…"
-                  rows={10}
-                  onChange={(e) =>
-                    updateIntroSection(chapterId, sec.id, {
-                      body: e.target.value,
-                    })
+                  onChange={(body) =>
+                    updateIntroSection(chapterId, sec.id, { body })
                   }
+                  rows={12}
+                  placeholder="Body text… (supports Markdown)"
                 />
                 <button
                   type="button"
