@@ -4,7 +4,9 @@ import {
   Background,
   Controls,
   MiniMap,
+  MarkerType,
   type Node,
+  type Edge,
   type NodeTypes,
   type EdgeTypes,
 } from '@xyflow/react';
@@ -259,8 +261,6 @@ export function ProcessFlow({
 }
 
 // ---- Cross-phase indicator builder ----
-
-import { MarkerType, type Edge } from '@xyflow/react';
 
 function buildCrossPhaseIndicators(
   file: ProcessFile,
