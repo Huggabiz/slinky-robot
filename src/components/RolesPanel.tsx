@@ -17,6 +17,7 @@ export function RolesPanel({ isOpen, onClose }: Props) {
   const addRole = useAppStore((s) => s.addRole);
   const updateRole = useAppStore((s) => s.updateRole);
   const deleteRole = useAppStore((s) => s.deleteRole);
+  const mergeRole = useAppStore((s) => s.mergeRole);
   const [newDeptName, setNewDeptName] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
 
@@ -244,6 +245,34 @@ export function RolesPanel({ isOpen, onClose }: Props) {
                     <span className="registry-count">
                       {tasksUsingRole(role.name)}
                     </span>
+                    <select
+                      className="registry-input registry-merge-select"
+                      value=""
+                      title="Merge into another role"
+                      onChange={(e) => {
+                        const targetId = e.target.value;
+                        if (!targetId) return;
+                        const target = file.roles.find(
+                          (r) => r.id === targetId,
+                        );
+                        if (!target) return;
+                        const count = tasksUsingRole(role.name);
+                        const ok = window.confirm(
+                          `Merge "${role.name}" into "${target.name}"?\n\n` +
+                            `${count} task field${count === 1 ? '' : 's'} will be renamed. "${role.name}" will be removed from the registry.`,
+                        );
+                        if (ok) mergeRole(role.id, targetId);
+                      }}
+                    >
+                      <option value="">Merge →</option>
+                      {file.roles
+                        .filter((r) => r.id !== role.id)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                    </select>
                     <button
                       type="button"
                       className="registry-delete-btn"

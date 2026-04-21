@@ -109,6 +109,11 @@ interface AppState {
   addRole: (name: string, departmentId?: string | null) => string | null;
   updateRole: (id: string, patch: Partial<Role>) => boolean;
   deleteRole: (id: string) => void;
+  // Merge one role into another: every task that references the source
+  // role's name gets updated to the target role's name, then the
+  // source role is removed from the registry. Use when duplicate names
+  // (e.g. "Design Mgr" and "Design Manager") should collapse to one.
+  mergeRole: (sourceId: string, targetId: string) => void;
   // ---- Deliverable items (with per-item states) ----
   addDeliverableItem: (name: string, description?: string) => string | null;
   updateDeliverableItem: (
@@ -645,6 +650,29 @@ export const useAppStore = create<AppState>((set, get) => {
       commit({
         ...current,
         roles: current.roles.filter((r) => r.id !== id),
+      });
+    },
+
+    mergeRole: (sourceId, targetId) => {
+      const current = get().file;
+      if (!current || sourceId === targetId) return;
+      const source = current.roles.find((r) => r.id === sourceId);
+      const target = current.roles.find((r) => r.id === targetId);
+      if (!source || !target) return;
+      const oldName = source.name;
+      const newName = target.name;
+      commit({
+        ...current,
+        roles: current.roles.filter((r) => r.id !== sourceId),
+        tasks: current.tasks.map((t) => ({
+          ...t,
+          accountable: t.accountable === oldName ? newName : t.accountable,
+          contributors: t.contributors.map((c) =>
+            c === oldName ? newName : c,
+          ),
+          meetingOrganiser:
+            t.meetingOrganiser === oldName ? newName : t.meetingOrganiser,
+        })),
       });
     },
 

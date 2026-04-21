@@ -312,6 +312,14 @@
   border-radius: var(--radius-sm);
 }
 
+.registry-merge-select {
+  width: auto !important;
+  min-width: 90px;
+  font-size: 11px !important;
+  padding: 2px var(--space-xs) !important;
+  color: var(--color-text-muted);
+}
+
 .registry-state-order {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
