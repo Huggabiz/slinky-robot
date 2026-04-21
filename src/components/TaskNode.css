@@ -72,6 +72,22 @@
    don't reflect where edges actually enter/exit. Hiding them keeps the
    drawing honest: lines appear to meet the card edge cleanly rather
    than missing an unused stub. */
+/* Perspective lens: desaturate unrelated tasks so the relevant ones
+   pop. Applied via className from the perspective style logic. */
+.task-node-desaturated {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+/* Perspective lens: hide unrelated tasks as empty rectangles. */
+.task-node-hidden {
+  opacity: 0.2;
+}
+
+.task-node-hidden-inner {
+  flex: 1;
+}
+
 .task-node .react-flow__handle {
   opacity: 0;
   width: 1px;

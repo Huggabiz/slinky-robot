@@ -20,6 +20,10 @@ import {
 } from '../utils/flowLayout';
 import { computeHighlights } from '../utils/highlight';
 import {
+  computePerspective,
+  type PerspectiveFilter,
+} from '../utils/perspective';
+import {
   findPhaseById,
   findTaskByInternalId,
   type ProcessFile,
@@ -51,10 +55,12 @@ interface Props {
   phaseId: string | null;
   // FLOW LAB: labConfig is temporary.
   labConfig: LabConfig;
-  // Dependency-highlight tool config. When `enabled` is false the
-  // highlight pass is skipped entirely.
+  // Dependency-highlight tool config.
   highlightEnabled: boolean;
   fadeOver: number | null;
+  // Perspective lens config.
+  perspectiveFilter: PerspectiveFilter | null;
+  perspectiveHideOthers: boolean;
 }
 
 export function ProcessFlow({
@@ -62,6 +68,8 @@ export function ProcessFlow({
   labConfig,
   highlightEnabled,
   fadeOver,
+  perspectiveFilter,
+  perspectiveHideOthers,
 }: Props) {
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
@@ -104,21 +112,24 @@ export function ProcessFlow({
     return computeHighlights(file.tasks, selectedTaskId, fadeOver);
   }, [highlightEnabled, file, selectedTaskId, fadeOver]);
 
-  // Selection is stored centrally; mirror it onto the nodes so React
-  // Flow renders the selected visual state. Highlight info is injected
-  // into data here so TaskNode can read it without a second hook.
+  // Perspective lens — compute once per filter/file change.
+  const perspectiveMap = useMemo(() => {
+    if (!perspectiveFilter || !file) return null;
+    return computePerspective(file, perspectiveFilter, perspectiveHideOthers);
+  }, [perspectiveFilter, perspectiveHideOthers, file]);
+
   const styledNodes = useMemo(
     () =>
       layout.nodes.map((n) => ({
         ...n,
-        // Mark as selected if it's the primary OR in the multi-set.
         selected: n.id === selectedTaskId || selectedTaskIds.has(n.id),
         data: {
           ...n.data,
           highlight: highlightMap?.get(n.id),
+          perspective: perspectiveMap?.get(n.id),
         },
       })),
-    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap],
+    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap, perspectiveMap],
   );
 
   // Colour minimap rectangles by the task's phase colour so the

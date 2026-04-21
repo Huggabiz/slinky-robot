@@ -8,6 +8,8 @@ import { ProcessFlow } from './components/ProcessFlow';
 import { TaskDetail } from './components/TaskDetail';
 import { DetailResizer } from './components/DetailResizer';
 import { ImportCsvDialog } from './components/ImportCsvDialog';
+import { PerspectivesPanel } from './components/PerspectivesPanel';
+import type { PerspectiveFilter } from './utils/perspective';
 import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
 import { RestoreBanner } from './components/RestoreBanner';
@@ -67,6 +69,11 @@ function App() {
   // FLOW LAB: labConfig state + lab open toggle.
   const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
   const [labOpen, setLabOpen] = useState(false);
+
+  // Perspective lens state.
+  const [perspectiveFilter, setPerspectiveFilter] =
+    useState<PerspectiveFilter | null>(null);
+  const [perspectiveHideOthers, setPerspectiveHideOthers] = useState(false);
 
   // Dialogs / panels.
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
@@ -176,11 +183,19 @@ function App() {
         </main>
       ) : (
         <div className="app-workspace">
-          <PhaseSidebar
-            selectedPhaseId={phaseId}
-            onSelect={setPhaseId}
-            onCreatePhase={handleCreatePhase}
-          />
+          <aside className="app-left-sidebar">
+            <PhaseSidebar
+              selectedPhaseId={phaseId}
+              onSelect={setPhaseId}
+              onCreatePhase={handleCreatePhase}
+            />
+            <PerspectivesPanel
+              filter={perspectiveFilter}
+              onFilterChange={setPerspectiveFilter}
+              hideOthers={perspectiveHideOthers}
+              onHideOthersChange={setPerspectiveHideOthers}
+            />
+          </aside>
           <div className="app-flow-column">
             <FlowToolbar
               highlightEnabled={highlightEnabled}
@@ -193,6 +208,8 @@ function App() {
               labConfig={labConfig}
               highlightEnabled={highlightEnabled}
               fadeOver={fadeOver}
+              perspectiveFilter={perspectiveFilter}
+              perspectiveHideOthers={perspectiveHideOthers}
             />
           </div>
           {showDetailColumn && (
