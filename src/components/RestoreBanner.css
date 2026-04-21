@@ -1,0 +1,42 @@
+.restore-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: #fef3c7;
+  border-bottom: 1px solid #f59e0b;
+  font-size: 13px;
+  color: #78350f;
+  flex-shrink: 0;
+}
+
+.restore-banner-text {
+  flex: 1;
+}
+
+.restore-banner-text strong {
+  color: #92400e;
+}
+
+.restore-banner button {
+  appearance: none;
+  border: 1px solid #f59e0b;
+  background: #fbbf24;
+  color: #78350f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.restore-banner button:hover {
+  filter: brightness(1.05);
+}
+
+.restore-banner-dismiss {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #92400e !important;
+}

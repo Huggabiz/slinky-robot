@@ -10,10 +10,12 @@ import { DetailResizer } from './components/DetailResizer';
 import { ImportCsvDialog } from './components/ImportCsvDialog';
 import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
+import { RestoreBanner } from './components/RestoreBanner';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
 import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
 import { type ImportResult } from './utils/csvImport';
+import { useAutosave } from './utils/autosave';
 import { useAppStore } from './store/useAppStore';
 import { getPhasesOrdered } from './types';
 import './App.css';
@@ -22,6 +24,7 @@ function App() {
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const dirty = useAppStore((s) => s.dirty);
   const loadFile = useAppStore((s) => s.loadFile);
   const markDirty = useAppStore((s) => s.markDirty);
   const addPhase = useAppStore((s) => s.addPhase);
@@ -30,6 +33,11 @@ function App() {
   const undo = useAppStore((s) => s.undo);
   const redo = useAppStore((s) => s.redo);
   const [phaseId, setPhaseId] = useState<string | null>(null);
+
+  // localStorage crash-recovery: auto-saves every 3 s when dirty.
+  // On mount, if a stash exists, `pending` is non-null and we show a
+  // restore banner. After explicit save, call clear() to wipe it.
+  const autosave = useAutosave(file, dirty);
 
   // Global undo/redo keyboard shortcuts. We intentionally skip when
   // focus is in an input/textarea/select so the browser's native
@@ -142,7 +150,18 @@ function App() {
       <Toolbar
         onOpenLab={() => setLabOpen(true)}
         onImportCsv={() => setCsvDialogOpen(true)}
+        onSaveComplete={autosave.clear}
       />
+      {autosave.pending && !file && (
+        <RestoreBanner
+          savedAt={autosave.pending.savedAt}
+          onAccept={() => {
+            const restored = autosave.accept();
+            if (restored) loadFile(restored, null);
+          }}
+          onDismiss={autosave.dismiss}
+        />
+      )}
       {mode === 'edit' && file && (
         <EditToolbar
           onCreatePhase={handleCreatePhase}

@@ -13,9 +13,10 @@ import './FileMenu.css';
 
 interface Props {
   onImportCsv: () => void;
+  onSaveComplete?: () => void;
 }
 
-export function FileMenu({ onImportCsv }: Props) {
+export function FileMenu({ onImportCsv, onSaveComplete }: Props) {
   const file = useAppStore((s) => s.file);
   const fileName = useAppStore((s) => s.fileName);
   const fileHandle = useAppStore((s) => s.fileHandle);
@@ -93,17 +94,20 @@ export function FileMenu({ onImportCsv }: Props) {
       try {
         await saveToHandle(fileHandle, file);
         markClean();
+        onSaveComplete?.();
       } catch {
         // Handle may have been revoked (e.g. tab backgrounded too long).
         // Fall through to download.
         downloadJsonFile(file, fileName ?? 'process.json');
         markClean();
+        onSaveComplete?.();
       }
       return;
     }
     // No handle: trigger a download.
     downloadJsonFile(file, fileName ?? 'process.json');
     markClean();
+    onSaveComplete?.();
   };
 
   const handleSaveAs = async () => {
@@ -119,6 +123,7 @@ export function FileMenu({ onImportCsv }: Props) {
         // Update fileName to match what the user chose.
         loadFile(file, handle.name, handle);
         markClean();
+        onSaveComplete?.();
         return;
       }
       // User cancelled — no action.

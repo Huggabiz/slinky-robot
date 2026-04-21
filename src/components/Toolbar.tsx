@@ -9,9 +9,10 @@ import './Toolbar.css';
 interface Props {
   onOpenLab?: () => void;
   onImportCsv: () => void;
+  onSaveComplete?: () => void;
 }
 
-export function Toolbar({ onOpenLab, onImportCsv }: Props) {
+export function Toolbar({ onOpenLab, onImportCsv, onSaveComplete }: Props) {
   const file = useAppStore((s) => s.file);
   const dirty = useAppStore((s) => s.dirty);
 
@@ -43,7 +44,7 @@ export function Toolbar({ onOpenLab, onImportCsv }: Props) {
         v{APP_VERSION}
       </div>
 
-      <FileMenu onImportCsv={onImportCsv} />
+      <FileMenu onImportCsv={onImportCsv} onSaveComplete={onSaveComplete} />
     </header>
   );
 }
