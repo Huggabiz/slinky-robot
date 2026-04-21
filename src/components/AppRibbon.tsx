@@ -26,6 +26,7 @@ interface Props {
   onCreatePhase: () => void;
   onCreateTask: () => void;
   onCreateDeliverableItem: () => void;
+  onCreateIntroChapter: () => void;
   view: AppView;
   onViewChange: (view: AppView) => void;
 }
@@ -42,6 +43,7 @@ export function AppRibbon({
   onCreatePhase,
   onCreateTask,
   onCreateDeliverableItem,
+  onCreateIntroChapter,
   view,
   onViewChange,
 }: Props) {
@@ -215,6 +217,11 @@ export function AppRibbon({
           <DropdownItem
             label="Deliverable Item"
             onClick={onCreateDeliverableItem}
+          />
+          <DropdownDivider />
+          <DropdownItem
+            label="Intro Chapter"
+            onClick={onCreateIntroChapter}
           />
         </DropdownButton>
       )}

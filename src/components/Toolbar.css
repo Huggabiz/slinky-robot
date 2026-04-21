@@ -17,6 +17,29 @@
   gap: var(--space-xs);
 }
 
+.toolbar-title-editable {
+  cursor: pointer;
+}
+
+.toolbar-title-editable:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.toolbar-title-input {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-sm);
+  outline: none;
+  min-width: 200px;
+}
+
 .toolbar-dirty {
   color: var(--color-accent);
   font-size: 22px;

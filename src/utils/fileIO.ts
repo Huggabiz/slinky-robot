@@ -33,6 +33,7 @@ function migrate(raw: unknown): unknown {
   if (version < 2) migrated = migrateV1toV2(migrated);
   if (version < 3) migrated = migrateV2toV3(migrated);
   if (version < 4) migrated = migrateV3toV4(migrated);
+  if (version < 5) migrated = migrateV4toV5(migrated);
   // Always run the defensive normalisation pass regardless of starting
   // version, so files with missing fields from any era (including
   // earlier-in-development v2/v3 files that never hit the relevant
@@ -63,6 +64,7 @@ function normaliseShape(
 
   return {
     ...raw,
+    introChapters: Array.isArray(raw.introChapters) ? raw.introChapters : [],
     departments: Array.isArray(raw.departments) ? raw.departments : [],
     roles: Array.isArray(raw.roles)
       ? (raw.roles as Record<string, unknown>[]).map((r) => ({
@@ -276,6 +278,22 @@ function migrateV3toV4(
   // Remove the deprecated global list.
   delete result.deliverableStates;
   return result;
+}
+
+/**
+ * v4 → v5 migration.
+ * Adds the introChapters top-level array.
+ */
+function migrateV4toV5(
+  file: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...file,
+    schemaVersion: 5,
+    introChapters: Array.isArray(file.introChapters)
+      ? file.introChapters
+      : [],
+  };
 }
 
 // Lenient structural validation. We want the app to open any reasonably

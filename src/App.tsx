@@ -9,6 +9,7 @@ import { TaskDetail } from './components/TaskDetail';
 import { DetailResizer } from './components/DetailResizer';
 import { ImportCsvDialog } from './components/ImportCsvDialog';
 import { PerspectivesPanel } from './components/PerspectivesPanel';
+import { IntroChaptersPanel } from './components/IntroChaptersPanel';
 import { BookView } from './components/BookView';
 import type { AppView } from './components/AppRibbon';
 import type { PerspectiveFilter } from './utils/perspective';
@@ -34,6 +35,7 @@ function App() {
   const addPhase = useAppStore((s) => s.addPhase);
   const addTask = useAppStore((s) => s.addTask);
   const addDeliverableItem = useAppStore((s) => s.addDeliverableItem);
+  const addIntroChapter = useAppStore((s) => s.addIntroChapter);
   const selectTask = useAppStore((s) => s.selectTask);
   const undo = useAppStore((s) => s.undo);
   const redo = useAppStore((s) => s.redo);
@@ -163,6 +165,7 @@ function App() {
         onCreatePhase={handleCreatePhase}
         onCreateTask={handleCreateTask}
         onCreateDeliverableItem={handleCreateDeliverableItem}
+        onCreateIntroChapter={() => addIntroChapter()}
         view={view}
         onViewChange={setView}
       />
@@ -193,6 +196,7 @@ function App() {
       ) : (
         <div className="app-workspace">
           <aside className="app-left-sidebar">
+            <IntroChaptersPanel />
             <PhaseSidebar
               selectedPhaseId={phaseId}
               onSelect={setPhaseId}

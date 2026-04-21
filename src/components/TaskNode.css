@@ -59,12 +59,30 @@
   overflow: hidden;
 }
 
+.task-node-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  gap: 4px;
+}
+
 .task-node-type {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--color-text-muted);
-  margin-top: auto;
+}
+
+.task-node-icons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.task-node-icon {
+  font-size: 11px;
+  line-height: 1;
 }
 
 /* React Flow needs Handle components in the DOM for its graph model,

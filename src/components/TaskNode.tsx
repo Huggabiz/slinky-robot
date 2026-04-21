@@ -118,9 +118,26 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
           <div className="task-node-name">
             {task.name || '(untitled)'}
           </div>
-          {task.activityType && (
-            <div className="task-node-type">{task.activityType}</div>
-          )}
+          <div className="task-node-footer">
+            {task.activityType && (
+              <span className="task-node-type">{task.activityType}</span>
+            )}
+            <span className="task-node-icons">
+              {task.isMeetingTask && (
+                <span className="task-node-icon" title="Meeting task">
+                  📅
+                </span>
+              )}
+              {task.deliverableTargets.length > 0 && (
+                <span
+                  className="task-node-icon"
+                  title={`${task.deliverableTargets.length} deliverable target${task.deliverableTargets.length > 1 ? 's' : ''}`}
+                >
+                  📄
+                </span>
+              )}
+            </span>
+          </div>
         </>
       )}
       <Handle type="source" position={Position.Bottom} />

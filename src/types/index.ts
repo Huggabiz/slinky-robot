@@ -5,7 +5,7 @@
 // utils/fileIO.ts — never by silently changing field shapes. Unknown fields
 // on a task are round-tripped via `extras` so forward-compat is free.
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 // Starter deliverable states seeded onto new deliverable items so users
 // have something to pick from before defining their own per-item list.
@@ -48,11 +48,13 @@ export interface ProcessFile {
   // contributor NAMES (strings), not IDs — the list is a directory for
   // pickers. Roles link to a department for colour derivation.
   roles: Role[];
-  // Fixed-list document types tracked through the process, e.g. "Vision
-  // Specification", "Business Case", "FMEA". Each item carries its own
-  // ordered list of resolution states. Tasks declare which items they
-  // advance and to what state via Task.deliverableTargets.
+  // Fixed-list document types tracked through the process.
   deliverableItems: DeliverableItem[];
+  // Introductory chapters that appear BEFORE the milestone-phase
+  // chapters in the book view. Each chapter has a title and an ordered
+  // list of sections (heading + body). Use these for "How to use this
+  // process", terminology explanations, etc.
+  introChapters: IntroChapter[];
 }
 
 export interface FileMeta {
@@ -104,6 +106,20 @@ export interface DeliverableItem {
   // Each item can have its own progression ladder. Tasks reference a
   // state from this list in DeliverableTarget.state.
   states: string[];
+}
+
+export interface IntroChapter {
+  id: string;
+  title: string;
+  order: number;
+  sections: IntroSection[];
+}
+
+export interface IntroSection {
+  id: string;
+  title: string;
+  subtitle: string;
+  body: string;
 }
 
 export interface DeliverableTarget {
@@ -167,6 +183,7 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
     departments: [],
     roles: [],
     deliverableItems: [],
+    introChapters: [],
   };
 }
 

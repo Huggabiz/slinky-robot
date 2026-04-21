@@ -7,6 +7,13 @@
   overflow-x: auto;
 }
 
+.book-flow-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 14px;
+  color: #555;
+  font-weight: 600;
+}
+
 .book-flow-diagram svg {
   display: block;
   margin: 0 auto;

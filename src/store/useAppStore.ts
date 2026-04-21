@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import {
+  type IntroChapter,
+  type IntroSection,
   type Phase,
   type ProcessFile,
   type Role,
@@ -133,6 +135,17 @@ interface AppState {
     stateName: string,
     direction: 'up' | 'down',
   ) => void;
+  // ---- Intro chapters ----
+  addIntroChapter: (title?: string) => string | null;
+  updateIntroChapter: (id: string, patch: Partial<IntroChapter>) => void;
+  deleteIntroChapter: (id: string) => void;
+  addIntroSection: (chapterId: string) => string | null;
+  updateIntroSection: (
+    chapterId: string,
+    sectionId: string,
+    patch: Partial<IntroSection>,
+  ) => void;
+  deleteIntroSection: (chapterId: string, sectionId: string) => void;
   togglePrerequisite: (taskId: string, prereqId: string) => void;
   deleteTask: (id: string) => void;
   insertTaskOnEdge: (
@@ -465,6 +478,99 @@ export const useAppStore = create<AppState>((set, get) => {
         ...current,
         tasks: current.tasks.map((t) =>
           t.id === id ? { ...t, ...patch } : t,
+        ),
+      });
+    },
+
+    // ---- Intro chapters ----
+
+    addIntroChapter: (title = 'New Chapter') => {
+      const current = get().file;
+      if (!current) return null;
+      const maxOrder =
+        current.introChapters.length === 0
+          ? 0
+          : Math.max(...current.introChapters.map((c) => c.order)) + 10;
+      const ch: IntroChapter = {
+        id: makeId(),
+        title,
+        order: maxOrder,
+        sections: [],
+      };
+      commit({
+        ...current,
+        introChapters: [...current.introChapters, ch],
+      });
+      return ch.id;
+    },
+
+    updateIntroChapter: (id, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        introChapters: current.introChapters.map((c) =>
+          c.id === id ? { ...c, ...patch } : c,
+        ),
+      });
+    },
+
+    deleteIntroChapter: (id) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        introChapters: current.introChapters.filter((c) => c.id !== id),
+      });
+    },
+
+    addIntroSection: (chapterId) => {
+      const current = get().file;
+      if (!current) return null;
+      const sec: IntroSection = {
+        id: makeId(),
+        title: '',
+        subtitle: '',
+        body: '',
+      };
+      commit({
+        ...current,
+        introChapters: current.introChapters.map((c) =>
+          c.id === chapterId
+            ? { ...c, sections: [...c.sections, sec] }
+            : c,
+        ),
+      });
+      return sec.id;
+    },
+
+    updateIntroSection: (chapterId, sectionId, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        introChapters: current.introChapters.map((c) =>
+          c.id === chapterId
+            ? {
+                ...c,
+                sections: c.sections.map((s) =>
+                  s.id === sectionId ? { ...s, ...patch } : s,
+                ),
+              }
+            : c,
+        ),
+      });
+    },
+
+    deleteIntroSection: (chapterId, sectionId) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        introChapters: current.introChapters.map((c) =>
+          c.id === chapterId
+            ? { ...c, sections: c.sections.filter((s) => s.id !== sectionId) }
+            : c,
         ),
       });
     },

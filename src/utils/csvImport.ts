@@ -313,6 +313,7 @@ export function buildProcessFileFromCsv(
     departments: [],
     roles,
     deliverableItems: [],
+    introChapters: [],
   };
 
   return { file, warnings };

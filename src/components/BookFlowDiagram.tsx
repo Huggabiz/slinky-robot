@@ -54,6 +54,7 @@ export function BookFlowDiagram({ phaseId }: Props) {
 
   return (
     <div className="book-flow-diagram">
+      <h3 className="book-flow-title">Task Flow Diagram</h3>
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         width="100%"

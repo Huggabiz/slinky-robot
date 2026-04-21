@@ -3,6 +3,7 @@ import {
   findTaskByInternalId,
   getPhasesOrdered,
   type DeliverableTarget,
+  type IntroChapter,
   type Task,
 } from '../types';
 import { topoSortTasksInPhase } from '../utils/topoSort';
@@ -18,6 +19,10 @@ export function BookView() {
   if (!file) return null;
 
   const phases = getPhasesOrdered(file);
+  const introChapters = [...file.introChapters].sort(
+    (a, b) => a.order - b.order,
+  );
+  const introCount = introChapters.length;
 
   return (
     <article className="book-view">
@@ -34,10 +39,18 @@ export function BookView() {
       <nav className="book-toc">
         <h2>Contents</h2>
         <ol>
+          {introChapters.map((ch, idx) => (
+            <li key={ch.id}>
+              <a href={`#intro-${ch.id}`}>
+                <span className="book-toc-num">{idx + 1}.</span>{' '}
+                {ch.title}
+              </a>
+            </li>
+          ))}
           {phases.map((phase, idx) => (
             <li key={phase.id}>
               <a href={`#phase-${phase.id}`}>
-                <span className="book-toc-num">{idx + 1}.</span>{' '}
+                <span className="book-toc-num">{introCount + idx + 1}.</span>{' '}
                 {phase.name}
               </a>
             </li>
@@ -45,10 +58,55 @@ export function BookView() {
         </ol>
       </nav>
 
+      {introChapters.map((ch, idx) => (
+        <BookIntroChapter key={ch.id} chapter={ch} chapterNumber={idx + 1} />
+      ))}
+
       {phases.map((phase, idx) => (
-        <BookChapter key={phase.id} phase={phase} chapterNumber={idx + 1} />
+        <BookChapter
+          key={phase.id}
+          phase={phase}
+          chapterNumber={introCount + idx + 1}
+        />
       ))}
     </article>
+  );
+}
+
+function BookIntroChapter({
+  chapter,
+  chapterNumber,
+}: {
+  chapter: IntroChapter;
+  chapterNumber: number;
+}) {
+  return (
+    <section className="book-chapter" id={`intro-${chapter.id}`}>
+      <header className="book-chapter-header">
+        <div className="book-chapter-heading">
+          <div className="book-chapter-number">Chapter {chapterNumber}</div>
+          <h2>{chapter.title}</h2>
+        </div>
+      </header>
+
+      {chapter.sections.length === 0 ? (
+        <p className="book-empty">No sections in this chapter yet.</p>
+      ) : (
+        <div className="book-intro-sections">
+          {chapter.sections.map((sec) => (
+            <div key={sec.id} className="book-intro-section">
+              {sec.title && (
+                <h3 className="book-intro-section-title">{sec.title}</h3>
+              )}
+              {sec.subtitle && (
+                <h4 className="book-intro-section-subtitle">{sec.subtitle}</h4>
+              )}
+              {sec.body && <p className="book-step-prose">{sec.body}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -82,9 +140,7 @@ function BookChapter({
 
       {phase.intro && (
         <div className="book-chapter-intro">
-          {phase.intro.split(/\n\n+/).map((para, i) => (
-            <p key={i}>{para}</p>
-          ))}
+          <p className="book-step-prose">{phase.intro}</p>
         </div>
       )}
 
@@ -232,17 +288,10 @@ function BookSection({
 }
 
 function Prose({ text }: { text: string }) {
-  const paras = text.split(/\n\n+/).filter((p) => p.trim().length > 0);
-  if (paras.length === 0) return null;
-  return (
-    <>
-      {paras.map((p, i) => (
-        <p key={i} className="book-step-prose">
-          {p}
-        </p>
-      ))}
-    </>
-  );
+  if (!text.trim()) return null;
+  // Render with white-space: pre-wrap so single newlines (numbered
+  // lists, line breaks) are honoured as-is from the source data.
+  return <p className="book-step-prose">{text}</p>;
 }
 
 function DeliverableTable({

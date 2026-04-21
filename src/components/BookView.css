@@ -126,6 +126,25 @@
   margin: 0 0 var(--space-md);
 }
 
+.book-intro-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.book-intro-section-title {
+  font-size: 18px;
+  margin: 0 0 var(--space-xs);
+  color: #1a1a1a;
+}
+
+.book-intro-section-subtitle {
+  font-size: 14px;
+  margin: 0 0 var(--space-sm);
+  color: #555;
+  font-weight: 500;
+}
+
 .book-empty {
   font-style: italic;
   color: #999;
