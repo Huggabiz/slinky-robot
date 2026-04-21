@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 import { marked } from 'marked';
 import './Markdown.css';
 
-// Configure marked for safe, minimal output. No need for full GFM
-// features — just paragraphs, lists, bold/italic, and headings.
+// Configure marked for clean output. GFM enabled for tables and
+// strikethrough; breaks OFF so list items don't get inflated with
+// extra <br> tags between them. Users who want a hard line break
+// within a paragraph can use two trailing spaces or a blank line.
 marked.setOptions({
-  breaks: true, // single newlines become <br>
+  breaks: false,
   gfm: true,
 });
 
