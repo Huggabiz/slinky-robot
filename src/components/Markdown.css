@@ -28,6 +28,12 @@
   margin-bottom: 0.15em;
 }
 
+/* marked wraps list-item content in <p> when the source has spacing.
+   Zero out the paragraph margin inside lists so items stay tight. */
+.markdown-body li p {
+  margin: 0;
+}
+
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
