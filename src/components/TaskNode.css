@@ -1,4 +1,5 @@
 .task-node {
+  position: relative;
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -62,7 +63,6 @@
 .task-node-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-top: auto;
   gap: 4px;
 }
@@ -74,15 +74,39 @@
   color: var(--color-text-muted);
 }
 
-.task-node-icons {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
+/* Absolutely-positioned icon badges in the corners of the node. */
+.task-node-badge {
+  position: absolute;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
 }
 
-.task-node-icon {
-  font-size: 11px;
-  line-height: 1;
+/* Calendar: top-right, just below the header line. */
+.task-node-badge-tr {
+  top: 6px;
+  right: 6px;
+}
+
+/* Deliverable: bottom-right, equidistant from bottom and side. */
+.task-node-badge-br {
+  bottom: 6px;
+  right: 6px;
+}
+
+/* Contributor department colour dots (allDepartments perspective). */
+.task-node-contrib-dots {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.task-node-contrib-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* React Flow needs Handle components in the DOM for its graph model,

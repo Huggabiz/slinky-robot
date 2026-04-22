@@ -101,14 +101,30 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
     .filter(Boolean)
     .join(' ');
 
+  const contributorDots = persp?.contributorColours ?? [];
+
   return (
     <div className={classes} style={style}>
       <Handle type="target" position={Position.Top} />
       {perspResult.className === 'task-node-hidden' ? (
-        // Empty rectangle — no text content.
         <div className="task-node-hidden-inner" />
       ) : (
         <>
+          {/* Calendar icon — top right */}
+          {task.isMeetingTask && (
+            <span className="task-node-badge task-node-badge-tr" title="Meeting task">
+              📅
+            </span>
+          )}
+          {/* Deliverable icon — bottom right */}
+          {task.deliverableTargets.length > 0 && (
+            <span
+              className="task-node-badge task-node-badge-br"
+              title={`${task.deliverableTargets.length} deliverable target${task.deliverableTargets.length > 1 ? 's' : ''}`}
+            >
+              📄
+            </span>
+          )}
           <div className="task-node-header">
             <span className="task-node-id">{task.taskId}</span>
             {task.abbr && (
@@ -122,22 +138,19 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
             {task.activityType && (
               <span className="task-node-type">{task.activityType}</span>
             )}
-            <span className="task-node-icons">
-              {task.isMeetingTask && (
-                <span className="task-node-icon" title="Meeting task">
-                  📅
-                </span>
-              )}
-              {task.deliverableTargets.length > 0 && (
-                <span
-                  className="task-node-icon"
-                  title={`${task.deliverableTargets.length} deliverable target${task.deliverableTargets.length > 1 ? 's' : ''}`}
-                >
-                  📄
-                </span>
-              )}
-            </span>
           </div>
+          {contributorDots.length > 0 && (
+            <div className="task-node-contrib-dots">
+              {contributorDots.map((c, i) => (
+                <span
+                  key={i}
+                  className="task-node-contrib-dot"
+                  style={{ backgroundColor: c }}
+                  title="Contributing department"
+                />
+              ))}
+            </div>
+          )}
         </>
       )}
       <Handle type="source" position={Position.Bottom} />

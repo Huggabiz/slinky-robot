@@ -71,6 +71,46 @@ export function PerspectivesPanel({
     <section className="perspectives-panel">
       <div className="perspectives-label">Perspectives</div>
 
+      <div className="perspectives-master-btns">
+        <button
+          type="button"
+          className={`perspectives-master-btn${filter?.type === 'allDepartments' ? ' perspectives-active' : ''}`}
+          onClick={() =>
+            onFilterChange(
+              filter?.type === 'allDepartments'
+                ? null
+                : { type: 'allDepartments' },
+            )
+          }
+        >
+          All Departments
+        </button>
+        <button
+          type="button"
+          className={`perspectives-master-btn${filter?.type === 'dates' ? ' perspectives-active' : ''}`}
+          onClick={() =>
+            onFilterChange(
+              filter?.type === 'dates' ? null : { type: 'dates' },
+            )
+          }
+        >
+          Key Dates
+        </button>
+        <button
+          type="button"
+          className={`perspectives-master-btn${filter?.type === 'deliverables' ? ' perspectives-active' : ''}`}
+          onClick={() =>
+            onFilterChange(
+              filter?.type === 'deliverables'
+                ? null
+                : { type: 'deliverables' },
+            )
+          }
+        >
+          Deliverables
+        </button>
+      </div>
+
       {departments.map((dept) => {
         const roles = deptMap.get(dept.id) ?? [];
         return (

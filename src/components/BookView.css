@@ -299,18 +299,10 @@
   @page {
     size: A4;
     margin: 20mm 18mm 22mm 18mm;
-    @bottom-center {
-      content: counter(page);
-      font-family: Georgia, serif;
-      font-size: 10pt;
-      color: #666;
-    }
   }
 
   @page:first {
-    @bottom-center {
-      content: '';
-    }
+    margin-top: 40mm;
   }
 
   body,
