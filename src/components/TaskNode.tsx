@@ -129,7 +129,11 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
           <div className="task-node-header">
             <span className="task-node-id">{task.taskId}</span>
             {task.abbr && (
-              <span className="task-node-abbr">{task.abbr}</span>
+              <span
+                className={`task-node-abbr${task.isMeetingTask ? ' task-node-abbr-shifted' : ''}`}
+              >
+                {task.abbr}
+              </span>
             )}
           </div>
           <div className="task-node-name">

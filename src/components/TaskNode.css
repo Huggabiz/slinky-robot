@@ -45,6 +45,12 @@
   border-radius: 3px;
 }
 
+/* When the calendar badge is present it sits absolutely at top-right
+   and would overlap the abbreviation. Shift the abbr left to clear it. */
+.task-node-abbr-shifted {
+  margin-right: 18px;
+}
+
 .task-node-name {
   font-size: 12px;
   font-weight: 600;
