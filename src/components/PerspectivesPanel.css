@@ -51,7 +51,7 @@
 
 .perspectives-master-btn.perspectives-active {
   background: var(--color-accent);
-  color: white;
+  color: white !important;
   border-color: var(--color-accent);
 }
 
