@@ -36,6 +36,7 @@ import {
   CrossPhaseIndicator,
   type CrossPhaseData,
 } from './CrossPhaseIndicator';
+import { GateSeparator, type GateSeparatorData } from './GateSeparator';
 import './ProcessFlow.css';
 
 // Stable references — re-creating these each render triggers React
@@ -43,6 +44,7 @@ import './ProcessFlow.css';
 const nodeTypes: NodeTypes = {
   task: TaskNode,
   crossPhase: CrossPhaseIndicator,
+  gateSeparator: GateSeparator,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -242,9 +244,46 @@ export function ProcessFlow({
     return buildCrossPhaseIndicators(file, phaseId, layout.nodes);
   }, [file, phaseId, layout.nodes]);
 
+  // Gate separators — horizontal dashed lines above key-date tasks.
+  const gateSeparatorNodes = useMemo(() => {
+    if (!file || layout.nodes.length === 0) return [] as Node<GateSeparatorData>[];
+    const gates: Node<GateSeparatorData>[] = [];
+    const allXs = layout.nodes.map((n) => n.position.x);
+    const allWidths = layout.nodes.map((n) => n.width ?? 200);
+    const leftMost = Math.min(...allXs);
+    const rightMost = Math.max(
+      ...allXs.map((x, i) => x + allWidths[i]),
+    );
+    const gateWidth = rightMost - leftMost + 80;
+
+    for (const n of layout.nodes) {
+      const taskData = n.data as { task?: { dateType: string; abbr: string | null } } | undefined;
+      const task = taskData?.task;
+      if (!task) continue;
+      if (task.dateType === 'KEY DATE' || task.dateType === 'MS DATE') {
+        gates.push({
+          id: `gate-${n.id}`,
+          type: 'gateSeparator',
+          position: {
+            x: leftMost - 40,
+            y: n.position.y - 16,
+          },
+          width: gateWidth,
+          height: 1,
+          data: {
+            label: task.abbr ?? '',
+          },
+          selectable: false,
+          draggable: false,
+        });
+      }
+    }
+    return gates;
+  }, [file, layout.nodes]);
+
   const allNodes = useMemo(
-    () => [...styledNodes, ...crossPhaseResult.nodes],
-    [styledNodes, crossPhaseResult.nodes],
+    () => [...styledNodes, ...crossPhaseResult.nodes, ...gateSeparatorNodes],
+    [styledNodes, crossPhaseResult.nodes, gateSeparatorNodes],
   );
 
   const allEdges = useMemo(

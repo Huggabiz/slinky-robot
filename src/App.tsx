@@ -12,6 +12,7 @@ import { PerspectivesPanel } from './components/PerspectivesPanel';
 import { IntroChaptersPanel } from './components/IntroChaptersPanel';
 import { IntroChapterEditor } from './components/IntroChapterEditor';
 import { BookView } from './components/BookView';
+import { StatsPanel } from './components/StatsPanel';
 import type { AppView } from './components/AppRibbon';
 import type { PerspectiveFilter } from './utils/perspective';
 import { RolesPanel } from './components/RolesPanel';
@@ -100,6 +101,7 @@ function App() {
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
   const [deliverablesPanelOpen, setDeliverablesPanelOpen] = useState(false);
+  const [statsPanelOpen, setStatsPanelOpen] = useState(false);
 
   // Right-hand detail panel width, user-resizable.
   const [detailWidth, setDetailWidth] = useState(420);
@@ -181,6 +183,7 @@ function App() {
         onCreateTask={handleCreateTask}
         onCreateDeliverableItem={handleCreateDeliverableItem}
         onCreateIntroChapter={() => addIntroChapter()}
+        onOpenStats={() => setStatsPanelOpen(true)}
         view={view}
         onViewChange={setView}
       />
@@ -292,6 +295,10 @@ function App() {
       <DeliverablesPanel
         isOpen={deliverablesPanelOpen}
         onClose={() => setDeliverablesPanelOpen(false)}
+      />
+      <StatsPanel
+        isOpen={statsPanelOpen}
+        onClose={() => setStatsPanelOpen(false)}
       />
     </div>
   );

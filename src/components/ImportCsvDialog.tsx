@@ -15,6 +15,7 @@ import {
   type ImportResult,
 } from '../utils/csvImport';
 import { parseCsvWithHeaders } from '../utils/csv';
+import * as XLSX from 'xlsx';
 import './ImportCsvDialog.css';
 
 interface Props {
@@ -47,16 +48,42 @@ export function ImportCsvDialog({ isOpen, onClose, onImport }: Props) {
     const selected = e.target.files?.[0];
     if (!selected) return;
     try {
-      const text = await selected.text();
-      const parsed = parseCsvWithHeaders(text);
-      if (parsed.headers.length === 0) {
-        setError('CSV is empty or has no header row.');
-        return;
+      const isExcel = /\.xlsx?$/i.test(selected.name);
+      let headers: string[];
+      let rows: string[][];
+
+      if (isExcel) {
+        const buffer = await selected.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json<string[]>(sheet, {
+          header: 1,
+          defval: '',
+        });
+        const nonEmpty = data.filter((row) =>
+          row.some((cell) => String(cell).length > 0),
+        );
+        if (nonEmpty.length === 0) {
+          setError('Spreadsheet is empty or has no header row.');
+          return;
+        }
+        headers = nonEmpty[0].map(String);
+        rows = nonEmpty.slice(1).map((r) => r.map(String));
+      } else {
+        const text = await selected.text();
+        const parsed = parseCsvWithHeaders(text);
+        if (parsed.headers.length === 0) {
+          setError('CSV is empty or has no header row.');
+          return;
+        }
+        headers = parsed.headers;
+        rows = parsed.rows;
       }
+
       setFileName(selected.name);
-      setHeaders(parsed.headers);
-      setRows(parsed.rows);
-      setMapping(autoMapColumns(parsed.headers));
+      setHeaders(headers);
+      setRows(rows);
+      setMapping(autoMapColumns(headers));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read file.");
@@ -71,7 +98,7 @@ export function ImportCsvDialog({ isOpen, onClose, onImport }: Props) {
   const handleImport = () => {
     if (missingRequired.length > 0 || headers.length === 0) return;
     const result = buildProcessFileFromCsv(headers, rows, mapping, {
-      title: fileName?.replace(/\.csv$/i, '') ?? 'Imported Process',
+      title: fileName?.replace(/\.(csv|xlsx?)$/i, '') ?? 'Imported Process',
     });
     onImport(result);
   };
@@ -103,9 +130,10 @@ export function ImportCsvDialog({ isOpen, onClose, onImport }: Props) {
           {!fileName ? (
             <div className="dialog-intro">
               <p>
-                Pick a CSV file exported from your process database. The
-                first row must contain column headers. You'll confirm the
-                column mapping before the data is imported.
+                Pick a CSV or Excel (.xlsx) file exported from your process
+                database. The first row must contain column headers.
+                You'll confirm the column mapping before the data is
+                imported.
               </p>
               <button
                 type="button"
@@ -117,7 +145,7 @@ export function ImportCsvDialog({ isOpen, onClose, onImport }: Props) {
               <input
                 ref={inputRef}
                 type="file"
-                accept="text/csv,.csv"
+                accept="text/csv,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 hidden
                 onChange={handleFileChange}
               />

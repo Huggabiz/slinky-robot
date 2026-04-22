@@ -411,6 +411,30 @@
   color: white;
 }
 
+/* ---- Statistics panel ---- */
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stats-row td {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.stats-label {
+  color: var(--color-text);
+}
+
+.stats-value {
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
 .registry-item-states {
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);

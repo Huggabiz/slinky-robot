@@ -5,6 +5,27 @@
   background: var(--color-bg);
 }
 
+/* Edge hover "+" indicator for insert-on-edge in edit mode. */
+.orth-edge-insert {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent, #4f46e5);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  cursor: pointer;
+}
+
+.react-flow__edge:hover .orth-edge-insert,
+.orth-edge-insert:hover {
+  opacity: 1;
+}
+
 .process-flow-empty {
   flex: 1;
   display: flex;
