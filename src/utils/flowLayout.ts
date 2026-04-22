@@ -13,6 +13,7 @@ export interface TaskNodeData extends Record<string, unknown> {
   height: number;
   highlight?: HighlightInfo;
   perspective?: PerspectiveInfo;
+  searchDimmed?: boolean;
 }
 
 export interface OrthEdgeData extends Record<string, unknown> {

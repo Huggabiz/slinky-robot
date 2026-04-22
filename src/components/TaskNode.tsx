@@ -97,6 +97,7 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
     'task-node',
     selected ? 'task-node-selected' : '',
     perspResult.className,
+    data.searchDimmed ? 'task-node-search-dimmed' : '',
   ]
     .filter(Boolean)
     .join(' ');

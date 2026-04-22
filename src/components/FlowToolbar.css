@@ -16,6 +16,36 @@
   flex-wrap: wrap;
 }
 
+.flow-toolbar-search {
+  padding: 3px var(--space-sm);
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 160px;
+}
+
+.flow-toolbar-search:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.flow-toolbar-search-clear {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.flow-toolbar-search-clear:hover {
+  color: var(--color-text);
+}
+
 .flow-toolbar-check {
   display: flex;
   align-items: center;

@@ -116,6 +116,11 @@
    than missing an unused stub. */
 /* Perspective lens: desaturate unrelated tasks so the relevant ones
    pop. Applied via className from the perspective style logic. */
+/* Search filter: dim non-matching nodes. */
+.task-node-search-dimmed {
+  opacity: 0.2;
+}
+
 .task-node-desaturated {
   opacity: 0.35;
   filter: grayscale(1);

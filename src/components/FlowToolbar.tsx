@@ -8,6 +8,8 @@ interface Props {
   onHighlightChange: (enabled: boolean) => void;
   fadeOver: number | null;
   onFadeChange: (fade: number | null) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
 export function FlowToolbar({
@@ -15,10 +17,30 @@ export function FlowToolbar({
   onHighlightChange,
   fadeOver,
   onFadeChange,
+  searchQuery,
+  onSearchChange,
 }: Props) {
   return (
     <div className="flow-toolbar">
       <div className="flow-toolbar-tool">
+        <input
+          type="text"
+          className="flow-toolbar-search"
+          placeholder="Search tasks…"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            className="flow-toolbar-search-clear"
+            onClick={() => onSearchChange('')}
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+        <span className="flow-toolbar-divider" aria-hidden />
         <label className="flow-toolbar-check">
           <input
             type="checkbox"

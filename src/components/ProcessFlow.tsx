@@ -61,6 +61,8 @@ interface Props {
   // Perspective lens config.
   perspectiveFilter: PerspectiveFilter | null;
   perspectiveHideOthers: boolean;
+  // Search filter — dims non-matching nodes.
+  searchQuery: string;
 }
 
 export function ProcessFlow({
@@ -70,6 +72,7 @@ export function ProcessFlow({
   fadeOver,
   perspectiveFilter,
   perspectiveHideOthers,
+  searchQuery,
 }: Props) {
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
@@ -118,18 +121,33 @@ export function ProcessFlow({
     return computePerspective(file, perspectiveFilter, perspectiveHideOthers);
   }, [perspectiveFilter, perspectiveHideOthers, file]);
 
+  // Search matching — when a query is active, non-matching nodes get
+  // a 'searchDimmed' flag that TaskNode uses to reduce opacity.
+  const searchLower = searchQuery.trim().toLowerCase();
+
   const styledNodes = useMemo(
     () =>
-      layout.nodes.map((n) => ({
-        ...n,
-        selected: n.id === selectedTaskId || selectedTaskIds.has(n.id),
-        data: {
-          ...n.data,
-          highlight: highlightMap?.get(n.id),
-          perspective: perspectiveMap?.get(n.id),
-        },
-      })),
-    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap, perspectiveMap],
+      layout.nodes.map((n) => {
+        const taskData = n.data as { task?: { name: string; taskId: string; description: string } } | undefined;
+        const task = taskData?.task;
+        const searchMatch =
+          !searchLower ||
+          !task ||
+          task.name.toLowerCase().includes(searchLower) ||
+          task.taskId.toLowerCase().includes(searchLower) ||
+          task.description.toLowerCase().includes(searchLower);
+        return {
+          ...n,
+          selected: n.id === selectedTaskId || selectedTaskIds.has(n.id),
+          data: {
+            ...n.data,
+            highlight: highlightMap?.get(n.id),
+            perspective: perspectiveMap?.get(n.id),
+            searchDimmed: searchLower.length > 0 && !searchMatch,
+          },
+        };
+      }),
+    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap, perspectiveMap, searchLower],
   );
 
   // Colour minimap rectangles by the task's phase colour so the

@@ -70,6 +70,7 @@ function App() {
   // Display-tool state (FlowToolbar).
   const [highlightEnabled, setHighlightEnabled] = useState(false);
   const [fadeOver, setFadeOver] = useState<number | null>(3);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // FLOW LAB: labConfig state + lab open toggle.
   const [labConfig, setLabConfig] = useState<LabConfig>(DEFAULT_LAB_CONFIG);
@@ -77,7 +78,7 @@ function App() {
 
   // Perspective lens state.
   const [perspectiveFilter, setPerspectiveFilter] =
-    useState<PerspectiveFilter | null>(null);
+    useState<PerspectiveFilter | null>({ type: 'allDepartments' });
   const [perspectiveHideOthers, setPerspectiveHideOthers] = useState(false);
 
   // View toggle: flow chart vs book view.
@@ -235,6 +236,8 @@ function App() {
               onHighlightChange={setHighlightEnabled}
               fadeOver={fadeOver}
               onFadeChange={setFadeOver}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
             />
             <ProcessFlow
               phaseId={phaseId}
@@ -243,6 +246,7 @@ function App() {
               fadeOver={fadeOver}
               perspectiveFilter={perspectiveFilter}
               perspectiveHideOthers={perspectiveHideOthers}
+              searchQuery={searchQuery}
             />
           </div>
           {showDetailColumn && (

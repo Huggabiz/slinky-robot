@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { layoutTasks, type LayoutResult } from '../utils/flowLayout';
+import { computePerspective, type PerspectiveInfo } from '../utils/perspective';
 import { DEFAULT_LAB_CONFIG } from '../utils/flowLab';
 import './BookFlowDiagram.css';
 
@@ -29,6 +30,12 @@ export function BookFlowDiagram({ phaseId }: Props) {
       cancelled = true;
     };
   }, [file, phaseId]);
+
+  // Always compute allDepartments perspective for the book view.
+  const perspMap = useMemo(() => {
+    if (!file) return new Map<string, PerspectiveInfo>();
+    return computePerspective(file, { type: 'allDepartments' }, false);
+  }, [file]);
 
   if (!layout || layout.nodes.length === 0) return null;
 
@@ -99,10 +106,24 @@ export function BookFlowDiagram({ phaseId }: Props) {
             .map((n) => {
               const w = n.width ?? 200;
               const h = n.height ?? 96;
-              const task = (
-                n.data as { task?: { taskId: string; name: string; activityType: string } }
-              )?.task;
+              const taskData = n.data as {
+                task?: {
+                  id: string;
+                  taskId: string;
+                  name: string;
+                  activityType: string;
+                  isMeetingTask: boolean;
+                  deliverableTargets: unknown[];
+                };
+              } | undefined;
+              const task = taskData?.task;
               if (!task) return null;
+              const persp = perspMap.get(task.id ?? n.id);
+              const fillColour = persp?.colour
+                ? `${persp.colour}30`
+                : 'white';
+              const strokeColour = persp?.colour ?? '#ccc';
+              const contribDots = persp?.contributorColours ?? [];
               return (
                 <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
                   <rect
@@ -110,8 +131,8 @@ export function BookFlowDiagram({ phaseId }: Props) {
                     height={h}
                     rx={4}
                     ry={4}
-                    fill="white"
-                    stroke="#ccc"
+                    fill={fillColour}
+                    stroke={strokeColour}
                     strokeWidth={1.5}
                   />
                   <text
@@ -142,6 +163,28 @@ export function BookFlowDiagram({ phaseId }: Props) {
                     >
                       {task.activityType}
                     </text>
+                  )}
+                  {/* Meeting icon — top right */}
+                  {task.isMeetingTask && (
+                    <text x={w - 16} y={14} fontSize={11}>📅</text>
+                  )}
+                  {/* Deliverable icon — bottom right */}
+                  {task.deliverableTargets?.length > 0 && (
+                    <text x={w - 16} y={h - 6} fontSize={11}>📄</text>
+                  )}
+                  {/* Contributor department dots */}
+                  {contribDots.length > 0 && (
+                    <g transform={`translate(${w / 2 - (contribDots.length * 9) / 2}, ${h - 2})`}>
+                      {contribDots.map((c, i) => (
+                        <circle
+                          key={i}
+                          cx={i * 9 + 3}
+                          cy={0}
+                          r={3}
+                          fill={c}
+                        />
+                      ))}
+                    </g>
                   )}
                 </g>
               );
