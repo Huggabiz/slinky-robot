@@ -19,6 +19,32 @@
   margin: 0 auto;
 }
 
+.book-flow-legend {
+  list-style: none;
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-sm) var(--space-sm) 0;
+  border-top: 1px solid #ececec;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: #555;
+}
+
+.book-flow-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.book-flow-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 @media print {
   .book-flow-diagram {
     border: 1px solid #ccc;

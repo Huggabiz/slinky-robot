@@ -145,7 +145,7 @@ function BookChapter({
         </div>
       )}
 
-      <BookFlowDiagram phaseId={phase.id} />
+      <BookFlowDiagram phaseId={phase.id} phaseName={phase.name} />
 
       {tasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>

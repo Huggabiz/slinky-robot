@@ -7,12 +7,13 @@ import './BookFlowDiagram.css';
 
 interface Props {
   phaseId: string;
+  phaseName: string;
 }
 
 // Static SVG rendering of a phase's flow diagram for the book view.
 // Runs the same ELK layout as ProcessFlow but renders plain SVG
 // elements instead of React Flow — lighter, printable, no interactivity.
-export function BookFlowDiagram({ phaseId }: Props) {
+export function BookFlowDiagram({ phaseId, phaseName }: Props) {
   const file = useAppStore((s) => s.file);
   const [layout, setLayout] = useState<LayoutResult | null>(null);
 
@@ -36,6 +37,29 @@ export function BookFlowDiagram({ phaseId }: Props) {
     if (!file) return new Map<string, PerspectiveInfo>();
     return computePerspective(file, { type: 'allDepartments' }, false);
   }, [file]);
+
+  // Departments represented in this phase's tasks (accountable or
+  // contributor). Used for the colour legend under the diagram.
+  const legendDepts = useMemo(() => {
+    if (!file) return [] as { id: string; name: string; colour: string }[];
+    const roleToDeptId = new Map<string, string>();
+    for (const role of file.roles) {
+      if (role.departmentId) roleToDeptId.set(role.name, role.departmentId);
+    }
+    const used = new Set<string>();
+    for (const t of file.tasks) {
+      if (t.phaseId !== phaseId) continue;
+      const acctDept = roleToDeptId.get(t.accountable);
+      if (acctDept) used.add(acctDept);
+      for (const c of t.contributors) {
+        const cDept = roleToDeptId.get(c);
+        if (cDept) used.add(cDept);
+      }
+    }
+    return file.departments
+      .filter((d) => used.has(d.id) && d.colour)
+      .map((d) => ({ id: d.id, name: d.name, colour: d.colour as string }));
+  }, [file, phaseId]);
 
   if (!layout || layout.nodes.length === 0) return null;
 
@@ -61,7 +85,7 @@ export function BookFlowDiagram({ phaseId }: Props) {
 
   return (
     <div className="book-flow-diagram">
-      <h3 className="book-flow-title">Task Flow Diagram</h3>
+      <h3 className="book-flow-title">{phaseName} Task Flow</h3>
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         width="100%"
@@ -191,6 +215,20 @@ export function BookFlowDiagram({ phaseId }: Props) {
             })}
         </g>
       </svg>
+      {legendDepts.length > 0 && (
+        <ul className="book-flow-legend">
+          {legendDepts.map((d) => (
+            <li key={d.id}>
+              <span
+                className="book-flow-legend-swatch"
+                style={{ backgroundColor: d.colour }}
+                aria-hidden
+              />
+              {d.name}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

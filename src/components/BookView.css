@@ -123,7 +123,7 @@
 }
 
 .book-chapter-intro p {
-  margin: 0 0 var(--space-md);
+  margin: 0 0 0.5em;
 }
 
 .book-intro-sections {
@@ -250,7 +250,6 @@
   font-size: 13px;
   line-height: 1.55;
   color: #222;
-  white-space: pre-wrap;
 }
 
 .book-step-table {
