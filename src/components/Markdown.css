@@ -66,20 +66,16 @@
   color: var(--color-text-muted);
 }
 
-/* @Role references: inline chip styled with the role's department
-   colour. Falls back to the app accent when no colour is available.
-   color-mix keeps the background a soft tint of the same hue. */
+/* @Role references: subtle colour tint + dotted underline to mark
+   the boundary of multi-word role names. Colour comes from the
+   role's department; falls back to the app accent. Kept gentle so
+   it doesn't fight with surrounding prose contrast. */
 .markdown-body .role-ref {
   display: inline;
-  font-weight: 600;
   color: var(--role-ref-colour, var(--color-accent));
-  background: color-mix(
-    in srgb,
-    var(--role-ref-colour, var(--color-accent)) 12%,
-    transparent
-  );
-  padding: 0 4px;
-  border-radius: 3px;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--role-ref-colour, var(--color-accent));
+  text-underline-offset: 2px;
   white-space: nowrap;
 }
 

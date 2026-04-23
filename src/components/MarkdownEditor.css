@@ -51,22 +51,29 @@
 /* ----------------------------------------------------------------
    Textarea + highlight backdrop.
 
-   The backdrop div sits absolutely behind the textarea, rendering
-   the same text but with @Role runs wrapped in tinted spans. The
-   textarea's text is TRANSPARENT so the user sees the backdrop
-   through it; the caret stays visible thanks to caret-color. Both
-   elements must share identical font, padding, line-height and
-   white-space rules for characters to line up.
+   The backdrop div sits behind the textarea, rendering the same text
+   but with each @Role run in a tinted colour. The textarea text is
+   TRANSPARENT (caret-color keeps the cursor visible) so the coloured
+   runs show through.
 
-   The textarea scrolls internally when content overflows; we sync
-   the backdrop's scroll on every onScroll so the tinted regions
-   stay aligned with the characters the user sees.
+   To keep the two in perfect pixel-alignment:
+     • The textarea auto-grows to fit content (overflow: hidden,
+       height set by JS on every keystroke) — NO internal scrollbar.
+     • The parent .md-textarea-wrap scrolls when the textarea grows
+       past max-height. Both the textarea and backdrop live inside
+       the scrolling container, so they scroll together with no JS
+       scroll-sync needed.
+     • Token spans change ONLY colour — no padding, margin,
+       font-weight, or anything else that affects inline flow.
+   With no scrollbar inside the textarea, its content area is the
+   same width as the backdrop's, and text wraps identically.
 ---------------------------------------------------------------- */
 
 .md-textarea-wrap {
   position: relative;
   width: 100%;
-  display: block;
+  max-height: 280px;
+  overflow-y: auto;
 }
 
 .md-textarea,
@@ -76,38 +83,31 @@
   font-family: inherit;
   line-height: 1.6;
   padding: var(--space-sm);
-  /* Wrap long words and preserve user-entered newlines so the
-     backdrop and textarea wrap identically. */
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  box-sizing: border-box;
 }
 
 .md-textarea {
   display: block;
   width: 100%;
-  box-sizing: border-box;
   color: transparent;
   caret-color: var(--color-text);
   background: transparent;
   border: none;
-  resize: vertical;
+  resize: none;
   outline: none;
   min-height: 120px;
+  overflow: hidden;
   position: relative;
   z-index: 1;
 }
 
-/* Some browsers render selection transparently when the text itself
-   is transparent. Force a visible selection colour so highlighting
-   text still feels responsive. */
 .md-textarea::selection {
   background: color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
-/* Placeholder inherits `color` by default, which would make it
-   invisible since the textarea text is transparent. Force a visible
-   muted colour so the prompt is still readable. */
 .md-textarea::placeholder {
   color: var(--color-text-muted);
   opacity: 1;
@@ -121,25 +121,20 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
   color: var(--color-text);
   background: var(--color-surface);
-  border-radius: var(--radius-sm);
-  /* Let the backdrop's scroll be driven by JS (onScroll on the
-     textarea) — it's never interactive. */
 }
 
+/* Token spans use ONLY colour so they don't shift inline flow.
+   No padding, margin, font-weight, or border — anything that changes
+   the box or glyph metrics causes the backdrop text to wrap at a
+   different point than the textarea and the cursor drifts. */
 .md-highlight-role-token {
   color: var(--role-ref-colour, var(--color-accent));
-  background: color-mix(
-    in srgb,
-    var(--role-ref-colour, var(--color-accent)) 18%,
-    transparent
-  );
-  border-radius: 3px;
-  padding: 0 2px;
-  margin: 0 -2px;
-  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--role-ref-colour, var(--color-accent));
 }
 
 .md-hint {
@@ -149,9 +144,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* @Role autocomplete popover. Anchored below the toolbar line; the
-   textarea is tall enough that the list overlaying its top edge is
-   fine. Keyboard + mouse driven; closes on blur. */
+/* @Role autocomplete popover. */
 .md-autocomplete {
   position: absolute;
   top: 6px;

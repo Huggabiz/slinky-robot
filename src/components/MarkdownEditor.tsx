@@ -96,7 +96,6 @@ export function MarkdownEditor({
   placeholder,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
   const file = useAppStore((s) => s.file);
   const roles = file?.roles ?? [];
 
@@ -121,6 +120,18 @@ export function MarkdownEditor({
     ),
     [value, roles, file],
   );
+
+  // Auto-grow: resize the textarea to fit content so it never needs
+  // an internal scrollbar. The parent wrapper (.md-textarea-wrap)
+  // handles scrolling when the content exceeds its max-height. With
+  // no scrollbar inside the textarea, its content width matches the
+  // backdrop's exactly and text wraps identically.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }, [value]);
 
   // Autocomplete state. When non-null, a popover is shown and keys
   // (ArrowUp/Down/Enter/Tab/Escape) are intercepted on the textarea.
@@ -390,11 +401,7 @@ export function MarkdownEditor({
         </span>
       </div>
       <div className="md-textarea-wrap">
-        <div
-          ref={backdropRef}
-          className="md-highlight-backdrop"
-          aria-hidden
-        >
+        <div className="md-highlight-backdrop" aria-hidden>
           {displayNodes}
         </div>
         <textarea
@@ -414,15 +421,6 @@ export function MarkdownEditor({
             syncAutocomplete(ta.value, ta.selectionEnd);
           }}
           onKeyDown={handleKeyDown}
-          onScroll={(e) => {
-            // Keep the highlight backdrop in sync with the textarea's
-            // internal scroll position so the tinted role spans line
-            // up with the characters inside the textarea.
-            if (backdropRef.current) {
-              backdropRef.current.scrollTop = e.currentTarget.scrollTop;
-              backdropRef.current.scrollLeft = e.currentTarget.scrollLeft;
-            }
-          }}
           onBlur={() => {
             // Delay so a click on a menu item can register before close.
             setTimeout(() => setAutocomplete(null), 120);
