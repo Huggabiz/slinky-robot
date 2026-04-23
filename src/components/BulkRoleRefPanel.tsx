@@ -130,14 +130,45 @@ export function BulkRoleRefPanel({ isOpen, onClose }: Props) {
   };
 
   const acceptAll = () => {
+    // Group by task+field so when multiple roles are referenced in
+    // the same prose blob we apply ALL their @-prefixes in one
+    // updateTask call. Without this, each updateTask in the loop
+    // reads the same cached `file` snapshot, so later iterations
+    // overwrite earlier ones — only the last role per field would
+    // actually end up @-prefixed in the saved text.
+    const grouped = new Map<
+      string,
+      {
+        taskInternalId: string;
+        field: 'description' | 'deliverables' | 'keyDateRationale';
+        roles: string[];
+      }
+    >();
     for (const s of visible) {
-      const task = file.tasks.find((t) => t.id === s.taskInternalId);
+      const key = `${s.taskInternalId}:${s.field}`;
+      let entry = grouped.get(key);
+      if (!entry) {
+        entry = {
+          taskInternalId: s.taskInternalId,
+          field: s.field,
+          roles: [],
+        };
+        grouped.set(key, entry);
+      }
+      entry.roles.push(s.roleName);
+    }
+
+    for (const { taskInternalId, field, roles } of grouped.values()) {
+      const task = file.tasks.find((t) => t.id === taskInternalId);
       if (!task) continue;
-      const original = task[s.field];
+      const original = task[field];
       if (!original) continue;
-      const updated = insertAtPrefix(original, s.roleName);
+      let updated = original;
+      for (const roleName of roles) {
+        updated = insertAtPrefix(updated, roleName);
+      }
       if (updated !== original) {
-        updateTask(s.taskInternalId, { [s.field]: updated });
+        updateTask(taskInternalId, { [field]: updated });
       }
     }
     setDismissed(new Set(suggestions.map((s) => `${s.taskInternalId}:${s.field}:${s.roleName}`)));
