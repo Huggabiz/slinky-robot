@@ -66,6 +66,23 @@
   color: var(--color-text-muted);
 }
 
+/* @Role references: inline chip styled with the role's department
+   colour. Falls back to the app accent when no colour is available.
+   color-mix keeps the background a soft tint of the same hue. */
+.markdown-body .role-ref {
+  display: inline;
+  font-weight: 600;
+  color: var(--role-ref-colour, var(--color-accent));
+  background: color-mix(
+    in srgb,
+    var(--role-ref-colour, var(--color-accent)) 12%,
+    transparent
+  );
+  padding: 0 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 /* Book view uses a slightly larger base size. */
 .book-step-prose.markdown-body,
 .book-chapter-intro .markdown-body {

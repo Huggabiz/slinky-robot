@@ -100,12 +100,18 @@
   right: 6px;
 }
 
-/* Contributor department colour dots (allDepartments perspective). */
+/* Contributor department colour dots (allDepartments perspective).
+   Wrapped in a white pill so the dots stay legible on top of whatever
+   accountable-colour background the cell has. */
 .task-node-contrib-dots {
-  display: flex;
+  display: inline-flex;
   gap: 3px;
-  justify-content: center;
+  align-self: center;
   margin-top: 2px;
+  padding: 2px 5px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
 }
 
 .task-node-contrib-dot {

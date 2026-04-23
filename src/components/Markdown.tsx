@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { marked } from 'marked';
+import { useAppStore } from '../store/useAppStore';
+import { preprocessRoleRefsForMarkdown } from '../utils/roleRefs';
 import './Markdown.css';
 
 // Configure marked for clean output. GFM enabled for tables and
@@ -21,11 +23,26 @@ interface Props {
 // phase intros, intro chapter sections). The raw Markdown is stored
 // as a plain string in the JSON — human-readable, no proprietary
 // format.
+//
+// @Role references in the prose get turned into inline spans tinted
+// by the role's department colour. The preprocess happens before
+// marked.parse so the spans travel through as inline HTML.
 export function Markdown({ text, className }: Props) {
+  const file = useAppStore((s) => s.file);
+
   const html = useMemo(() => {
     if (!text.trim()) return '';
-    return marked.parse(text, { async: false }) as string;
-  }, [text]);
+    let src = text;
+    if (file && file.roles.length > 0) {
+      src = preprocessRoleRefsForMarkdown(src, file.roles, (roleName) => {
+        const role = file.roles.find((r) => r.name === roleName);
+        if (!role?.departmentId) return null;
+        const dept = file.departments.find((d) => d.id === role.departmentId);
+        return dept?.colour ?? null;
+      });
+    }
+    return marked.parse(src, { async: false }) as string;
+  }, [text, file]);
 
   if (!html) return null;
 

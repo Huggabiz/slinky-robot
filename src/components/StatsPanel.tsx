@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { getPhasesOrdered, getTasksInPhase } from '../types';
+import { countTaskRefsPerRole } from '../utils/roleRefs';
 import './RegistryPanel.css';
 
 interface Props {
@@ -22,18 +23,46 @@ export function StatsPanel({ isOpen, onClose }: Props) {
       taskCount: getTasksInPhase(file, p.id).length,
     }));
 
-    // Role workload — count how many tasks each role appears on.
-    const roleCount = new Map<string, number>();
+    // Role workload — tasks per role, split into three columns:
+    //   accountable  — task.accountable === role.name
+    //   contributing — role appears in task.contributors
+    //   referenced   — @role mention in any prose field (each task
+    //                  counts once no matter how many mentions)
+    const accountableCount = new Map<string, number>();
+    const contributingCount = new Map<string, number>();
     for (const t of file.tasks) {
       if (t.accountable) {
-        roleCount.set(t.accountable, (roleCount.get(t.accountable) ?? 0) + 1);
+        accountableCount.set(
+          t.accountable,
+          (accountableCount.get(t.accountable) ?? 0) + 1,
+        );
       }
+      const seen = new Set<string>();
       for (const c of t.contributors) {
-        if (c) roleCount.set(c, (roleCount.get(c) ?? 0) + 1);
+        if (!c || seen.has(c)) continue;
+        seen.add(c);
+        contributingCount.set(c, (contributingCount.get(c) ?? 0) + 1);
       }
     }
-    const roleStats = [...roleCount.entries()]
-      .sort((a, b) => b[1] - a[1])
+    const referencedCount = countTaskRefsPerRole(file);
+
+    const allRoleNames = new Set<string>([
+      ...accountableCount.keys(),
+      ...contributingCount.keys(),
+      ...referencedCount.keys(),
+    ]);
+    const roleStats = [...allRoleNames]
+      .map((name) => ({
+        name,
+        accountable: accountableCount.get(name) ?? 0,
+        contributing: contributingCount.get(name) ?? 0,
+        referenced: referencedCount.get(name) ?? 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.accountable + b.contributing + b.referenced -
+          (a.accountable + a.contributing + a.referenced),
+      )
       .slice(0, 20);
 
     // Deliverable coverage — how many tasks have targets set.
@@ -118,12 +147,28 @@ export function StatsPanel({ isOpen, onClose }: Props) {
           <section className="registry-section">
             <h3>Role workload (top 20)</h3>
             <p className="registry-hint">
-              Count of tasks each role appears on (accountable + contributor).
+              Tasks per role, split by how the role is involved. Referenced = the role is
+              mentioned via <code>@Name</code> in a task's description, deliverables or
+              key-date rationale. A task counts once per role per column regardless of
+              how many times it repeats within that task.
             </p>
             <table className="stats-table">
+              <thead>
+                <tr>
+                  <th className="stats-label">Role</th>
+                  <th className="stats-value">Accountable</th>
+                  <th className="stats-value">Contributing</th>
+                  <th className="stats-value">Referenced</th>
+                </tr>
+              </thead>
               <tbody>
-                {stats.roleStats.map(([name, count]) => (
-                  <StatRow key={name} label={name} value={count} />
+                {stats.roleStats.map((r) => (
+                  <tr key={r.name} className="stats-row">
+                    <td className="stats-label">{r.name}</td>
+                    <td className="stats-value">{r.accountable || ''}</td>
+                    <td className="stats-value">{r.contributing || ''}</td>
+                    <td className="stats-value">{r.referenced || ''}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>

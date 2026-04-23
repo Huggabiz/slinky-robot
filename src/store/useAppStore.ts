@@ -13,6 +13,7 @@ import {
   makeEmptyProcessFile,
 } from '../types';
 import { makeId } from '../utils/id';
+import { renameRoleInFile } from '../utils/roleRefs';
 
 // Review = read-only navigation; Edit = full editing (behind the
 // file's optional password gate, enforced at transition time in the UI).
@@ -732,8 +733,13 @@ export const useAppStore = create<AppState>((set, get) => {
       const updatedRoles = current.roles.map((r) =>
         r.id === id ? nextRole : r,
       );
-      const updatedTasks = nameChanged
-        ? current.tasks.map((t) => ({
+      // Rewrite the structured role slots first, then propagate the
+      // rename through prose fields so @oldName references track too.
+      let nextFile: ProcessFile = { ...current, roles: updatedRoles };
+      if (nameChanged) {
+        nextFile = {
+          ...nextFile,
+          tasks: current.tasks.map((t) => ({
             ...t,
             accountable:
               t.accountable === role.name ? nextName : t.accountable,
@@ -744,9 +750,11 @@ export const useAppStore = create<AppState>((set, get) => {
               t.meetingOrganiser === role.name
                 ? nextName
                 : t.meetingOrganiser,
-          }))
-        : current.tasks;
-      commit({ ...current, roles: updatedRoles, tasks: updatedTasks });
+          })),
+        };
+        nextFile = renameRoleInFile(nextFile, role.name, nextName);
+      }
+      commit(nextFile);
       return true;
     },
 
@@ -767,7 +775,7 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!source || !target) return;
       const oldName = source.name;
       const newName = target.name;
-      commit({
+      let nextFile: ProcessFile = {
         ...current,
         roles: current.roles.filter((r) => r.id !== sourceId),
         tasks: current.tasks.map((t) => ({
@@ -779,7 +787,9 @@ export const useAppStore = create<AppState>((set, get) => {
           meetingOrganiser:
             t.meetingOrganiser === oldName ? newName : t.meetingOrganiser,
         })),
-      });
+      };
+      nextFile = renameRoleInFile(nextFile, oldName, newName);
+      commit(nextFile);
     },
 
     // ---- Deliverable items (per-item states) ----

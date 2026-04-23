@@ -196,20 +196,46 @@ export function BookFlowDiagram({ phaseId, phaseName }: Props) {
                   {task.deliverableTargets?.length > 0 && (
                     <text x={w - 16} y={h - 6} fontSize={11}>📄</text>
                   )}
-                  {/* Contributor department dots */}
-                  {contribDots.length > 0 && (
-                    <g transform={`translate(${w / 2 - (contribDots.length * 9) / 2}, ${h - 2})`}>
-                      {contribDots.map((c, i) => (
-                        <circle
-                          key={i}
-                          cx={i * 9 + 3}
-                          cy={0}
-                          r={3}
-                          fill={c}
+                  {/* Contributor department dots — white pill for legibility
+                     on coloured cell backgrounds. */}
+                  {contribDots.length > 0 && (() => {
+                    const dotR = 3;
+                    const dotGap = 3;
+                    const dotW = dotR * 2;
+                    const pillPadX = 5;
+                    const pillPadY = 2;
+                    const dotsW =
+                      contribDots.length * dotW +
+                      (contribDots.length - 1) * dotGap;
+                    const pillW = dotsW + pillPadX * 2;
+                    const pillH = dotW + pillPadY * 2;
+                    const pillX = w / 2 - pillW / 2;
+                    const pillY = h - pillH / 2 - 1;
+                    return (
+                      <g>
+                        <rect
+                          x={pillX}
+                          y={pillY}
+                          width={pillW}
+                          height={pillH}
+                          rx={pillH / 2}
+                          ry={pillH / 2}
+                          fill="white"
+                          stroke="rgba(0,0,0,0.1)"
+                          strokeWidth={1}
                         />
-                      ))}
-                    </g>
-                  )}
+                        {contribDots.map((c, i) => (
+                          <circle
+                            key={i}
+                            cx={pillX + pillPadX + dotR + i * (dotW + dotGap)}
+                            cy={pillY + pillH / 2}
+                            r={dotR}
+                            fill={c}
+                          />
+                        ))}
+                      </g>
+                    );
+                  })()}
                 </g>
               );
             })}

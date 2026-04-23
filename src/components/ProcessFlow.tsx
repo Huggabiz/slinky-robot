@@ -125,19 +125,67 @@ export function ProcessFlow({
 
   // Search matching — when a query is active, non-matching nodes get
   // a 'searchDimmed' flag that TaskNode uses to reduce opacity.
-  const searchLower = searchQuery.trim().toLowerCase();
+  // Queries beginning with `@` search for tasks that reference a role
+  // either structurally (accountable / contributors / meetingOrganiser)
+  // or through an @mention in description/deliverables/keyDateRationale.
+  const searchTrimmed = searchQuery.trim();
+  const searchLower = searchTrimmed.toLowerCase();
+  const roleSearchName = searchTrimmed.startsWith('@')
+    ? searchTrimmed.slice(1).trim()
+    : null;
+
+  const roleRefMatchIds = useMemo(() => {
+    if (!roleSearchName || !file) return null;
+    const match = file.roles.find(
+      (r) => r.name.toLowerCase() === roleSearchName.toLowerCase(),
+    );
+    if (!match) return new Set<string>();
+    const ids = new Set<string>();
+    for (const t of file.tasks) {
+      if (
+        t.accountable === match.name ||
+        t.meetingOrganiser === match.name ||
+        t.contributors.includes(match.name)
+      ) {
+        ids.add(t.id);
+        continue;
+      }
+      const prose = [
+        t.description,
+        t.deliverables,
+        t.keyDateRationale ?? '',
+      ].join('\n\n');
+      const pattern = new RegExp(
+        `(^|[^A-Za-z0-9_])@${match.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9_])`,
+      );
+      if (pattern.test(prose)) ids.add(t.id);
+    }
+    return ids;
+  }, [roleSearchName, file]);
 
   const styledNodes = useMemo(
     () =>
       layout.nodes.map((n) => {
-        const taskData = n.data as { task?: { name: string; taskId: string; description: string } } | undefined;
+        const taskData = n.data as { task?: { id: string; name: string; taskId: string; description: string; deliverables: string; keyDateRationale: string | null } } | undefined;
         const task = taskData?.task;
-        const searchMatch =
-          !searchLower ||
-          !task ||
-          task.name.toLowerCase().includes(searchLower) ||
-          task.taskId.toLowerCase().includes(searchLower) ||
-          task.description.toLowerCase().includes(searchLower);
+        let searchMatch = true;
+        if (searchLower && task) {
+          if (roleRefMatchIds) {
+            searchMatch = roleRefMatchIds.has(task.id);
+          } else {
+            const haystack =
+              task.name.toLowerCase() +
+              ' ' +
+              task.taskId.toLowerCase() +
+              ' ' +
+              task.description.toLowerCase() +
+              ' ' +
+              task.deliverables.toLowerCase() +
+              ' ' +
+              (task.keyDateRationale ?? '').toLowerCase();
+            searchMatch = haystack.includes(searchLower);
+          }
+        }
         return {
           ...n,
           selected: n.id === selectedTaskId || selectedTaskIds.has(n.id),
@@ -149,7 +197,7 @@ export function ProcessFlow({
           },
         };
       }),
-    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap, perspectiveMap, searchLower],
+    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap, perspectiveMap, searchLower, roleRefMatchIds],
   );
 
   // Colour minimap rectangles by the task's phase colour so the
