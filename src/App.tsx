@@ -18,6 +18,7 @@ import type { PerspectiveFilter } from './utils/perspective';
 import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
 import { RestoreBanner } from './components/RestoreBanner';
+import { BulkRoleRefPanel } from './components/BulkRoleRefPanel';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
 import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
@@ -102,6 +103,7 @@ function App() {
   const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
   const [deliverablesPanelOpen, setDeliverablesPanelOpen] = useState(false);
   const [statsPanelOpen, setStatsPanelOpen] = useState(false);
+  const [bulkRoleRefOpen, setBulkRoleRefOpen] = useState(false);
 
   // Right-hand detail panel width, user-resizable.
   const [detailWidth, setDetailWidth] = useState(420);
@@ -184,6 +186,7 @@ function App() {
         onCreateDeliverableItem={handleCreateDeliverableItem}
         onCreateIntroChapter={() => addIntroChapter()}
         onOpenStats={() => setStatsPanelOpen(true)}
+        onOpenBulkRoleRef={() => setBulkRoleRefOpen(true)}
         view={view}
         onViewChange={setView}
       />
@@ -299,6 +302,10 @@ function App() {
       <StatsPanel
         isOpen={statsPanelOpen}
         onClose={() => setStatsPanelOpen(false)}
+      />
+      <BulkRoleRefPanel
+        isOpen={bulkRoleRefOpen}
+        onClose={() => setBulkRoleRefOpen(false)}
       />
     </div>
   );

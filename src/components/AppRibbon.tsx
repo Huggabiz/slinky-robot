@@ -28,6 +28,7 @@ interface Props {
   onCreateDeliverableItem: () => void;
   onCreateIntroChapter: () => void;
   onOpenStats: () => void;
+  onOpenBulkRoleRef: () => void;
   view: AppView;
   onViewChange: (view: AppView) => void;
 }
@@ -46,6 +47,7 @@ export function AppRibbon({
   onCreateDeliverableItem,
   onCreateIntroChapter,
   onOpenStats,
+  onOpenBulkRoleRef,
   view,
   onViewChange,
 }: Props) {
@@ -205,6 +207,11 @@ export function AppRibbon({
             <DropdownItem
               label="Deliverables…"
               onClick={onOpenDeliverables}
+            />
+            <DropdownDivider />
+            <DropdownItem
+              label="Bulk @Role Suggestions…"
+              onClick={onOpenBulkRoleRef}
             />
           </>
         )}

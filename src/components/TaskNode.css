@@ -88,10 +88,11 @@
   pointer-events: none;
 }
 
-/* Calendar: top-right, just below the header line. */
+/* Calendar: top-right, flush with the card edge so it sits at the
+   same height as the abbr badge in the header row. */
 .task-node-badge-tr {
-  top: 6px;
-  right: 6px;
+  top: 2px;
+  right: 3px;
 }
 
 /* Deliverable: bottom-right, equidistant from bottom and side. */

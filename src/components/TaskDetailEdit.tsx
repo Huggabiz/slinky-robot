@@ -9,6 +9,7 @@ import {
   type Task,
 } from '../types';
 import { RolePicker, RoleMultiPicker } from './RolePicker';
+import { MarkdownEditor } from './MarkdownEditor';
 import './TaskDetailEdit.css';
 import './TaskDetail.css';
 
@@ -190,25 +191,21 @@ export function TaskDetailEdit({ task }: { task: Task }) {
       </Section>
 
       <Section title="Description">
-        <textarea
-          className="task-edit-textarea"
+        <MarkdownEditor
           value={task.description}
-          onChange={(e) => patch({ description: e.target.value })}
+          onChange={(v) => patch({ description: v })}
           rows={6}
-          placeholder="What does this task involve?"
+          placeholder="What does this task involve? Use @Role to reference a role."
         />
-        <span className="task-edit-md-hint">Supports Markdown: - bullets, 1. numbered, **bold**</span>
       </Section>
 
       <Section title="Deliverables">
-        <textarea
-          className="task-edit-textarea"
+        <MarkdownEditor
           value={task.deliverables}
-          onChange={(e) => patch({ deliverables: e.target.value })}
+          onChange={(v) => patch({ deliverables: v })}
           rows={4}
           placeholder="What comes out of this task?"
         />
-        <span className="task-edit-md-hint">Supports Markdown</span>
       </Section>
 
       {file.deliverableItems.length > 0 && (
@@ -288,12 +285,9 @@ export function TaskDetailEdit({ task }: { task: Task }) {
 
       {task.dateType !== 'NONE' && (
         <Section title="Key Date Rationale">
-          <textarea
-            className="task-edit-textarea"
+          <MarkdownEditor
             value={task.keyDateRationale ?? ''}
-            onChange={(e) =>
-              patch({ keyDateRationale: e.target.value || null })
-            }
+            onChange={(v) => patch({ keyDateRationale: v || null })}
             rows={3}
             placeholder="Why is this a key date?"
           />
