@@ -298,10 +298,7 @@ function BookStepCard({ task }: { task: Task }) {
           <MetaRow label="Accountable" value={task.accountable} />
         )}
         {task.contributors.length > 0 && (
-          <MetaRow
-            label="Contributors"
-            value={task.contributors.join(', ')}
-          />
+          <MetaRow label="Contributors" items={task.contributors} />
         )}
         {task.isMeetingTask && task.meetingOrganiser && (
           <MetaRow label="Meeting Organiser" value={task.meetingOrganiser} />
@@ -360,7 +357,30 @@ function BookStepCard({ task }: { task: Task }) {
   );
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function MetaRow({
+  label,
+  value,
+  items,
+}: {
+  label: string;
+  value?: string;
+  items?: string[];
+}) {
+  if (items) {
+    if (items.length === 0) return null;
+    return (
+      <div className="book-meta-row">
+        <dt>{label}</dt>
+        <dd>
+          <ul className="book-meta-row-list">
+            {items.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+    );
+  }
   return (
     <div className="book-meta-row">
       <dt>{label}</dt>

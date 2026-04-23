@@ -43,10 +43,7 @@ export function TaskDetailRead({ task }: { task: Task }) {
 
       <dl className="task-detail-meta">
         <MetaRow label="Accountable" value={task.accountable} />
-        <MetaRow
-          label="Contributors"
-          value={task.contributors.join(', ')}
-        />
+        <MetaRow label="Contributors" items={task.contributors} />
         <MetaRow label="Meeting Organiser" value={task.meetingOrganiser} />
         <MetaRow label="PDM Template" value={task.pdmTemplate} />
       </dl>
@@ -99,10 +96,27 @@ export function TaskDetailRead({ task }: { task: Task }) {
 function MetaRow({
   label,
   value,
+  items,
 }: {
   label: string;
-  value: string | null;
+  value?: string | null;
+  items?: string[];
 }) {
+  if (items) {
+    if (items.length === 0) return null;
+    return (
+      <div className="meta-row">
+        <dt>{label}</dt>
+        <dd>
+          <ul className="meta-row-list">
+            {items.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+    );
+  }
   if (!value) return null;
   return (
     <div className="meta-row">

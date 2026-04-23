@@ -161,6 +161,36 @@
   color: var(--color-text);
 }
 
+/* Multi-value meta rows (e.g. Contributors) render as a 2-column
+   hyphenated list rather than a comma-soup so longer rosters stay
+   scannable. Falls back to a single column on narrow panels. */
+.meta-row-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px var(--space-md);
+}
+
+.meta-row-list li {
+  position: relative;
+  padding-left: 12px;
+}
+
+.meta-row-list li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 480px) {
+  .meta-row-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .task-detail-section {
   margin-bottom: var(--space-lg);
 }
