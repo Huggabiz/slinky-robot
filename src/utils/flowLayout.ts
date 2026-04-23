@@ -144,6 +144,90 @@ export async function layoutTasks(
 }
 
 /**
+ * Lay out every phase independently, then stack the results vertically
+ * with a gap between them. Each phase keeps its own ELK layout shape
+ * so the user can recognise its structure from the per-phase view.
+ *
+ * phaseOrder is the list of phase ids in display order. Tasks whose
+ * phaseId doesn't appear in the list are silently ignored.
+ */
+export async function layoutAllPhasesStacked(
+  tasks: Task[],
+  phaseOrder: string[],
+  config: LabConfig,
+): Promise<LayoutResult> {
+  const PHASE_GAP = 120;
+  const byPhase = new Map<string, Task[]>();
+  for (const t of tasks) {
+    let list = byPhase.get(t.phaseId);
+    if (!list) {
+      list = [];
+      byPhase.set(t.phaseId, list);
+    }
+    list.push(t);
+  }
+
+  const phaseResults = await Promise.all(
+    phaseOrder
+      .filter((pid) => (byPhase.get(pid)?.length ?? 0) > 0)
+      .map((pid) => layoutTasks(tasks, pid, config).then((r) => ({ pid, r }))),
+  );
+
+  const allNodes: Node<TaskNodeData>[] = [];
+  const allEdges: Edge<OrthEdgeData>[] = [];
+  let yOffset = 0;
+
+  for (const { r } of phaseResults) {
+    if (r.nodes.length === 0) continue;
+
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const n of r.nodes) {
+      const top = n.position.y;
+      const bottom = top + (n.height ?? 96);
+      if (top < minY) minY = top;
+      if (bottom > maxY) maxY = bottom;
+    }
+
+    const dy = yOffset - minY;
+    for (const n of r.nodes) {
+      allNodes.push({
+        ...n,
+        position: { x: n.position.x, y: n.position.y + dy },
+      });
+    }
+    for (const e of r.edges) {
+      const path = (e.data as { path?: string } | undefined)?.path;
+      if (path) {
+        const shifted = shiftSvgPathY(path, dy);
+        allEdges.push({
+          ...e,
+          data: { ...e.data, path: shifted } as OrthEdgeData,
+        });
+      } else {
+        allEdges.push(e);
+      }
+    }
+
+    yOffset = maxY + dy + PHASE_GAP;
+  }
+
+  return { nodes: allNodes, edges: allEdges };
+}
+
+// Shift all Y coordinates in a "M ... L ... L ..." SVG path string.
+function shiftSvgPathY(pathData: string, dy: number): string {
+  if (dy === 0) return pathData;
+  return pathData.replace(
+    /([ML])\s*([\d.eE+-]+)\s*[, ]\s*([\d.eE+-]+)/g,
+    (_m, cmd, xStr, yStr) => {
+      const y = parseFloat(yStr) + dy;
+      return `${cmd} ${xStr},${y}`;
+    },
+  );
+}
+
+/**
  * Determine how far START and END need to move (on top of the global
  * centring) to land at x=0. Returns an empty map if the phase doesn't
  * have a clear single-node first/last rank.

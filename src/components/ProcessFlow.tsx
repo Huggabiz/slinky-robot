@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
   Background,
   Controls,
   MiniMap,
@@ -15,9 +17,11 @@ import '@xyflow/react/dist/style.css';
 import { useAppStore } from '../store/useAppStore';
 import {
   layoutTasks,
+  layoutAllPhasesStacked,
   type LayoutResult,
   type TaskNodeData,
 } from '../utils/flowLayout';
+import { getPhasesOrdered } from '../types';
 import { computeHighlights } from '../utils/highlight';
 import {
   computePerspective,
@@ -68,7 +72,15 @@ interface Props {
   searchQuery: string;
 }
 
-export function ProcessFlow({
+export function ProcessFlow(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <ProcessFlowInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function ProcessFlowInner({
   phaseId,
   labConfig,
   highlightEnabled,
@@ -77,6 +89,7 @@ export function ProcessFlow({
   perspectiveHideOthers,
   searchQuery,
 }: Props) {
+  const reactFlow = useReactFlow();
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
@@ -101,7 +114,15 @@ export function ProcessFlow({
       return;
     }
     let cancelled = false;
-    layoutTasks(file.tasks, layoutPhaseId, labConfig)
+    const promise =
+      layoutPhaseId === null
+        ? layoutAllPhasesStacked(
+            file.tasks,
+            getPhasesOrdered(file).map((p) => p.id),
+            labConfig,
+          )
+        : layoutTasks(file.tasks, layoutPhaseId, labConfig);
+    promise
       .then((result) => {
         if (cancelled) return;
         setLayout(result);
@@ -114,6 +135,21 @@ export function ProcessFlow({
       cancelled = true;
     };
   }, [file, layoutPhaseId, labConfig]);
+
+  // Re-centre / re-fit whenever the layout changes (which happens on
+  // phase switch, file edit, etc.). The short delay lets React Flow
+  // process the new nodes before we ask it to compute bounds.
+  const layoutIdRef = useRef(0);
+  useEffect(() => {
+    layoutIdRef.current += 1;
+    const id = layoutIdRef.current;
+    if (layout.nodes.length === 0) return;
+    const timer = setTimeout(() => {
+      if (id !== layoutIdRef.current) return;
+      reactFlow.fitView({ padding: 0.15, duration: 200 });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [layout, reactFlow]);
 
   // Dependency highlight pass. Cheap BFS across all tasks (not just the
   // filtered phase) so cross-phase prereq/dependent chains would also
@@ -373,6 +409,7 @@ export function ProcessFlow({
         onPaneClick={() => selectTask(null)}
         fitView
         fitViewOptions={{ padding: 0.15 }}
+        minZoom={0.05}
         nodesDraggable={false}
         nodesConnectable={false}
         proOptions={{ hideAttribution: true }}
