@@ -51,26 +51,26 @@
 /* ----------------------------------------------------------------
    Textarea + highlight backdrop.
 
-   The backdrop div sits behind the textarea, rendering the same text
-   but with each @Role run in a tinted colour. The textarea text is
-   TRANSPARENT (caret-color keeps the cursor visible) so the coloured
-   runs show through.
+   Both the textarea and the backdrop sit in the same CSS Grid cell.
+   They share identical font, padding, line-height and white-space
+   rules so text wraps at the same points.  The textarea text is
+   TRANSPARENT (caret-color keeps the cursor visible) and has a
+   higher z-index; the backdrop renders the same text underneath
+   with @Role runs in a tinted colour.
 
-   To keep the two in perfect pixel-alignment:
-     • The textarea auto-grows to fit content (overflow: hidden,
-       height set by JS on every keystroke) — NO internal scrollbar.
-     • The parent .md-textarea-wrap scrolls when the textarea grows
-       past max-height. Both the textarea and backdrop live inside
-       the scrolling container, so they scroll together with no JS
-       scroll-sync needed.
-     • Token spans change ONLY colour — no padding, margin,
-       font-weight, or anything else that affects inline flow.
-   With no scrollbar inside the textarea, its content area is the
-   same width as the backdrop's, and text wraps identically.
+   The textarea auto-grows to fit content (height set by JS on
+   every keystroke), so there's NO internal scrollbar. The parent
+   .md-textarea-wrap scrolls when the content exceeds max-height.
+   Because both elements are normal grid children (not absolute),
+   they stretch to the same content height and scroll together
+   without JS sync.
+
+   Token spans change ONLY colour — no padding, margin, font-weight,
+   or anything else that affects inline flow.
 ---------------------------------------------------------------- */
 
 .md-textarea-wrap {
-  position: relative;
+  display: grid;
   width: 100%;
   max-height: 280px;
   overflow-y: auto;
@@ -78,6 +78,7 @@
 
 .md-textarea,
 .md-highlight-backdrop {
+  grid-area: 1 / 1;
   font: inherit;
   font-size: 14px;
   font-family: inherit;
@@ -100,7 +101,6 @@
   outline: none;
   min-height: 120px;
   overflow: hidden;
-  position: relative;
   z-index: 1;
 }
 
@@ -118,8 +118,6 @@
 }
 
 .md-highlight-backdrop {
-  position: absolute;
-  inset: 0;
   pointer-events: none;
   color: var(--color-text);
   background: var(--color-surface);
