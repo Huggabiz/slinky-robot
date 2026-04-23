@@ -37,6 +37,7 @@ import {
   type CrossPhaseData,
 } from './CrossPhaseIndicator';
 import { GateSeparator, type GateSeparatorData } from './GateSeparator';
+import { ALL_PHASES_ID } from './PhaseSidebar';
 import './ProcessFlow.css';
 
 // Stable references — re-creating these each render triggers React
@@ -88,13 +89,19 @@ export function ProcessFlow({
 
   const [layout, setLayout] = useState<LayoutResult>(EMPTY_LAYOUT);
 
+  // Translate the ALL_PHASES sentinel into null at the layout boundary
+  // so layoutTasks renders every phase's tasks together. Same null
+  // value is used by cross-phase indicators below to skip their work
+  // (every prereq is already on screen, so no off-screen markers).
+  const layoutPhaseId = phaseId === ALL_PHASES_ID ? null : phaseId;
+
   useEffect(() => {
     if (!file) {
       setLayout(EMPTY_LAYOUT);
       return;
     }
     let cancelled = false;
-    layoutTasks(file.tasks, phaseId, labConfig)
+    layoutTasks(file.tasks, layoutPhaseId, labConfig)
       .then((result) => {
         if (cancelled) return;
         setLayout(result);
@@ -106,7 +113,7 @@ export function ProcessFlow({
     return () => {
       cancelled = true;
     };
-  }, [file, phaseId, labConfig]);
+  }, [file, layoutPhaseId, labConfig]);
 
   // Dependency highlight pass. Cheap BFS across all tasks (not just the
   // filtered phase) so cross-phase prereq/dependent chains would also
@@ -275,7 +282,9 @@ export function ProcessFlow({
 
   const handleEdgeClick = useCallback(
     (_event: React.MouseEvent, edge: { source: string; target: string }) => {
-      if (mode !== 'edit' || !phaseId) return;
+      // Edge-insert needs a concrete phase to drop the new task into.
+      // In all-phases mode the user has to pick a milestone first.
+      if (mode !== 'edit' || !phaseId || phaseId === ALL_PHASES_ID) return;
       const newId = insertTaskOnEdge(edge.source, edge.target, phaseId);
       if (newId) selectTask(newId);
     },
@@ -285,8 +294,15 @@ export function ProcessFlow({
   // Cross-phase indicators: for tasks in the current phase that have
   // prerequisites or dependents in OTHER phases, add phantom indicator
   // nodes at the top/bottom of the canvas with faded dashed edges.
+  // In all-phases mode every prereq/dependent is already on screen,
+  // so the indicators are unnecessary.
   const crossPhaseResult = useMemo(() => {
-    if (!file || !phaseId || layout.nodes.length === 0) {
+    if (
+      !file ||
+      !phaseId ||
+      phaseId === ALL_PHASES_ID ||
+      layout.nodes.length === 0
+    ) {
       return { nodes: [] as Node<CrossPhaseData>[], edges: [] as typeof layout.edges };
     }
     return buildCrossPhaseIndicators(file, phaseId, layout.nodes);

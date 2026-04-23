@@ -6,6 +6,11 @@ import {
 } from '../types';
 import './PhaseSidebar.css';
 
+// Sentinel id meaning "show every phase's tasks at once". Picked as
+// a long unlikely-to-collide string so it can't mistakenly match a
+// real phase id (which is a UUID).
+export const ALL_PHASES_ID = '__all_phases__';
+
 interface Props {
   selectedPhaseId: string | null;
   onSelect: (id: string) => void;
@@ -49,9 +54,31 @@ export function PhaseSidebar({
     }
   };
 
+  const allActive = selectedPhaseId === ALL_PHASES_ID;
+  const totalTaskCount = file.tasks.length;
+
   return (
     <aside className="phase-sidebar">
       <div className="phase-sidebar-label">Milestones</div>
+      {phases.length > 0 && (
+        <div
+          className={
+            allActive
+              ? 'phase-sidebar-row phase-sidebar-row-active phase-sidebar-row-all'
+              : 'phase-sidebar-row phase-sidebar-row-all'
+          }
+        >
+          <button
+            type="button"
+            className="phase-sidebar-item"
+            onClick={() => onSelect(ALL_PHASES_ID)}
+          >
+            <span className="phase-sidebar-swatch phase-sidebar-swatch-all" aria-hidden />
+            <span className="phase-sidebar-name">All Milestones</span>
+            <span className="phase-sidebar-count">{totalTaskCount}</span>
+          </button>
+        </div>
+      )}
       {phases.length === 0 ? (
         <div className="phase-sidebar-empty">
           No phases yet. {editing ? 'Click + below to add one.' : 'Import a CSV, or open an existing JSON file.'}

@@ -26,6 +26,7 @@ import { type ImportResult } from './utils/csvImport';
 import { useAutosave } from './utils/autosave';
 import { useAppStore } from './store/useAppStore';
 import { getPhasesOrdered } from './types';
+import { ALL_PHASES_ID } from './components/PhaseSidebar';
 import './App.css';
 
 function App() {
@@ -110,7 +111,9 @@ function App() {
   const detailWidthRef = useRef(detailWidth);
   detailWidthRef.current = detailWidth;
 
-  // Keep the active phase coherent with the loaded file.
+  // Keep the active phase coherent with the loaded file. The
+  // ALL_PHASES sentinel is a valid choice and isn't reset to a real
+  // phase; it just means "render every phase's tasks together".
   useEffect(() => {
     if (!file) {
       setPhaseId(null);
@@ -121,6 +124,7 @@ function App() {
       setPhaseId(null);
       return;
     }
+    if (phaseId === ALL_PHASES_ID) return;
     if (!phaseId || !phases.some((p) => p.id === phaseId)) {
       setPhaseId(phases[0].id);
     }
@@ -151,9 +155,9 @@ function App() {
 
   const handleCreateTask = () => {
     if (!file) return;
-    if (!phaseId) {
+    if (!phaseId || phaseId === ALL_PHASES_ID) {
       window.alert(
-        'Select a phase in the sidebar first — new tasks land in the active phase.',
+        'Select a specific milestone in the sidebar first — new tasks land in the active phase.',
       );
       return;
     }
@@ -168,9 +172,13 @@ function App() {
     if (name?.trim()) addDeliverableItem(name.trim());
   };
 
+  // ALL_PHASES_ID isn't a real phase — don't open the detail column
+  // for it on its own. A task selection (or intro chapter) still
+  // forces the column open as before.
+  const hasRealPhase = phaseId !== null && phaseId !== ALL_PHASES_ID;
   const showDetailColumn =
     file !== null &&
-    (selectedTaskId !== null || phaseId !== null || selectedIntroChapterId !== null);
+    (selectedTaskId !== null || hasRealPhase || selectedIntroChapterId !== null);
 
   return (
     <div className={`app${mode === 'edit' ? ' edit-mode' : ''}`}>
