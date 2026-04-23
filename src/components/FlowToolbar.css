@@ -102,6 +102,22 @@
   color: var(--color-text);
 }
 
+/* Perspective legend (department/role filter). The swatch sizes mirror
+   the TaskNode card border style so the user can match what they see
+   on the canvas to the legend's tier name. */
+.flow-toolbar-perspective-label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.flow-toolbar-perspective-swatch {
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  border-width: 1.5px;
+  display: inline-block;
+}
+
 .flow-toolbar-field-label {
   color: var(--color-text-muted);
 }

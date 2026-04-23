@@ -63,6 +63,15 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
         },
         className: '',
       };
+    case 'referenced':
+      return {
+        style: {
+          borderColor: colour,
+          backgroundColor: 'transparent',
+          borderStyle: 'dotted',
+        },
+        className: '',
+      };
     case 'none':
       return {
         style: {},

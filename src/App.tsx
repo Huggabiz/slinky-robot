@@ -252,6 +252,7 @@ function App() {
               onFadeChange={setFadeOver}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
+              perspectiveFilter={perspectiveFilter}
             />
             <ProcessFlow
               phaseId={phaseId}

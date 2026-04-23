@@ -1,4 +1,5 @@
 import type { ProcessFile } from '../types';
+import { extractRoleRefs } from './roleRefs';
 
 export type PerspectiveFilter =
   | { type: 'department'; departmentId: string }
@@ -8,7 +9,14 @@ export type PerspectiveFilter =
   | { type: 'deliverables' };
 
 export interface PerspectiveInfo {
-  role: 'accountable' | 'contributor' | 'meetingOrganiser' | 'none';
+  // Hierarchy order (strongest → weakest involvement):
+  //   accountable > contributor > meetingOrganiser > referenced > none
+  // 'referenced' means the role is mentioned via @Name in the task's
+  // prose but isn't structurally involved. Only assigned for
+  // 'department' and 'role' filters; allDepartments / dates /
+  // deliverables don't surface this tier (it isn't meaningful in
+  // those modes).
+  role: 'accountable' | 'contributor' | 'meetingOrganiser' | 'referenced' | 'none';
   colour: string | null;
   hideOthers: boolean;
   // For 'allDepartments' mode: colours of departments that contribute
@@ -75,6 +83,11 @@ export function computePerspective(
 
   if (activeNames.size === 0) return map;
 
+  // Pre-build a roles array containing only the active names so the
+  // @-reference scan ignores everything else. activeNames is already
+  // restricted to the filter's department or single role.
+  const activeRoles = file.roles.filter((r) => activeNames.has(r.name));
+
   for (const task of file.tasks) {
     const isAccountable = activeNames.has(task.accountable);
     const isContributor = task.contributors.some((c) =>
@@ -86,10 +99,32 @@ export function computePerspective(
 
     if (isAccountable) {
       map.set(task.id, { role: 'accountable', colour, hideOthers });
-    } else if (isContributor) {
+      continue;
+    }
+    if (isContributor) {
       map.set(task.id, { role: 'contributor', colour, hideOthers });
-    } else if (isMeetingOrganiser) {
+      continue;
+    }
+    if (isMeetingOrganiser) {
       map.set(task.id, { role: 'meetingOrganiser', colour, hideOthers });
+      continue;
+    }
+
+    // Fourth tier: an active role is mentioned via @Name somewhere in
+    // the task's prose but isn't structurally involved.
+    const prose = [
+      task.description,
+      task.deliverables,
+      task.keyDateRationale ?? '',
+    ].join('\n\n');
+    const isReferenced =
+      prose.includes('@') &&
+      [...extractRoleRefs(prose, activeRoles)].some((n) =>
+        activeNames.has(n),
+      );
+
+    if (isReferenced) {
+      map.set(task.id, { role: 'referenced', colour, hideOthers });
     } else {
       map.set(task.id, { role: 'none', colour: null, hideOthers });
     }
