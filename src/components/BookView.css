@@ -268,21 +268,7 @@
 }
 
 .book-meta-row-list li {
-  position: relative;
-  padding-left: 12px;
-}
-
-.book-meta-row-list li::before {
-  content: '–';
-  position: absolute;
-  left: 0;
-  color: #888;
-}
-
-@media (max-width: 480px) {
-  .book-meta-row-list {
-    grid-template-columns: 1fr;
-  }
+  line-height: 1.4;
 }
 
 .book-step-section {

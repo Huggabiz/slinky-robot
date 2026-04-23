@@ -168,27 +168,13 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .meta-row-list li {
-  position: relative;
-  padding-left: 12px;
-}
-
-.meta-row-list li::before {
-  content: '–';
-  position: absolute;
-  left: 0;
-  color: var(--color-text-muted);
-}
-
-@media (max-width: 480px) {
-  .meta-row-list {
-    grid-template-columns: 1fr;
-  }
+  line-height: 1.4;
 }
 
 .task-detail-section {
