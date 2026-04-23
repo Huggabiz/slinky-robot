@@ -2,12 +2,35 @@
    Book View — screen + print styles
    =========================================================== */
 
+.book-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .book-view {
   flex: 1;
   overflow-y: auto;
   background: #f7f6f2;
   color: #1a1a1a;
   padding: var(--space-xl) 0;
+}
+
+.book-filter-note {
+  max-width: 720px;
+  margin: 0 auto var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  background: #fff4d6;
+  border-left: 3px solid #d4b14a;
+  font-size: 12px;
+  color: #5a4a1a;
+  border-radius: 2px;
+}
+
+.app.edit-mode .book-filter-note {
+  background: color-mix(in srgb, #d4b14a 18%, transparent);
+  color: #d4b14a;
 }
 
 /* Reset edit-mode dark palette inside the book since it's designed
@@ -307,7 +330,8 @@
   body,
   .app,
   .app-workspace,
-  .app-flow-column {
+  .app-flow-column,
+  .book-layout {
     background: white !important;
     height: auto !important;
     overflow: visible !important;
@@ -319,7 +343,8 @@
   .app-left-sidebar,
   .app-detail-column,
   .detail-resizer,
-  .flow-toolbar {
+  .flow-toolbar,
+  .book-filter-note {
     display: none !important;
   }
 

@@ -4,6 +4,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  width: 100%;
 }
 
 .md-toolbar {
@@ -47,22 +48,98 @@
   margin: 0 2px;
 }
 
-.md-textarea {
+/* ----------------------------------------------------------------
+   Textarea + highlight backdrop.
+
+   The backdrop div sits absolutely behind the textarea, rendering
+   the same text but with @Role runs wrapped in tinted spans. The
+   textarea's text is TRANSPARENT so the user sees the backdrop
+   through it; the caret stays visible thanks to caret-color. Both
+   elements must share identical font, padding, line-height and
+   white-space rules for characters to line up.
+
+   The textarea scrolls internally when content overflows; we sync
+   the backdrop's scroll on every onScroll so the tinted regions
+   stay aligned with the characters the user sees.
+---------------------------------------------------------------- */
+
+.md-textarea-wrap {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.md-textarea,
+.md-highlight-backdrop {
   font: inherit;
   font-size: 14px;
   font-family: inherit;
   line-height: 1.6;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: none;
   padding: var(--space-sm);
+  /* Wrap long words and preserve user-entered newlines so the
+     backdrop and textarea wrap identically. */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.md-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  color: transparent;
+  caret-color: var(--color-text);
+  background: transparent;
+  border: none;
   resize: vertical;
   outline: none;
   min-height: 120px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Some browsers render selection transparently when the text itself
+   is transparent. Force a visible selection colour so highlighting
+   text still feels responsive. */
+.md-textarea::selection {
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+/* Placeholder inherits `color` by default, which would make it
+   invisible since the textarea text is transparent. Force a visible
+   muted colour so the prompt is still readable. */
+.md-textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
 }
 
 .md-textarea:focus {
   box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.md-highlight-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  /* Let the backdrop's scroll be driven by JS (onScroll on the
+     textarea) — it's never interactive. */
+}
+
+.md-highlight-role-token {
+  color: var(--role-ref-colour, var(--color-accent));
+  background: color-mix(
+    in srgb,
+    var(--role-ref-colour, var(--color-accent)) 18%,
+    transparent
+  );
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  font-weight: 600;
 }
 
 .md-hint {
@@ -70,10 +147,6 @@
   color: var(--color-text-muted);
   padding: 0 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.md-textarea-wrap {
-  position: relative;
 }
 
 /* @Role autocomplete popover. Anchored below the toolbar line; the

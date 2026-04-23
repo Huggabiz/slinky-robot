@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import type { Role } from '../types';
 import './MarkdownEditor.css';
 
 interface Props {
@@ -18,6 +19,66 @@ type FormatAction =
   | 'h3'
   | 'quote';
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Break raw text into runs: plain strings and @Role tokens. Used by the
+// backdrop div that sits behind the transparent textarea so the user
+// can see where each role reference starts and ends.
+function tokenizeRoleRefs(
+  text: string,
+  roles: Role[],
+  colourForRole: (name: string) => string | null,
+): ReactNode[] {
+  if (!text) return [];
+  const names = roles
+    .map((r) => r.name)
+    .filter((n) => n.trim().length > 0)
+    .sort((a, b) => b.length - a.length);
+  if (names.length === 0) return [text];
+
+  const alt = names.map(escapeRegExp).join('|');
+  const pattern = new RegExp(
+    `(^|[^A-Za-z0-9_])@(${alt})(?![A-Za-z0-9_])`,
+    'g',
+  );
+
+  const out: ReactNode[] = [];
+  let lastIndex = 0;
+  let key = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const matchStart = match.index;
+    const prefix = match[1];
+    const name = match[2];
+    const atIndex = matchStart + prefix.length;
+    const endIndex = atIndex + 1 + name.length;
+
+    if (atIndex > lastIndex) {
+      out.push(text.slice(lastIndex, atIndex));
+    }
+    const colour = colourForRole(name);
+    const style = colour
+      ? ({ ['--role-ref-colour' as string]: colour } as CSSProperties)
+      : undefined;
+    out.push(
+      <span
+        key={key++}
+        className="md-highlight-role-token"
+        style={style}
+      >
+        @{name}
+      </span>,
+    );
+    lastIndex = endIndex;
+  }
+  if (lastIndex < text.length) {
+    out.push(text.slice(lastIndex));
+  }
+  return out;
+}
+
 // Textarea with a Markdown formatting toolbar. Buttons insert syntax
 // at the cursor or wrap the current selection. No WYSIWYG — the user
 // sees raw Markdown in the textarea and the result renders via the
@@ -26,7 +87,8 @@ type FormatAction =
 // Also supports @Role autocomplete: typing `@` followed by one or more
 // characters opens a popover of matching roles. Pick one with mouse
 // or arrow keys + Enter/Tab to replace the fragment with the full
-// role name. The Markdown renderer picks these up and highlights.
+// role name. A highlight backdrop sits behind the textarea so each
+// @Role run is visibly tinted even while typing.
 export function MarkdownEditor({
   value,
   onChange,
@@ -34,7 +96,31 @@ export function MarkdownEditor({
   placeholder,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const roles = useAppStore((s) => s.file?.roles ?? []);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const file = useAppStore((s) => s.file);
+  const roles = file?.roles ?? [];
+
+  const colourForRole = (roleName: string): string | null => {
+    if (!file) return null;
+    const role = file.roles.find((r) => r.name === roleName);
+    if (!role?.departmentId) return null;
+    const dept = file.departments.find((d) => d.id === role.departmentId);
+    return dept?.colour ?? null;
+  };
+
+  // The backdrop and the textarea render the same text, but the
+  // backdrop renders each @Role as a tinted span. When the textarea
+  // ends with a newline, that trailing empty line is invisible in a
+  // div with white-space: pre-wrap — append a space so the backdrop
+  // height matches the textarea height.
+  const displayNodes = useMemo(
+    () => tokenizeRoleRefs(
+      value.endsWith('\n') ? value + ' ' : value,
+      roles,
+      colourForRole,
+    ),
+    [value, roles, file],
+  );
 
   // Autocomplete state. When non-null, a popover is shown and keys
   // (ArrowUp/Down/Enter/Tab/Escape) are intercepted on the textarea.
@@ -304,6 +390,13 @@ export function MarkdownEditor({
         </span>
       </div>
       <div className="md-textarea-wrap">
+        <div
+          ref={backdropRef}
+          className="md-highlight-backdrop"
+          aria-hidden
+        >
+          {displayNodes}
+        </div>
         <textarea
           ref={textareaRef}
           className="md-textarea"
@@ -321,12 +414,22 @@ export function MarkdownEditor({
             syncAutocomplete(ta.value, ta.selectionEnd);
           }}
           onKeyDown={handleKeyDown}
+          onScroll={(e) => {
+            // Keep the highlight backdrop in sync with the textarea's
+            // internal scroll position so the tinted role spans line
+            // up with the characters inside the textarea.
+            if (backdropRef.current) {
+              backdropRef.current.scrollTop = e.currentTarget.scrollTop;
+              backdropRef.current.scrollLeft = e.currentTarget.scrollLeft;
+            }
+          }}
           onBlur={() => {
             // Delay so a click on a menu item can register before close.
             setTimeout(() => setAutocomplete(null), 120);
           }}
           rows={rows}
           placeholder={placeholder}
+          spellCheck
         />
         {autocomplete && matches.length > 0 && (
           <ul className="md-autocomplete" role="listbox">

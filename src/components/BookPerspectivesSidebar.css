@@ -1,0 +1,147 @@
+.book-perspectives-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  padding: var(--space-md);
+  background: white;
+  border-right: 1px solid #e5e3dc;
+  overflow-y: auto;
+  color: #1a1a1a;
+  font-size: 12px;
+}
+
+/* Dark mode backdrop to stay consistent with app-edit-mode palette. */
+.app.edit-mode .book-perspectives-sidebar {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-right-color: var(--color-border);
+}
+
+.book-perspectives-header h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #555;
+  font-weight: 600;
+}
+
+.app.edit-mode .book-perspectives-header h3 {
+  color: var(--color-text-muted);
+}
+
+.book-perspectives-hint {
+  margin: 0 0 var(--space-md);
+  font-size: 11px;
+  color: #777;
+  line-height: 1.45;
+}
+
+.app.edit-mode .book-perspectives-hint {
+  color: var(--color-text-muted);
+}
+
+.book-perspectives-actions {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-sm);
+}
+
+.book-perspectives-action {
+  appearance: none;
+  flex: 1;
+  border: 1px solid #cfcfcf;
+  background: white;
+  color: #333;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.app.edit-mode .book-perspectives-action {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.book-perspectives-action:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.book-perspectives-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.book-perspectives-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.book-perspectives-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.book-perspectives-row:hover {
+  background: #f4f2ec;
+}
+
+.app.edit-mode .book-perspectives-row:hover {
+  background: var(--color-bg);
+}
+
+.book-perspectives-row input {
+  margin: 0;
+}
+
+.book-perspectives-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.book-perspectives-dept-name {
+  flex: 1;
+  font-size: 12px;
+}
+
+.book-perspectives-empty {
+  margin: 0;
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+}
+
+.book-perspectives-status {
+  margin: var(--space-md) 0 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid #e5e3dc;
+  font-size: 11px;
+  color: #555;
+}
+
+.app.edit-mode .book-perspectives-status {
+  border-top-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+/* Hide sidebar entirely on print — the filter is screen-only. */
+@media print {
+  .book-perspectives-sidebar {
+    display: none !important;
+  }
+}

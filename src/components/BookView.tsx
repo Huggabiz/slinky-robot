@@ -1,13 +1,17 @@
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   findTaskByInternalId,
   getPhasesOrdered,
   type DeliverableTarget,
   type IntroChapter,
+  type ProcessFile,
   type Task,
 } from '../types';
 import { topoSortTasksInPhase } from '../utils/topoSort';
+import { extractRoleRefs } from '../utils/roleRefs';
 import { BookFlowDiagram } from './BookFlowDiagram';
+import { BookPerspectivesSidebar } from './BookPerspectivesSidebar';
 import { Markdown } from './Markdown';
 import './BookView.css';
 
@@ -15,8 +19,29 @@ import './BookView.css';
 // each containing the phase intro plus an ordered sequence of task
 // cards. Scrollable on screen, paginated on print via the CSS
 // @media print rules in BookView.css.
+//
+// A left sidebar offers a multi-select department filter. When any
+// departments are checked, only tasks whose involved roles belong
+// to a checked department are rendered as step cards — intro
+// chapters, chapter headers, intros, and flow diagrams are kept so
+// the reader still has full context.
 export function BookView() {
   const file = useAppStore((s) => s.file);
+
+  const [selectedDeptIds, setSelectedDeptIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  // role name → department id. Rebuild when roles change.
+  const roleToDeptId = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!file) return map;
+    for (const role of file.roles) {
+      if (role.departmentId) map.set(role.name, role.departmentId);
+    }
+    return map;
+  }, [file]);
+
   if (!file) return null;
 
   const phases = getPhasesOrdered(file);
@@ -26,52 +51,102 @@ export function BookView() {
   const introCount = introChapters.length;
 
   return (
-    <article className="book-view">
-      <header className="book-cover">
-        <h1>{file.meta.title}</h1>
-        {file.meta.masterName && file.meta.masterName !== file.meta.title && (
-          <p className="book-cover-sub">{file.meta.masterName}</p>
-        )}
-        <p className="book-cover-date">
-          Generated {new Date().toLocaleDateString()}
-        </p>
-      </header>
+    <div className="book-layout">
+      <BookPerspectivesSidebar
+        selectedDeptIds={selectedDeptIds}
+        onChange={setSelectedDeptIds}
+      />
+      <article className="book-view">
+        <header className="book-cover">
+          <h1>{file.meta.title}</h1>
+          {file.meta.masterName && file.meta.masterName !== file.meta.title && (
+            <p className="book-cover-sub">{file.meta.masterName}</p>
+          )}
+          <p className="book-cover-date">
+            Generated {new Date().toLocaleDateString()}
+          </p>
+        </header>
 
-      <nav className="book-toc">
-        <h2>Contents</h2>
-        <ol>
-          {introChapters.map((ch, idx) => (
-            <li key={ch.id}>
-              <a href={`#intro-${ch.id}`}>
-                <span className="book-toc-num">{idx + 1}.</span>{' '}
-                {ch.title}
-              </a>
-            </li>
-          ))}
-          {phases.map((phase, idx) => (
-            <li key={phase.id}>
-              <a href={`#phase-${phase.id}`}>
-                <span className="book-toc-num">{introCount + idx + 1}.</span>{' '}
-                {phase.name}
-              </a>
-            </li>
-          ))}
-        </ol>
-      </nav>
+        <nav className="book-toc">
+          <h2>Contents</h2>
+          <ol>
+            {introChapters.map((ch, idx) => (
+              <li key={ch.id}>
+                <a href={`#intro-${ch.id}`}>
+                  <span className="book-toc-num">{idx + 1}.</span>{' '}
+                  {ch.title}
+                </a>
+              </li>
+            ))}
+            {phases.map((phase, idx) => (
+              <li key={phase.id}>
+                <a href={`#phase-${phase.id}`}>
+                  <span className="book-toc-num">{introCount + idx + 1}.</span>{' '}
+                  {phase.name}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
 
-      {introChapters.map((ch, idx) => (
-        <BookIntroChapter key={ch.id} chapter={ch} chapterNumber={idx + 1} />
-      ))}
+        {introChapters.map((ch, idx) => (
+          <BookIntroChapter key={ch.id} chapter={ch} chapterNumber={idx + 1} />
+        ))}
 
-      {phases.map((phase, idx) => (
-        <BookChapter
-          key={phase.id}
-          phase={phase}
-          chapterNumber={introCount + idx + 1}
-        />
-      ))}
-    </article>
+        {phases.map((phase, idx) => (
+          <BookChapter
+            key={phase.id}
+            phase={phase}
+            chapterNumber={introCount + idx + 1}
+            file={file}
+            selectedDeptIds={selectedDeptIds}
+            roleToDeptId={roleToDeptId}
+          />
+        ))}
+      </article>
+    </div>
   );
+}
+
+// Does this task involve any role from any selected department? Tests
+// structural slots (accountable / contributors / meetingOrganiser) and
+// @-mentions in the task's prose fields. When no departments are
+// selected, everything matches.
+function taskMatchesSelection(
+  task: Task,
+  file: ProcessFile,
+  selectedDeptIds: Set<string>,
+  roleToDeptId: Map<string, string>,
+): boolean {
+  if (selectedDeptIds.size === 0) return true;
+
+  const deptFor = (name: string | null | undefined): string | undefined =>
+    name ? roleToDeptId.get(name) : undefined;
+
+  const structural = [
+    task.accountable,
+    task.meetingOrganiser ?? '',
+    ...task.contributors,
+  ];
+  for (const name of structural) {
+    const d = deptFor(name);
+    if (d && selectedDeptIds.has(d)) return true;
+  }
+
+  const prose = [
+    task.description,
+    task.deliverables,
+    task.keyDateRationale ?? '',
+  ].join('\n\n');
+  if (prose.trim()) {
+    const refs = extractRoleRefs(prose, file.roles);
+    for (const refName of refs) {
+      const d = deptFor(refName);
+      if (d && selectedDeptIds.has(d)) return true;
+    }
+  }
+
+  return false;
 }
 
 function BookIntroChapter({
@@ -114,14 +189,21 @@ function BookIntroChapter({
 function BookChapter({
   phase,
   chapterNumber,
+  file,
+  selectedDeptIds,
+  roleToDeptId,
 }: {
   phase: { id: string; name: string; intro: string; colour: string | null };
   chapterNumber: number;
+  file: ProcessFile;
+  selectedDeptIds: Set<string>;
+  roleToDeptId: Map<string, string>;
 }) {
-  const file = useAppStore((s) => s.file);
-  if (!file) return null;
-
-  const tasks = topoSortTasksInPhase(file, phase.id);
+  const allTasks = topoSortTasksInPhase(file, phase.id);
+  const tasks = allTasks.filter((t) =>
+    taskMatchesSelection(t, file, selectedDeptIds, roleToDeptId),
+  );
+  const filtered = selectedDeptIds.size > 0;
 
   return (
     <section className="book-chapter" id={`phase-${phase.id}`}>
@@ -147,14 +229,28 @@ function BookChapter({
 
       <BookFlowDiagram phaseId={phase.id} phaseName={phase.name} />
 
-      {tasks.length === 0 ? (
+      {allTasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>
+      ) : tasks.length === 0 ? (
+        <p className="book-empty">
+          {filtered
+            ? 'No tasks in this phase match the selected departments.'
+            : 'No tasks to display.'}
+        </p>
       ) : (
-        <div className="book-step-list">
-          {tasks.map((task) => (
-            <BookStepCard key={task.id} task={task} />
-          ))}
-        </div>
+        <>
+          {filtered && (
+            <p className="book-filter-note">
+              Showing {tasks.length} of {allTasks.length} tasks filtered
+              by department.
+            </p>
+          )}
+          <div className="book-step-list">
+            {tasks.map((task) => (
+              <BookStepCard key={task.id} task={task} />
+            ))}
+          </div>
+        </>
       )}
     </section>
   );
