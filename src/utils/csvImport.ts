@@ -308,6 +308,7 @@ export function buildProcessFileFromCsv(
       updatedAt: new Date().toISOString(),
       passwordCipher: null,
       coverImage: null,
+      coverLogo: null,
     },
     phases,
     tasks,

@@ -45,21 +45,78 @@ function isFilterActive(f: BookFilter): boolean {
   return f.deptIds.size > 0 || f.roleNames.size > 0;
 }
 
-function describeFilter(
-  f: BookFilter,
-  file: ProcessFile,
-): string {
-  const parts: string[] = [];
-  if (f.deptIds.size > 0) {
-    const names = file.departments
-      .filter((d) => f.deptIds.has(d.id))
-      .map((d) => d.name);
-    parts.push(names.join(', '));
+// Build a structured breakdown for the cover filter notice. Groups
+// individual role selections under their parent department, and marks
+// full-department selections distinctly from partial ones.
+function FilterBreakdown({
+  filter,
+  file,
+}: {
+  filter: BookFilter;
+  file: ProcessFile;
+}) {
+  // Build dept → roles mapping.
+  const roleToDept = new Map<string, string>();
+  const rolesByDeptId = new Map<string, string[]>();
+  for (const role of file.roles) {
+    if (role.departmentId) {
+      roleToDept.set(role.name, role.departmentId);
+      let list = rolesByDeptId.get(role.departmentId);
+      if (!list) {
+        list = [];
+        rolesByDeptId.set(role.departmentId, list);
+      }
+      list.push(role.name);
+    }
   }
-  if (f.roleNames.size > 0) {
-    parts.push([...f.roleNames].join(', '));
+
+  // Group selected role names by dept, identifying which depts are
+  // fully selected vs partially.
+  const groups: {
+    deptName: string;
+    full: boolean;
+    roles: string[];
+  }[] = [];
+
+  for (const dept of file.departments) {
+    const deptFull = filter.deptIds.has(dept.id);
+    const deptRoles = rolesByDeptId.get(dept.id) ?? [];
+    const selectedRoles = deptRoles.filter((r) =>
+      filter.roleNames.has(r),
+    );
+    if (!deptFull && selectedRoles.length === 0) continue;
+    groups.push({
+      deptName: dept.name,
+      full: deptFull,
+      roles: deptFull ? [] : selectedRoles.sort(),
+    });
   }
-  return parts.join('; ');
+
+  // Roles without a department.
+  const orphanRoles = [...filter.roleNames].filter(
+    (r) => !roleToDept.has(r),
+  );
+
+  return (
+    <ul className="book-cover-filter-list">
+      {groups.map((g) => (
+        <li key={g.deptName}>
+          <strong>{g.deptName}</strong>
+          {g.full ? ' (all roles)' : ''}
+          {g.roles.length > 0 && (
+            <ul className="book-cover-filter-roles">
+              {g.roles.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+      {orphanRoles.map((r) => (
+        <li key={r}>{r}</li>
+      ))}
+    </ul>
+  );
 }
 
 export function BookView() {
@@ -106,6 +163,38 @@ export function BookView() {
             />
           )}
           <div className="book-cover-content">
+            {file.meta.coverLogo && (
+              <img
+                src={file.meta.coverLogo}
+                alt="Logo"
+                className="book-cover-logo"
+              />
+            )}
+            {mode === 'edit' && (
+              <div className="book-cover-logo-controls">
+                <button
+                  type="button"
+                  className="book-cover-image-btn"
+                  onClick={async () => {
+                    const f = await pickImageFile();
+                    if (!f) return;
+                    const dataUrl = await fileToDataUrl(f);
+                    updateMeta({ coverLogo: dataUrl });
+                  }}
+                >
+                  {file.meta.coverLogo ? 'Change logo' : 'Add logo'}
+                </button>
+                {file.meta.coverLogo && (
+                  <button
+                    type="button"
+                    className="book-cover-image-btn"
+                    onClick={() => updateMeta({ coverLogo: null })}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
             <h1>{file.meta.title}</h1>
             {file.meta.masterName && file.meta.masterName !== file.meta.title && (
               <p className="book-cover-sub">{file.meta.masterName}</p>
@@ -117,8 +206,8 @@ export function BookView() {
           {filtering && (
             <div className="book-cover-filter-notice">
               <strong>Filtered view</strong> — this document shows a subset
-              of the full process, filtered to:{' '}
-              {describeFilter(filter, file)}.
+              of the full process, filtered to the following:
+              <FilterBreakdown filter={filter} file={file} />
             </div>
           )}
           {mode === 'edit' && (

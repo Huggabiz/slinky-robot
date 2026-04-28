@@ -97,6 +97,13 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
+          <filter id="book-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
           <marker
             id="book-arrow"
             viewBox="0 0 10 10"
@@ -163,15 +170,16 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
                       node's own border. */}
                   {highlighted && (
                     <rect
-                      x={-4}
-                      y={-4}
-                      width={w + 8}
-                      height={h + 8}
-                      rx={7}
-                      ry={7}
+                      x={-5}
+                      y={-5}
+                      width={w + 10}
+                      height={h + 10}
+                      rx={8}
+                      ry={8}
                       fill="none"
-                      stroke="#dc2626"
-                      strokeWidth={2}
+                      stroke="#06b6d4"
+                      strokeWidth={3}
+                      filter="url(#book-glow)"
                     />
                   )}
                   <rect

@@ -66,6 +66,8 @@ export interface FileMeta {
   // view. Null = plain white cover. Stored inline so the JSON stays
   // a self-contained single file.
   coverImage: string | null;
+  // Company logo shown above the title on the book cover.
+  coverLogo: string | null;
 }
 
 export interface Phase {
@@ -178,6 +180,7 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
       updatedAt: new Date().toISOString(),
       passwordCipher: null,
       coverImage: null,
+      coverLogo: null,
     },
     phases: [],
     tasks: [],

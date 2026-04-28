@@ -116,6 +116,19 @@
   display: inline-block;
 }
 
+.book-cover-filter-list {
+  margin: var(--space-xs) 0 0;
+  padding-left: 1.2em;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.book-cover-filter-roles {
+  margin: 0;
+  padding-left: 1.2em;
+  list-style: disc;
+}
+
 .book-cover-image-controls {
   position: absolute;
   bottom: var(--space-md);
@@ -142,8 +155,23 @@
   border-color: var(--color-accent);
 }
 
+.book-cover-logo {
+  display: block;
+  max-width: 200px;
+  max-height: 100px;
+  object-fit: contain;
+  margin: 0 auto var(--space-md);
+}
+
+.book-cover-logo-controls {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: var(--space-sm);
+}
+
 .book-cover h1 {
-  font-size: 32px;
+  font-size: 20px;
   margin: 0 0 var(--space-sm);
   color: #1a1a1a;
 }
