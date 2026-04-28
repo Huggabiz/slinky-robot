@@ -228,9 +228,9 @@ function BookChapter({
         </div>
       )}
 
-      <BookFlowDiagram phaseId={phase.id} phaseName={phase.name} />
-
       <PhaseDeliverableSummaryTable file={file} phaseId={phase.id} phaseName={phase.name} />
+
+      <BookFlowDiagram phaseId={phase.id} phaseName={phase.name} />
 
       {allTasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>
