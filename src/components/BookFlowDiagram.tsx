@@ -200,15 +200,20 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
                   >
                     {task.taskId}
                   </text>
-                  <text
-                    x={8}
-                    y={32}
-                    fontSize={11}
-                    fontWeight={600}
-                    fill="#1a1a1a"
-                  >
-                    {truncate(task.name || '(untitled)', 28)}
-                  </text>
+                  {wrapText(task.name || '(untitled)', 26, 2).map(
+                    (line, li) => (
+                      <text
+                        key={li}
+                        x={8}
+                        y={30 + li * 14}
+                        fontSize={11}
+                        fontWeight={600}
+                        fill="#1a1a1a"
+                      >
+                        {line}
+                      </text>
+                    ),
+                  )}
                   {task.activityType && (
                     <text
                       x={8}
@@ -291,7 +296,45 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
   );
 }
 
-function truncate(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 1) + '…';
+// Word-wrap text into up to `maxLines` lines of roughly `charsPerLine`
+// characters each. The last line gets an ellipsis if there's still
+// overflow. Splits on spaces; falls back to a hard cut if a single
+// word exceeds the line width.
+function wrapText(
+  text: string,
+  charsPerLine: number,
+  maxLines: number,
+): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= charsPerLine) {
+      current = candidate;
+    } else {
+      if (current) {
+        lines.push(current);
+        current = word;
+      } else {
+        lines.push(word.slice(0, charsPerLine));
+        current = word.slice(charsPerLine);
+      }
+    }
+    if (lines.length === maxLines) {
+      const remaining = [current, ...words.slice(words.indexOf(word) + 1)]
+        .join(' ')
+        .trim();
+      if (remaining) {
+        lines[maxLines - 1] =
+          remaining.length > charsPerLine
+            ? remaining.slice(0, charsPerLine - 1) + '…'
+            : remaining;
+      }
+      return lines;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
 }
