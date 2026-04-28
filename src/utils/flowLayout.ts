@@ -376,7 +376,7 @@ function buildResult(
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      width: config.arrowSize,
+      width: Math.round(config.arrowSize * 0.5),
       height: config.arrowSize,
     },
   }));
