@@ -330,7 +330,13 @@ function buildResult(
     };
   });
 
-  const edges: Edge<OrthEdgeData>[] = [];
+  const edgePointArrays: { x: number; y: number }[][] = [];
+  const edgeMeta: {
+    id: string;
+    sourceId: string;
+    targetId: string;
+  }[] = [];
+
   for (const elkEdge of output.edges ?? []) {
     const section = elkEdge.sections?.[0];
     if (!section) continue;
@@ -349,21 +355,28 @@ function buildResult(
       dxTarget,
     );
 
-    edges.push({
-      id: elkEdge.id,
-      source: sourceId,
-      target: targetId,
-      type: 'orth',
-      data: {
-        path: roundedOrthogonalPath(points, config.cornerRadius),
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: config.arrowSize,
-        height: config.arrowSize,
-      },
-    });
+    edgePointArrays.push(points);
+    edgeMeta.push({ id: elkEdge.id, sourceId, targetId });
   }
+
+  // Separate overlapping horizontal edge segments so parallel edges
+  // running through the same between-layer gap are visually distinct.
+  deoverlapHorizontalSegments(edgePointArrays, 8);
+
+  const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
+    id: edgeMeta[i].id,
+    source: edgeMeta[i].sourceId,
+    target: edgeMeta[i].targetId,
+    type: 'orth',
+    data: {
+      path: roundedOrthogonalPath(points, config.cornerRadius),
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: config.arrowSize,
+      height: config.arrowSize,
+    },
+  }));
 
   return { nodes, edges };
 }
@@ -622,6 +635,96 @@ function buildElkInput(
     children,
     edges,
   };
+}
+
+// Post-process: find horizontal edge segments that share the same Y
+// and overlap in X, then spread them apart vertically. This prevents
+// two edges from visually merging when they pass through the same
+// between-layer routing channel. Operates in-place on the point arrays.
+function deoverlapHorizontalSegments(
+  allPoints: { x: number; y: number }[][],
+  spacing: number,
+): void {
+  interface HSeg {
+    edgeIdx: number;
+    ptIdx: number;
+    y: number;
+    xMin: number;
+    xMax: number;
+  }
+
+  const segments: HSeg[] = [];
+  for (let ei = 0; ei < allPoints.length; ei++) {
+    const pts = allPoints[ei];
+    for (let pi = 0; pi < pts.length - 1; pi++) {
+      if (Math.abs(pts[pi].y - pts[pi + 1].y) < 0.5) {
+        segments.push({
+          edgeIdx: ei,
+          ptIdx: pi,
+          y: pts[pi].y,
+          xMin: Math.min(pts[pi].x, pts[pi + 1].x),
+          xMax: Math.max(pts[pi].x, pts[pi + 1].x),
+        });
+      }
+    }
+  }
+
+  segments.sort((a, b) => a.y - b.y);
+
+  // Group segments that share the same Y (within 1px tolerance).
+  const groups: HSeg[][] = [];
+  let cur: HSeg[] = [];
+  for (const seg of segments) {
+    if (cur.length > 0 && Math.abs(seg.y - cur[0].y) > 1) {
+      groups.push(cur);
+      cur = [];
+    }
+    cur.push(seg);
+  }
+  if (cur.length > 0) groups.push(cur);
+
+  for (const group of groups) {
+    if (group.length <= 1) continue;
+
+    // Within this Y group, find clusters of segments whose X ranges
+    // overlap. Two segments in the same cluster are visually ambiguous.
+    const used = new Set<number>();
+    for (let i = 0; i < group.length; i++) {
+      if (used.has(i)) continue;
+      const cluster = [i];
+      used.add(i);
+      // Greedy expansion: add any segment that overlaps any member.
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (let j = 0; j < group.length; j++) {
+          if (used.has(j)) continue;
+          const gj = group[j];
+          if (
+            cluster.some((ci) => {
+              const gc = group[ci];
+              return gc.xMin < gj.xMax && gj.xMin < gc.xMax;
+            })
+          ) {
+            cluster.push(j);
+            used.add(j);
+            changed = true;
+          }
+        }
+      }
+
+      if (cluster.length <= 1) continue;
+
+      const baseY = group[cluster[0]].y;
+      for (let k = 0; k < cluster.length; k++) {
+        const offset = (k - (cluster.length - 1) / 2) * spacing;
+        const seg = group[cluster[k]];
+        const pts = allPoints[seg.edgeIdx];
+        pts[seg.ptIdx].y = baseY + offset;
+        pts[seg.ptIdx + 1].y = baseY + offset;
+      }
+    }
+  }
 }
 
 function roundedOrthogonalPath(
