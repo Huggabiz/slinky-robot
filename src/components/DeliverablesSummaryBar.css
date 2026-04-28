@@ -1,0 +1,70 @@
+.deliv-summary-bar {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.deliv-summary-bar-toggle {
+  appearance: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-xs) var(--space-md);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.deliv-summary-bar-toggle:hover {
+  color: var(--color-text);
+}
+
+.deliv-summary-bar-chevron {
+  font-size: 10px;
+}
+
+.deliv-summary-bar-body {
+  padding: 0 var(--space-md) var(--space-sm);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.deliv-summary-bar-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.deliv-summary-bar-table th,
+.deliv-summary-bar-table td {
+  text-align: left;
+  padding: 3px var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.deliv-summary-bar-table th {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+
+.deliv-summary-bar-progress {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+@media print {
+  .deliv-summary-bar {
+    display: none !important;
+  }
+}

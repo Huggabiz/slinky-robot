@@ -8,6 +8,7 @@ import {
   type ProcessFile,
   type Task,
 } from '../types';
+import { getPhaseDeliverableSummary } from '../utils/deliverableSummary';
 import { topoSortTasksInPhase } from '../utils/topoSort';
 import { extractRoleRefs } from '../utils/roleRefs';
 import { BookFlowDiagram } from './BookFlowDiagram';
@@ -229,6 +230,8 @@ function BookChapter({
 
       <BookFlowDiagram phaseId={phase.id} phaseName={phase.name} />
 
+      <PhaseDeliverableSummaryTable file={file} phaseId={phase.id} phaseName={phase.name} />
+
       {allTasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>
       ) : tasks.length === 0 ? (
@@ -354,6 +357,51 @@ function BookStepCard({ task }: { task: Task }) {
         )}
       </footer>
     </article>
+  );
+}
+
+function PhaseDeliverableSummaryTable({
+  file,
+  phaseId,
+  phaseName,
+}: {
+  file: ProcessFile;
+  phaseId: string;
+  phaseName: string;
+}) {
+  const rows = useMemo(
+    () => getPhaseDeliverableSummary(file, phaseId),
+    [file, phaseId],
+  );
+  if (rows.length === 0) return null;
+  return (
+    <div className="book-deliverable-summary">
+      <h4 className="book-deliverable-summary-title">
+        Deliverables required to exit {phaseName}
+      </h4>
+      <table className="book-step-table">
+        <thead>
+          <tr>
+            <th>Deliverable</th>
+            <th>Required State</th>
+            <th>Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.itemId}>
+              <td>{r.itemName}</td>
+              <td>{r.requiredState}</td>
+              <td>
+                <span className="book-deliverable-progress">
+                  {r.stateIndex + 1} / {r.totalStates}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

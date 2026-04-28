@@ -271,6 +271,30 @@
   line-height: 1.4;
 }
 
+/* Phase-level deliverable summary table that sits between the flow
+   diagram and the task step-cards. Gives a quick at-a-glance view
+   of what needs to be achieved to exit the milestone. */
+.book-deliverable-summary {
+  margin: var(--space-md) 0 var(--space-lg);
+  border: 1px solid #e8e5de;
+  border-radius: 4px;
+  background: #fefefe;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.book-deliverable-summary-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+.book-deliverable-progress {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #888;
+}
+
 .book-step-section {
   margin-top: var(--space-sm);
 }

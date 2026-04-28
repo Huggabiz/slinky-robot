@@ -19,6 +19,7 @@ import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
 import { RestoreBanner } from './components/RestoreBanner';
 import { BulkRoleRefPanel } from './components/BulkRoleRefPanel';
+import { DeliverablesSummaryBar } from './components/DeliverablesSummaryBar';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
 import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
@@ -263,6 +264,7 @@ function App() {
               perspectiveHideOthers={perspectiveHideOthers}
               searchQuery={searchQuery}
             />
+            <DeliverablesSummaryBar phaseId={phaseId} />
           </div>
           {showDetailColumn && (
             <>
