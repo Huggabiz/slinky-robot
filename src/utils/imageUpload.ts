@@ -32,10 +32,12 @@ export function pickImageFile(): Promise<File | null> {
 
 // Convert an image File to a base64 data-URL, downscaling if either
 // dimension exceeds the cap. Uses an off-screen canvas so the browser
-// handles decoding and re-encoding. Output format is always JPEG at
-// 0.85 quality for photos, or PNG if the source is PNG with
-// transparency — but for simplicity we always use JPEG here since
-// cover/section images are typically photos or illustrations.
+// handles decoding and re-encoding.
+//
+// PNG sources are re-encoded as PNG to preserve transparency (logos
+// with transparent backgrounds would otherwise come back with a black
+// fill). All other formats default to JPEG at 0.85 quality, which is
+// fine for photos and roughly 4× smaller than PNG.
 export async function fileToDataUrl(
   file: File,
   maxWidth = MAX_WIDTH,
@@ -56,7 +58,12 @@ export async function fileToDataUrl(
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+  const isPng =
+    file.type === 'image/png' ||
+    file.name.toLowerCase().endsWith('.png');
+  const blob = isPng
+    ? await canvas.convertToBlob({ type: 'image/png' })
+    : await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
