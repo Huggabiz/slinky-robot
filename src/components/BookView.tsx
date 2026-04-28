@@ -195,9 +195,30 @@ export function BookView() {
                 )}
               </div>
             )}
-            <h1>{file.meta.title}</h1>
-            {file.meta.masterName && file.meta.masterName !== file.meta.title && (
-              <p className="book-cover-sub">{file.meta.masterName}</p>
+            {mode === 'edit' ? (
+              <>
+                <input
+                  type="text"
+                  className="book-cover-edit-input book-cover-edit-title"
+                  value={file.meta.title}
+                  placeholder="Document title"
+                  onChange={(e) => updateMeta({ title: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="book-cover-edit-input book-cover-edit-sub"
+                  value={file.meta.masterName}
+                  placeholder="Subtitle (optional)"
+                  onChange={(e) => updateMeta({ masterName: e.target.value })}
+                />
+              </>
+            ) : (
+              <>
+                <h1>{file.meta.title}</h1>
+                {file.meta.masterName && file.meta.masterName !== file.meta.title && (
+                  <p className="book-cover-sub">{file.meta.masterName}</p>
+                )}
+              </>
             )}
             <p className="book-cover-date">
               Generated {new Date().toLocaleDateString()}
