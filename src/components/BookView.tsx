@@ -28,16 +28,47 @@ import './BookView.css';
 // to a checked department are rendered as step cards — intro
 // chapters, chapter headers, intros, and flow diagrams are kept so
 // the reader still has full context.
+// Filter state for the book sidebar — supports both department-level
+// and role-level selection. A task matches if any involved role either
+// (a) belongs to a checked department, or (b) is individually checked.
+export interface BookFilter {
+  deptIds: Set<string>;
+  roleNames: Set<string>;
+}
+
+const EMPTY_FILTER: BookFilter = {
+  deptIds: new Set(),
+  roleNames: new Set(),
+};
+
+function isFilterActive(f: BookFilter): boolean {
+  return f.deptIds.size > 0 || f.roleNames.size > 0;
+}
+
+function describeFilter(
+  f: BookFilter,
+  file: ProcessFile,
+): string {
+  const parts: string[] = [];
+  if (f.deptIds.size > 0) {
+    const names = file.departments
+      .filter((d) => f.deptIds.has(d.id))
+      .map((d) => d.name);
+    parts.push(names.join(', '));
+  }
+  if (f.roleNames.size > 0) {
+    parts.push([...f.roleNames].join(', '));
+  }
+  return parts.join('; ');
+}
+
 export function BookView() {
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
   const updateMeta = useAppStore((s) => s.updateMeta);
 
-  const [selectedDeptIds, setSelectedDeptIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [filter, setFilter] = useState<BookFilter>(EMPTY_FILTER);
 
-  // role name → department id. Rebuild when roles change.
   const roleToDeptId = useMemo(() => {
     const map = new Map<string, string>();
     if (!file) return map;
@@ -55,12 +86,13 @@ export function BookView() {
   );
   const introCount = introChapters.length;
   const guideChapterNum = introCount + 1;
+  const filtering = isFilterActive(filter);
 
   return (
     <div className="book-layout">
       <BookPerspectivesSidebar
-        selectedDeptIds={selectedDeptIds}
-        onChange={setSelectedDeptIds}
+        filter={filter}
+        onChange={setFilter}
       />
       <article className="book-view">
         <header
@@ -82,6 +114,13 @@ export function BookView() {
               Generated {new Date().toLocaleDateString()}
             </p>
           </div>
+          {filtering && (
+            <div className="book-cover-filter-notice">
+              <strong>Filtered view</strong> — this document shows a subset
+              of the full process, filtered to:{' '}
+              {describeFilter(filter, file)}.
+            </div>
+          )}
           {mode === 'edit' && (
             <div className="book-cover-image-controls">
               <button
@@ -149,7 +188,7 @@ export function BookView() {
             phase={phase}
             chapterNumber={guideChapterNum + idx + 1}
             file={file}
-            selectedDeptIds={selectedDeptIds}
+            filter={filter}
             roleToDeptId={roleToDeptId}
           />
         ))}
@@ -165,22 +204,22 @@ export function BookView() {
 function taskMatchesSelection(
   task: Task,
   file: ProcessFile,
-  selectedDeptIds: Set<string>,
+  filter: BookFilter,
   roleToDeptId: Map<string, string>,
 ): boolean {
-  if (selectedDeptIds.size === 0) return true;
+  if (!isFilterActive(filter)) return true;
 
-  const deptFor = (name: string | null | undefined): string | undefined =>
-    name ? roleToDeptId.get(name) : undefined;
+  const roleMatches = (name: string | null | undefined): boolean => {
+    if (!name) return false;
+    if (filter.roleNames.has(name)) return true;
+    const d = roleToDeptId.get(name);
+    return d !== undefined && filter.deptIds.has(d);
+  };
 
-  const structural = [
-    task.accountable,
-    task.meetingOrganiser ?? '',
-    ...task.contributors,
-  ];
-  for (const name of structural) {
-    const d = deptFor(name);
-    if (d && selectedDeptIds.has(d)) return true;
+  if (roleMatches(task.accountable)) return true;
+  if (roleMatches(task.meetingOrganiser)) return true;
+  for (const c of task.contributors) {
+    if (roleMatches(c)) return true;
   }
 
   const prose = [
@@ -191,8 +230,7 @@ function taskMatchesSelection(
   if (prose.trim()) {
     const refs = extractRoleRefs(prose, file.roles);
     for (const refName of refs) {
-      const d = deptFor(refName);
-      if (d && selectedDeptIds.has(d)) return true;
+      if (roleMatches(refName)) return true;
     }
   }
 
@@ -247,20 +285,20 @@ function BookChapter({
   phase,
   chapterNumber,
   file,
-  selectedDeptIds,
+  filter,
   roleToDeptId,
 }: {
   phase: { id: string; name: string; intro: string; colour: string | null };
   chapterNumber: number;
   file: ProcessFile;
-  selectedDeptIds: Set<string>;
+  filter: BookFilter;
   roleToDeptId: Map<string, string>;
 }) {
   const allTasks = topoSortTasksInPhase(file, phase.id);
   const tasks = allTasks.filter((t) =>
-    taskMatchesSelection(t, file, selectedDeptIds, roleToDeptId),
+    taskMatchesSelection(t, file, filter, roleToDeptId),
   );
-  const filtered = selectedDeptIds.size > 0;
+  const filtered = isFilterActive(filter);
 
   return (
     <section className="book-chapter" id={`phase-${phase.id}`}>
@@ -286,7 +324,15 @@ function BookChapter({
 
       <PhaseDeliverableSummaryTable file={file} phaseId={phase.id} phaseName={phase.name} />
 
-      <BookFlowDiagram phaseId={phase.id} phaseName={phase.name} />
+      <BookFlowDiagram
+        phaseId={phase.id}
+        phaseName={phase.name}
+        highlightTaskIds={
+          filtered
+            ? new Set(tasks.map((t) => t.id))
+            : null
+        }
+      />
 
       {allTasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>

@@ -1,25 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import type { BookFilter } from './BookView';
 import './BookPerspectivesSidebar.css';
 
 interface Props {
-  selectedDeptIds: Set<string>;
-  onChange: (next: Set<string>) => void;
+  filter: BookFilter;
+  onChange: (next: BookFilter) => void;
 }
 
-// Multi-select department filter for the book view. Checked
-// departments mean "include tasks where any role involved with the
-// task — as accountable, contributor, meeting organiser, or
-// @-referenced in prose — belongs to this department." With nothing
-// checked, no filter is applied and the full book renders.
-//
-// Sits in the left sidebar of the book view only; the flow view
-// uses a different (single-select) PerspectivesPanel.
-export function BookPerspectivesSidebar({
-  selectedDeptIds,
-  onChange,
-}: Props) {
+export function BookPerspectivesSidebar({ filter, onChange }: Props) {
   const file = useAppStore((s) => s.file);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const departments = useMemo(
     () =>
@@ -29,32 +20,75 @@ export function BookPerspectivesSidebar({
     [file],
   );
 
+  const rolesByDept = useMemo(() => {
+    const map = new Map<string, { name: string }[]>();
+    if (!file) return map;
+    for (const role of file.roles) {
+      if (!role.departmentId) continue;
+      let list = map.get(role.departmentId);
+      if (!list) {
+        list = [];
+        map.set(role.departmentId, list);
+      }
+      list.push({ name: role.name });
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return map;
+  }, [file]);
+
   if (!file) return null;
 
-  const toggle = (deptId: string) => {
-    const next = new Set(selectedDeptIds);
+  const hasAny = filter.deptIds.size > 0 || filter.roleNames.size > 0;
+
+  const toggleDept = (deptId: string) => {
+    const next = new Set(filter.deptIds);
+    const nextRoles = new Set(filter.roleNames);
+    if (next.has(deptId)) {
+      next.delete(deptId);
+      // Also uncheck any roles in this department.
+      const roles = rolesByDept.get(deptId) ?? [];
+      for (const r of roles) nextRoles.delete(r.name);
+    } else {
+      next.add(deptId);
+    }
+    onChange({ deptIds: next, roleNames: nextRoles });
+  };
+
+  const toggleRole = (roleName: string) => {
+    const next = new Set(filter.roleNames);
+    if (next.has(roleName)) next.delete(roleName);
+    else next.add(roleName);
+    onChange({ deptIds: filter.deptIds, roleNames: next });
+  };
+
+  const toggleExpand = (deptId: string) => {
+    const next = new Set(expanded);
     if (next.has(deptId)) next.delete(deptId);
     else next.add(deptId);
-    onChange(next);
+    setExpanded(next);
   };
 
   const selectAll = () => {
-    onChange(new Set(departments.map((d) => d.id)));
+    onChange({
+      deptIds: new Set(departments.map((d) => d.id)),
+      roleNames: new Set(),
+    });
   };
 
   const clearAll = () => {
-    onChange(new Set());
+    onChange({ deptIds: new Set(), roleNames: new Set() });
   };
-
-  const hasAny = selectedDeptIds.size > 0;
 
   return (
     <aside className="book-perspectives-sidebar">
       <div className="book-perspectives-header">
-        <h3>Filter by department</h3>
+        <h3>Filter</h3>
         <p className="book-perspectives-hint">
-          Show only tasks involving the checked departments. Intro
-          chapters and flow diagrams stay visible for context.
+          Check departments or individual roles. Only tasks involving
+          a checked item will be shown. Intro chapters and flow diagrams
+          stay visible for context.
         </p>
       </div>
 
@@ -63,9 +97,9 @@ export function BookPerspectivesSidebar({
           type="button"
           className="book-perspectives-action"
           onClick={selectAll}
-          disabled={selectedDeptIds.size === departments.length}
+          disabled={filter.deptIds.size === departments.length}
         >
-          Select all
+          All depts
         </button>
         <button
           type="button"
@@ -82,26 +116,59 @@ export function BookPerspectivesSidebar({
       ) : (
         <ul className="book-perspectives-list">
           {departments.map((dept) => {
-            const checked = selectedDeptIds.has(dept.id);
+            const deptChecked = filter.deptIds.has(dept.id);
+            const roles = rolesByDept.get(dept.id) ?? [];
+            const isExpanded = expanded.has(dept.id);
             return (
-              <li key={dept.id}>
-                <label className="book-perspectives-row">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(dept.id)}
-                  />
-                  {dept.colour && (
-                    <span
-                      className="book-perspectives-swatch"
-                      style={{ backgroundColor: dept.colour }}
-                      aria-hidden
-                    />
+              <li key={dept.id} className="book-perspectives-dept">
+                <div className="book-perspectives-dept-row">
+                  {roles.length > 0 && (
+                    <button
+                      type="button"
+                      className="book-perspectives-expand"
+                      onClick={() => toggleExpand(dept.id)}
+                      aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                    >
+                      {isExpanded ? '▾' : '▸'}
+                    </button>
                   )}
-                  <span className="book-perspectives-dept-name">
-                    {dept.name}
-                  </span>
-                </label>
+                  <label className="book-perspectives-row">
+                    <input
+                      type="checkbox"
+                      checked={deptChecked}
+                      onChange={() => toggleDept(dept.id)}
+                    />
+                    {dept.colour && (
+                      <span
+                        className="book-perspectives-swatch"
+                        style={{ backgroundColor: dept.colour }}
+                        aria-hidden
+                      />
+                    )}
+                    <span className="book-perspectives-dept-name">
+                      {dept.name}
+                    </span>
+                  </label>
+                </div>
+                {isExpanded && roles.length > 0 && (
+                  <ul className="book-perspectives-roles">
+                    {roles.map((role) => (
+                      <li key={role.name}>
+                        <label className="book-perspectives-row book-perspectives-role-row">
+                          <input
+                            type="checkbox"
+                            checked={
+                              deptChecked || filter.roleNames.has(role.name)
+                            }
+                            disabled={deptChecked}
+                            onChange={() => toggleRole(role.name)}
+                          />
+                          <span>{role.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
@@ -110,8 +177,20 @@ export function BookPerspectivesSidebar({
 
       {hasAny && (
         <p className="book-perspectives-status">
-          <strong>{selectedDeptIds.size}</strong> department
-          {selectedDeptIds.size === 1 ? '' : 's'} selected
+          {filter.deptIds.size > 0 && (
+            <>
+              <strong>{filter.deptIds.size}</strong> dept
+              {filter.deptIds.size === 1 ? '' : 's'}
+            </>
+          )}
+          {filter.deptIds.size > 0 && filter.roleNames.size > 0 && ', '}
+          {filter.roleNames.size > 0 && (
+            <>
+              <strong>{filter.roleNames.size}</strong> role
+              {filter.roleNames.size === 1 ? '' : 's'}
+            </>
+          )}
+          {' '}selected
         </p>
       )}
     </aside>

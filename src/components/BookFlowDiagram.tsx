@@ -8,12 +8,16 @@ import './BookFlowDiagram.css';
 interface Props {
   phaseId: string;
   phaseName: string;
+  // When set, tasks whose ID is in this set get a red highlight ring
+  // in the flow diagram so the reader can see which steps belong to
+  // the active filter. Null = no highlighting (unfiltered view).
+  highlightTaskIds?: Set<string> | null;
 }
 
 // Static SVG rendering of a phase's flow diagram for the book view.
 // Runs the same ELK layout as ProcessFlow but renders plain SVG
 // elements instead of React Flow — lighter, printable, no interactivity.
-export function BookFlowDiagram({ phaseId, phaseName }: Props) {
+export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props) {
   const file = useAppStore((s) => s.file);
   const [layout, setLayout] = useState<LayoutResult | null>(null);
 
@@ -148,8 +152,28 @@ export function BookFlowDiagram({ phaseId, phaseName }: Props) {
                 : 'white';
               const strokeColour = persp?.colour ?? '#ccc';
               const contribDots = persp?.contributorColours ?? [];
+              const highlighted =
+                highlightTaskIds != null &&
+                highlightTaskIds.has(task.id);
               return (
                 <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
+                  {/* Red highlight ring when the task matches the
+                      active book filter. Drawn 3px outside the node
+                      with a 2px gap so it doesn't merge with the
+                      node's own border. */}
+                  {highlighted && (
+                    <rect
+                      x={-4}
+                      y={-4}
+                      width={w + 8}
+                      height={h + 8}
+                      rx={7}
+                      ry={7}
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth={2}
+                    />
+                  )}
                   <rect
                     width={w}
                     height={h}

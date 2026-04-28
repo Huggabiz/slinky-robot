@@ -69,7 +69,7 @@
 }
 
 .book-cover-has-image {
-  color: white;
+  color: #1a1a1a;
   /* Minimum height on screen so the image has room to breathe. */
   min-height: 400px;
   display: flex;
@@ -81,16 +81,39 @@
 .book-cover-has-image .book-cover-content {
   position: relative;
   z-index: 1;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.85);
   border-radius: 8px;
   padding: var(--space-xl) var(--space-lg);
   display: inline-block;
 }
 
-.book-cover-has-image h1,
-.book-cover-has-image .book-cover-sub,
+.book-cover-has-image h1 {
+  color: #1a1a1a;
+}
+
+.book-cover-has-image .book-cover-sub {
+  color: #555;
+}
+
 .book-cover-has-image .book-cover-date {
-  color: white;
+  color: #888;
+}
+
+/* Filter notice on cover — same rounded box style, sits below the
+   title content to alert readers this is a subset of the full doc. */
+.book-cover-filter-notice {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #d97706;
+  border-radius: 8px;
+  padding: var(--space-sm) var(--space-lg);
+  margin-top: var(--space-md);
+  font-size: 13px;
+  color: #1a1a1a;
+  text-align: left;
+  max-width: 480px;
+  display: inline-block;
 }
 
 .book-cover-image-controls {
