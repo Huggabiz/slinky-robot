@@ -239,7 +239,13 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
                         stroke="rgba(0,0,0,0.1)"
                         strokeWidth={0.5}
                       />
-                      <text x={w - 18} y={15} fontSize={11}>📅</text>
+                      <text
+                        x={w - 13}
+                        y={11}
+                        fontSize={11}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                      >📅</text>
                     </g>
                   )}
                   {/* Deliverable icon — bottom right, white pill bg. */}
@@ -256,7 +262,13 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
                         stroke="rgba(0,0,0,0.1)"
                         strokeWidth={0.5}
                       />
-                      <text x={w - 18} y={h - 7} fontSize={11}>📄</text>
+                      <text
+                        x={w - 13}
+                        y={h - 11}
+                        fontSize={11}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                      >📄</text>
                     </g>
                   )}
                   {/* Contributor department dots — white pill for legibility

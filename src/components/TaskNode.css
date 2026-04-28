@@ -80,12 +80,21 @@
   color: var(--color-text-muted);
 }
 
-/* Absolutely-positioned icon badges in the corners of the node. */
+/* Absolutely-positioned icon badges in the corners of the node.
+   White pill background so they stay visible on tinted cells. */
 .task-node-badge {
   position: absolute;
   font-size: 13px;
   line-height: 1;
   pointer-events: none;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 5px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Calendar: top-right, flush with the card edge so it sits at the
