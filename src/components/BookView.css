@@ -155,24 +155,32 @@
   border-color: var(--color-accent);
 }
 
-/* Inline edit inputs for title + subtitle on the cover. */
-.book-cover-edit-input {
+/* Inline edit inputs for title + subtitle on the cover. Uses
+   contenteditable spans instead of <input> so the width grows
+   with the text and wraps naturally when it reaches the container
+   edge, behaving like the static heading it replaces. */
+.book-cover-edit-field {
   display: block;
-  width: 100%;
   text-align: center;
   border: 1px dashed rgba(0, 0, 0, 0.25);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.6);
   color: #1a1a1a;
-  font: inherit;
   padding: 4px 8px;
   margin-bottom: var(--space-xs);
+  min-width: 120px;
+  outline: none;
 }
 
-.book-cover-edit-input:focus {
-  outline: none;
+.book-cover-edit-field:focus {
   border-color: var(--color-accent);
   border-style: solid;
+}
+
+.book-cover-edit-field:empty::before {
+  content: attr(data-placeholder);
+  color: #aaa;
+  pointer-events: none;
 }
 
 .book-cover-edit-title {

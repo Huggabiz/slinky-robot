@@ -197,19 +197,27 @@ export function BookView() {
             )}
             {mode === 'edit' ? (
               <>
-                <input
-                  type="text"
-                  className="book-cover-edit-input book-cover-edit-title"
-                  value={file.meta.title}
-                  placeholder="Document title"
-                  onChange={(e) => updateMeta({ title: e.target.value })}
+                <div
+                  className="book-cover-edit-field book-cover-edit-title"
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder="Document title"
+                  onBlur={(e) => {
+                    const text = e.currentTarget.textContent?.trim() ?? '';
+                    if (text && text !== file.meta.title) updateMeta({ title: text });
+                  }}
+                  dangerouslySetInnerHTML={{ __html: file.meta.title }}
                 />
-                <input
-                  type="text"
-                  className="book-cover-edit-input book-cover-edit-sub"
-                  value={file.meta.masterName}
-                  placeholder="Subtitle (optional)"
-                  onChange={(e) => updateMeta({ masterName: e.target.value })}
+                <div
+                  className="book-cover-edit-field book-cover-edit-sub"
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder="Subtitle (optional)"
+                  onBlur={(e) => {
+                    const text = e.currentTarget.textContent?.trim() ?? '';
+                    if (text !== file.meta.masterName) updateMeta({ masterName: text });
+                  }}
+                  dangerouslySetInnerHTML={{ __html: file.meta.masterName }}
                 />
               </>
             ) : (
