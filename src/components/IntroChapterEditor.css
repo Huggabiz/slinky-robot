@@ -166,11 +166,13 @@
 }
 
 .intro-editor-sec-image-preview {
+  display: block;
   max-width: 100%;
   max-height: 300px;
   object-fit: contain;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
+  margin: 0 auto;
 }
 
 .intro-editor-sec-image-btns {

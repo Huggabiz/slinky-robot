@@ -1,0 +1,144 @@
+.book-reading-guide .book-guide-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.book-guide-section h3 {
+  font-size: 16px;
+  margin: 0 0 var(--space-sm);
+  color: #1a1a1a;
+}
+
+.book-guide-section p {
+  margin: 0 0 0.5em;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.book-guide-section ul {
+  margin: 0.25em 0 0;
+  padding-left: 1.5em;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.book-guide-section li {
+  margin-bottom: 0.3em;
+}
+
+/* Terminology definition list. */
+.book-guide-terms {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--space-md);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.book-guide-terms dt {
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.book-guide-terms dd {
+  margin: 0;
+  color: #333;
+}
+
+/* Flow chart key table. */
+.book-guide-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.book-guide-key-row td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e8e5de;
+  vertical-align: middle;
+}
+
+.book-guide-key-symbol {
+  width: 100px;
+  text-align: center;
+}
+
+.book-guide-key-desc {
+  color: #333;
+  line-height: 1.5;
+}
+
+/* Mini node sample for the key. */
+.book-guide-node-sample {
+  display: inline-flex;
+  flex-direction: column;
+  border: 1.5px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  background: white;
+  gap: 1px;
+}
+
+.book-guide-node-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: #888;
+}
+
+.book-guide-node-name {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 10px;
+}
+
+.book-guide-arrow {
+  font-size: 20px;
+  color: #999;
+}
+
+.book-guide-icon {
+  font-size: 16px;
+}
+
+.book-guide-separator {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #999;
+  letter-spacing: 2px;
+}
+
+.book-guide-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+
+.book-guide-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Border style samples for the colour legend. */
+.book-guide-border-sample {
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  border: 2px solid #4f46e5;
+  border-radius: 4px;
+}
+
+@media print {
+  .book-reading-guide {
+    page-break-before: always;
+  }
+}

@@ -14,6 +14,7 @@ import { topoSortTasksInPhase } from '../utils/topoSort';
 import { extractRoleRefs } from '../utils/roleRefs';
 import { BookFlowDiagram } from './BookFlowDiagram';
 import { BookPerspectivesSidebar } from './BookPerspectivesSidebar';
+import { BookReadingGuide } from './BookReadingGuide';
 import { Markdown } from './Markdown';
 import './BookView.css';
 
@@ -53,6 +54,7 @@ export function BookView() {
     (a, b) => a.order - b.order,
   );
   const introCount = introChapters.length;
+  const guideChapterNum = introCount + 1;
 
   return (
     <div className="book-layout">
@@ -118,10 +120,16 @@ export function BookView() {
                 </a>
               </li>
             ))}
+            <li>
+              <a href="#reading-guide">
+                <span className="book-toc-num">{guideChapterNum}.</span>{' '}
+                How to Read This Document
+              </a>
+            </li>
             {phases.map((phase, idx) => (
               <li key={phase.id}>
                 <a href={`#phase-${phase.id}`}>
-                  <span className="book-toc-num">{introCount + idx + 1}.</span>{' '}
+                  <span className="book-toc-num">{guideChapterNum + idx + 1}.</span>{' '}
                   {phase.name}
                 </a>
               </li>
@@ -133,11 +141,13 @@ export function BookView() {
           <BookIntroChapter key={ch.id} chapter={ch} chapterNumber={idx + 1} />
         ))}
 
+        <BookReadingGuide chapterNumber={guideChapterNum} />
+
         {phases.map((phase, idx) => (
           <BookChapter
             key={phase.id}
             phase={phase}
-            chapterNumber={introCount + idx + 1}
+            chapterNumber={guideChapterNum + idx + 1}
             file={file}
             selectedDeptIds={selectedDeptIds}
             roleToDeptId={roleToDeptId}
