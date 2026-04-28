@@ -63,12 +63,14 @@ export function BookView() {
       <article className="book-view">
         <header
           className={`book-cover${file.meta.coverImage ? ' book-cover-has-image' : ''}`}
-          style={
-            file.meta.coverImage
-              ? { backgroundImage: `url(${file.meta.coverImage})` }
-              : undefined
-          }
         >
+          {file.meta.coverImage && (
+            <img
+              src={file.meta.coverImage}
+              alt=""
+              className="book-cover-bg-img"
+            />
+          )}
           <div className="book-cover-content">
             <h1>{file.meta.title}</h1>
             {file.meta.masterName && file.meta.masterName !== file.meta.title && (
