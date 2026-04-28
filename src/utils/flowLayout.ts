@@ -1,5 +1,5 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
-import { MarkerType, type Edge, type Node } from '@xyflow/react';
+import { type Edge, type Node } from '@xyflow/react';
 import type { Task } from '../types';
 import type { HighlightInfo } from './highlight';
 import type { PerspectiveInfo } from './perspective';
@@ -364,7 +364,7 @@ function buildResult(
   // or target node are allowed to overlap (they split/merge at that
   // node, so there's no ambiguity). Only edges with DIFFERENT
   // source AND target pairs are nudged apart.
-  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 8);
+  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 12);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -374,11 +374,7 @@ function buildResult(
     data: {
       path: roundedOrthogonalPath(points, config.cornerRadius),
     },
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      width: Math.round(config.arrowSize * 0.5),
-      height: config.arrowSize,
-    },
+    markerEnd: 'url(#slinky-arrow)',
   }));
 
   return { nodes, edges };
@@ -623,11 +619,11 @@ function buildElkInput(
       config.favorStraightEdges,
     ),
     'elk.spacing.nodeNode': String(config.nodesep),
-    'elk.spacing.edgeEdge': '12',
+    'elk.spacing.edgeEdge': '18',
     'elk.spacing.edgeNode': '16',
     'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
     'elk.layered.spacing.edgeNodeBetweenLayers': '16',
-    'elk.layered.spacing.edgeEdgeBetweenLayers': '12',
+    'elk.layered.spacing.edgeEdgeBetweenLayers': '18',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.mergeEdges': 'false',
   };

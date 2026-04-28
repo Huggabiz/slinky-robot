@@ -59,7 +59,7 @@ export const DEFAULT_LAB_CONFIG: LabConfig = {
   favorStraightEdges: true,
   centreStartEnd: true,
   nodesep: 50,
-  ranksep: 100,
+  ranksep: 50,
   nodeWidth: 200,
   nodeHeight: 96,
   cornerRadius: 12,
