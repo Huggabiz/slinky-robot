@@ -63,6 +63,54 @@ export function BookView() {
         onChange={setSelectedDeptIds}
       />
       <article className="book-view">
+        {mode === 'edit' && (
+          <div className="book-print-config">
+            <label className="book-print-config-field">
+              <span>Page header text</span>
+              <input
+                type="text"
+                value={file.meta.printHeader ?? ''}
+                placeholder="Text shown at the top of every printed page"
+                onChange={(e) =>
+                  updateMeta({ printHeader: e.target.value || null })
+                }
+              />
+            </label>
+            <label className="book-print-config-field">
+              <span>Release version</span>
+              <input
+                type="text"
+                value={file.meta.releaseVersion ?? ''}
+                placeholder="e.g. 1.00"
+                onChange={(e) =>
+                  updateMeta({ releaseVersion: e.target.value || null })
+                }
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Print-only running header/footer. position: fixed in
+            @media print makes these repeat on every printed page. */}
+        {(file.meta.printHeader || file.meta.releaseVersion) && (
+          <div className="book-print-overlay" aria-hidden>
+            {file.meta.printHeader && (
+              <div className="book-print-header">
+                {file.meta.printHeader}
+              </div>
+            )}
+            <div className="book-print-footer">
+              <span className="book-print-footer-left">{file.meta.title}</span>
+              <span className="book-print-footer-centre" />
+              <span className="book-print-footer-right">
+                {file.meta.releaseVersion
+                  ? `Release V${file.meta.releaseVersion}`
+                  : ''}
+              </span>
+            </div>
+          </div>
+        )}
+
         <header
           className={`book-cover${file.meta.coverImage ? ' book-cover-has-image' : ''}`}
         >
