@@ -286,6 +286,8 @@
 .book-intro-section-image {
   display: block;
   max-width: 100%;
+  width: auto;
+  height: auto;
   border-radius: 4px;
   margin: 0 auto var(--space-sm);
 }
@@ -522,7 +524,7 @@
   .book-chapter {
     max-width: none;
     margin: 0;
-    padding: 0;
+    padding: 6mm 0;
     box-shadow: none;
     background: white;
   }
