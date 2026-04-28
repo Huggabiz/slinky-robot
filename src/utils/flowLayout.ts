@@ -215,16 +215,38 @@ export async function layoutAllPhasesStacked(
   return { nodes: allNodes, edges: allEdges };
 }
 
-// Shift all Y coordinates in a "M ... L ... L ..." SVG path string.
+// Shift all Y coordinates in an SVG path built by roundedOrthogonalPath.
+// The path contains M (moveto), L (lineto), and A (arc) commands.
+// Each command type has a fixed parameter count, and we know which
+// parameters are Y coordinates that need the offset applied.
 function shiftSvgPathY(pathData: string, dy: number): string {
   if (dy === 0) return pathData;
-  return pathData.replace(
-    /([ML])\s*([\d.eE+-]+)\s*[, ]\s*([\d.eE+-]+)/g,
-    (_m, cmd, xStr, yStr) => {
-      const y = parseFloat(yStr) + dy;
-      return `${cmd} ${xStr},${y}`;
-    },
-  );
+  const tokens = pathData.match(/[MLA]|[\d.eE+-]+/g);
+  if (!tokens) return pathData;
+
+  const out: string[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const t = tokens[i];
+    if (t === 'M' || t === 'L') {
+      out.push(t, tokens[i + 1], String(parseFloat(tokens[i + 2]) + dy));
+      i += 3;
+    } else if (t === 'A') {
+      // A rx ry x-rotation large-arc-flag sweep-flag x y
+      out.push(
+        t,
+        tokens[i + 1], tokens[i + 2], tokens[i + 3],
+        tokens[i + 4], tokens[i + 5],
+        tokens[i + 6],
+        String(parseFloat(tokens[i + 7]) + dy),
+      );
+      i += 8;
+    } else {
+      out.push(t);
+      i++;
+    }
+  }
+  return out.join(' ');
 }
 
 /**
