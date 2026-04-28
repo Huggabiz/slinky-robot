@@ -75,9 +75,7 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
     case 'none':
       return {
         style: {},
-        className: info.hideOthers
-          ? 'task-node-hidden'
-          : 'task-node-desaturated',
+        className: info.hideOthers ? 'task-node-desaturated' : '',
       };
   }
 }
@@ -116,11 +114,8 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
   return (
     <div className={classes} style={style}>
       <Handle type="target" position={Position.Top} />
-      {perspResult.className === 'task-node-hidden' ? (
-        <div className="task-node-hidden-inner" />
-      ) : (
-        <>
-          {/* Calendar icon — top right */}
+      <>
+        {/* Calendar icon — top right */}
           {task.isMeetingTask && (
             <span className="task-node-badge task-node-badge-tr" title="Meeting task">
               📅
@@ -165,8 +160,7 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
               ))}
             </div>
           )}
-        </>
-      )}
+      </>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

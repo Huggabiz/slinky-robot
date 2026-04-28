@@ -143,18 +143,11 @@
   opacity: 0.2;
 }
 
+/* "Hide unrelated" perspective mode: fade non-matching tasks so
+   the relevant ones pop, but keep content visible for context. */
 .task-node-desaturated {
-  opacity: 0.35;
+  opacity: 0.3;
   filter: grayscale(1);
-}
-
-/* Perspective lens: hide unrelated tasks as empty rectangles. */
-.task-node-hidden {
-  opacity: 0.2;
-}
-
-.task-node-hidden-inner {
-  flex: 1;
 }
 
 .task-node .react-flow__handle {
