@@ -33,68 +33,6 @@
   color: #d4b14a;
 }
 
-/* Print header/footer config fields shown in edit mode above the
-   cover. Hidden on print — only the overlay is visible there. */
-.book-print-config {
-  max-width: 720px;
-  margin: 0 auto var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: white;
-  border: 1px dashed #ccc;
-  border-radius: 4px;
-  display: flex;
-  gap: var(--space-md);
-  font-size: 12px;
-  color: #555;
-}
-
-.app.edit-mode .book-print-config {
-  background: var(--color-surface);
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
-}
-
-.book-print-config-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-}
-
-.book-print-config-field span {
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.book-print-config-field input {
-  font: inherit;
-  font-size: 13px;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  background: white;
-  color: #1a1a1a;
-}
-
-.app.edit-mode .book-print-config-field input {
-  background: var(--color-bg);
-  border-color: var(--color-border);
-  color: var(--color-text);
-}
-
-.book-print-config-field input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-/* The print overlay is invisible on screen. In print it becomes
-   position: fixed so it repeats on every page. */
-.book-print-overlay {
-  display: none;
-}
-
 /* Reset edit-mode dark palette inside the book since it's designed
    to look like a printed document regardless of mode. */
 .app.edit-mode .book-view {
@@ -489,12 +427,14 @@
    =========================================================== */
 
 @media print {
+  /* A4 page with named margins; browser prints the @top-center and
+     @bottom-center margin boxes as running head / page number. */
   @page {
     size: A4;
     margin: 20mm 18mm 22mm 18mm;
   }
 
-  /* First page: zero margins so the cover image fills edge-to-edge. */
+  /* First page has zero margins so a cover image fills edge-to-edge. */
   @page:first {
     margin: 0;
   }
@@ -516,59 +456,8 @@
   .app-detail-column,
   .detail-resizer,
   .flow-toolbar,
-  .book-filter-note,
-  .book-print-config {
+  .book-filter-note {
     display: none !important;
-  }
-
-  /* Running header/footer — position: fixed repeats on every
-     printed page. Sits inside the @page margins. */
-  .book-print-overlay {
-    display: block !important;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    z-index: 1000;
-  }
-
-  .book-print-header {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 9pt;
-    color: #666;
-    padding: 2mm 0;
-  }
-
-  .book-print-footer {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-between;
-    font-size: 8pt;
-    color: #888;
-    padding: 2mm 0;
-  }
-
-  .book-print-footer-left,
-  .book-print-footer-centre,
-  .book-print-footer-right {
-    flex: 1;
-  }
-
-  .book-print-footer-centre {
-    text-align: center;
-  }
-
-  .book-print-footer-right {
-    text-align: right;
   }
 
   .book-view {

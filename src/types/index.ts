@@ -62,12 +62,10 @@ export interface FileMeta {
   title: string;
   updatedAt: string;
   passwordCipher: string | null;
+  // Base64 data-URL for a cover background image shown in the book
+  // view. Null = plain white cover. Stored inline so the JSON stays
+  // a self-contained single file.
   coverImage: string | null;
-  // Text shown at the top of every printed page (running header).
-  printHeader: string | null;
-  // Document release version, shown as "Release V{x}" at the bottom
-  // right of every printed page.
-  releaseVersion: string | null;
 }
 
 export interface Phase {
@@ -180,8 +178,6 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
       updatedAt: new Date().toISOString(),
       passwordCipher: null,
       coverImage: null,
-      printHeader: null,
-      releaseVersion: null,
     },
     phases: [],
     tasks: [],

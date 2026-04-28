@@ -83,12 +83,6 @@ function normaliseShape(
       ...rawMeta,
       coverImage:
         typeof rawMeta.coverImage === 'string' ? rawMeta.coverImage : null,
-      printHeader:
-        typeof rawMeta.printHeader === 'string' ? rawMeta.printHeader : null,
-      releaseVersion:
-        typeof rawMeta.releaseVersion === 'string'
-          ? rawMeta.releaseVersion
-          : null,
     },
     introChapters,
     departments: Array.isArray(raw.departments) ? raw.departments : [],
