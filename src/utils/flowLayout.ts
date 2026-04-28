@@ -359,9 +359,12 @@ function buildResult(
     edgeMeta.push({ id: elkEdge.id, sourceId, targetId });
   }
 
-  // Separate overlapping horizontal edge segments so parallel edges
-  // running through the same between-layer gap are visually distinct.
-  deoverlapEdgeSegments(edgePointArrays, 8);
+  // Separate overlapping segments so parallel edges through the same
+  // routing channel are visually distinct. Edges that share a source
+  // or target node are allowed to overlap (they split/merge at that
+  // node, so there's no ambiguity). Only edges with DIFFERENT
+  // source AND target pairs are nudged apart.
+  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 8);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -640,21 +643,21 @@ function buildElkInput(
 // Post-process: find edge segments (horizontal OR vertical) that
 // share the same axis value and overlap on the other axis, then
 // spread them apart so parallel edges through the same channel are
-// visually distinct. Operates in-place on the point arrays.
+// visually distinct. Edges that share a source or target node are
+// allowed to overlap — they fan out/in at the shared node, so
+// there's no ambiguity. Only edges with DIFFERENT source AND target
+// pairs are separated. Operates in-place on the point arrays.
 function deoverlapEdgeSegments(
   allPoints: { x: number; y: number }[][],
+  meta: { sourceId: string; targetId: string }[],
   spacing: number,
 ): void {
   interface Seg {
     edgeIdx: number;
     ptIdx: number;
-    // The fixed-axis value (Y for horizontal segs, X for vertical).
     fixedVal: number;
-    // The range on the free axis.
     rangeMin: number;
     rangeMax: number;
-    // Which axis is fixed: 'h' = horizontal (fixed Y, spread Y),
-    // 'v' = vertical (fixed X, spread X).
     axis: 'h' | 'v';
   }
 
@@ -665,20 +668,16 @@ function deoverlapEdgeSegments(
       const dx = Math.abs(pts[pi].x - pts[pi + 1].x);
       const dy = Math.abs(pts[pi].y - pts[pi + 1].y);
       if (dy < 0.5 && dx > 1) {
-        // Horizontal segment — fixed Y, range on X.
         segments.push({
-          edgeIdx: ei,
-          ptIdx: pi,
+          edgeIdx: ei, ptIdx: pi,
           fixedVal: pts[pi].y,
           rangeMin: Math.min(pts[pi].x, pts[pi + 1].x),
           rangeMax: Math.max(pts[pi].x, pts[pi + 1].x),
           axis: 'h',
         });
       } else if (dx < 0.5 && dy > 1) {
-        // Vertical segment — fixed X, range on Y.
         segments.push({
-          edgeIdx: ei,
-          ptIdx: pi,
+          edgeIdx: ei, ptIdx: pi,
           fixedVal: pts[pi].x,
           rangeMin: Math.min(pts[pi].y, pts[pi + 1].y),
           rangeMax: Math.max(pts[pi].y, pts[pi + 1].y),
@@ -688,7 +687,12 @@ function deoverlapEdgeSegments(
     }
   }
 
-  // Process horizontal and vertical segments separately.
+  // Two edges share an endpoint if they have the same source OR
+  // the same target. Such pairs are allowed to overlap.
+  const sharesEndpoint = (a: number, b: number): boolean =>
+    meta[a].sourceId === meta[b].sourceId ||
+    meta[a].targetId === meta[b].targetId;
+
   for (const axis of ['h', 'v'] as const) {
     const axisSeg = segments.filter((s) => s.axis === axis);
     axisSeg.sort((a, b) => a.fixedVal - b.fixedVal);
@@ -721,7 +725,11 @@ function deoverlapEdgeSegments(
             if (
               cluster.some((ci) => {
                 const gc = group[ci];
-                return gc.rangeMin < gj.rangeMax && gj.rangeMin < gc.rangeMax;
+                if (gc.rangeMin >= gj.rangeMax || gj.rangeMin >= gc.rangeMax)
+                  return false;
+                // Skip if these edges share a source or target.
+                if (sharesEndpoint(gc.edgeIdx, gj.edgeIdx)) return false;
+                return true;
               })
             ) {
               cluster.push(j);
