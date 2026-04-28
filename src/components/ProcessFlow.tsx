@@ -399,6 +399,23 @@ function ProcessFlowInner({
 
   return (
     <div className="process-flow">
+      {/* Custom arrow marker — lives outside ReactFlow but in the
+          same document, so url(#slinky-arrow) resolves globally. */}
+      <svg width="0" height="0" style={{ position: 'absolute' }}>
+        <defs>
+          <marker
+            id="slinky-arrow"
+            viewBox="0 0 10 20"
+            refX="10"
+            refY="10"
+            markerWidth="10"
+            markerHeight="20"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 10 10 L 0 20 Z" fill="#888" />
+          </marker>
+        </defs>
+      </svg>
       <ReactFlow
         nodes={allNodes}
         edges={allEdges}
@@ -414,25 +431,6 @@ function ProcessFlowInner({
         nodesConnectable={false}
         proOptions={{ hideAttribution: true }}
       >
-        {/* Custom arrow marker — narrower/more acute than React Flow's
-            built-in ArrowClosed. viewBox is 0 0 10 20 (tall and narrow);
-            the triangle spans the full height but only half the width,
-            giving a slender arrowhead. */}
-        <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-          <defs>
-            <marker
-              id="slinky-arrow"
-              viewBox="0 0 10 20"
-              refX="10"
-              refY="10"
-              markerWidth="10"
-              markerHeight="20"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 10 L 0 20 Z" fill="#888" />
-            </marker>
-          </defs>
-        </svg>
         <Background gap={20} />
         <Controls showInteractive={false} />
         <MiniMap

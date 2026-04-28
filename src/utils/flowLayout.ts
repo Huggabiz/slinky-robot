@@ -737,6 +737,35 @@ function deoverlapEdgeSegments(
 
         if (cluster.length <= 1) continue;
 
+        // Sort the cluster so each segment is placed on the side
+        // nearest its connecting points. For horizontal segments,
+        // sort by the average X of the points BEFORE and AFTER the
+        // segment (where the edge comes from / goes to). For
+        // vertical segments, sort by the average Y. This minimises
+        // total detour length and reduces crossovers.
+        cluster.sort((a, b) => {
+          const segA = group[a];
+          const segB = group[b];
+          const ptsA = allPoints[segA.edgeIdx];
+          const ptsB = allPoints[segB.edgeIdx];
+          if (axis === 'h') {
+            const refA =
+              (segA.ptIdx > 0 ? ptsA[segA.ptIdx - 1].x : ptsA[segA.ptIdx].x) +
+              (segA.ptIdx + 2 < ptsA.length ? ptsA[segA.ptIdx + 2].x : ptsA[segA.ptIdx + 1].x);
+            const refB =
+              (segB.ptIdx > 0 ? ptsB[segB.ptIdx - 1].x : ptsB[segB.ptIdx].x) +
+              (segB.ptIdx + 2 < ptsB.length ? ptsB[segB.ptIdx + 2].x : ptsB[segB.ptIdx + 1].x);
+            return refA - refB;
+          }
+          const refA =
+            (segA.ptIdx > 0 ? ptsA[segA.ptIdx - 1].y : ptsA[segA.ptIdx].y) +
+            (segA.ptIdx + 2 < ptsA.length ? ptsA[segA.ptIdx + 2].y : ptsA[segA.ptIdx + 1].y);
+          const refB =
+            (segB.ptIdx > 0 ? ptsB[segB.ptIdx - 1].y : ptsB[segB.ptIdx].y) +
+            (segB.ptIdx + 2 < ptsB.length ? ptsB[segB.ptIdx + 2].y : ptsB[segB.ptIdx + 1].y);
+          return refA - refB;
+        });
+
         const baseVal = group[cluster[0]].fixedVal;
         for (let k = 0; k < cluster.length; k++) {
           const offset = (k - (cluster.length - 1) / 2) * spacing;
