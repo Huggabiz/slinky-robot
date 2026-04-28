@@ -225,13 +225,39 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
                       {task.activityType}
                     </text>
                   )}
-                  {/* Meeting icon — top right */}
+                  {/* Meeting icon — top right, white pill bg. */}
                   {task.isMeetingTask && (
-                    <text x={w - 16} y={14} fontSize={11}>📅</text>
+                    <g>
+                      <rect
+                        x={w - 22}
+                        y={2}
+                        width={18}
+                        height={18}
+                        rx={5}
+                        ry={5}
+                        fill="white"
+                        stroke="rgba(0,0,0,0.1)"
+                        strokeWidth={0.5}
+                      />
+                      <text x={w - 18} y={15} fontSize={11}>📅</text>
+                    </g>
                   )}
-                  {/* Deliverable icon — bottom right */}
+                  {/* Deliverable icon — bottom right, white pill bg. */}
                   {task.deliverableTargets?.length > 0 && (
-                    <text x={w - 16} y={h - 6} fontSize={11}>📄</text>
+                    <g>
+                      <rect
+                        x={w - 22}
+                        y={h - 20}
+                        width={18}
+                        height={18}
+                        rx={5}
+                        ry={5}
+                        fill="white"
+                        stroke="rgba(0,0,0,0.1)"
+                        strokeWidth={0.5}
+                      />
+                      <text x={w - 18} y={h - 7} fontSize={11}>📄</text>
+                    </g>
                   )}
                   {/* Contributor department dots — white pill for legibility
                      on coloured cell backgrounds. */}
