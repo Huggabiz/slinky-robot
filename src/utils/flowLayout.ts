@@ -1,5 +1,5 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
-import { type Edge, type Node } from '@xyflow/react';
+import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { Task } from '../types';
 import type { HighlightInfo } from './highlight';
 import type { PerspectiveInfo } from './perspective';
@@ -374,7 +374,12 @@ function buildResult(
     data: {
       path: roundedOrthogonalPath(points, config.cornerRadius),
     },
-    markerEnd: 'url(#slinky-arrow)',
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: config.arrowSize,
+      height: config.arrowSize,
+      color: '#888',
+    },
   }));
 
   return { nodes, edges };
@@ -738,32 +743,25 @@ function deoverlapEdgeSegments(
         if (cluster.length <= 1) continue;
 
         // Sort the cluster so each segment is placed on the side
-        // nearest its connecting points. For horizontal segments,
-        // sort by the average X of the points BEFORE and AFTER the
-        // segment (where the edge comes from / goes to). For
-        // vertical segments, sort by the average Y. This minimises
-        // total detour length and reduces crossovers.
+        // that minimises detour. For horizontal segments that got
+        // separated, sort by the average X of the source and target
+        // endpoints of the entire edge — edges heading further
+        // right sit on the right side of the cluster, edges heading
+        // left sit on the left side. For vertical segments, sort by
+        // the average Y of the full edge's endpoints. This keeps
+        // lines on the side nearest their destination, reducing
+        // unnecessary crossovers.
         cluster.sort((a, b) => {
-          const segA = group[a];
-          const segB = group[b];
-          const ptsA = allPoints[segA.edgeIdx];
-          const ptsB = allPoints[segB.edgeIdx];
+          const ptsA = allPoints[group[a].edgeIdx];
+          const ptsB = allPoints[group[b].edgeIdx];
           if (axis === 'h') {
-            const refA =
-              (segA.ptIdx > 0 ? ptsA[segA.ptIdx - 1].x : ptsA[segA.ptIdx].x) +
-              (segA.ptIdx + 2 < ptsA.length ? ptsA[segA.ptIdx + 2].x : ptsA[segA.ptIdx + 1].x);
-            const refB =
-              (segB.ptIdx > 0 ? ptsB[segB.ptIdx - 1].x : ptsB[segB.ptIdx].x) +
-              (segB.ptIdx + 2 < ptsB.length ? ptsB[segB.ptIdx + 2].x : ptsB[segB.ptIdx + 1].x);
-            return refA - refB;
+            const avgA = (ptsA[0].x + ptsA[ptsA.length - 1].x) / 2;
+            const avgB = (ptsB[0].x + ptsB[ptsB.length - 1].x) / 2;
+            return avgA - avgB;
           }
-          const refA =
-            (segA.ptIdx > 0 ? ptsA[segA.ptIdx - 1].y : ptsA[segA.ptIdx].y) +
-            (segA.ptIdx + 2 < ptsA.length ? ptsA[segA.ptIdx + 2].y : ptsA[segA.ptIdx + 1].y);
-          const refB =
-            (segB.ptIdx > 0 ? ptsB[segB.ptIdx - 1].y : ptsB[segB.ptIdx].y) +
-            (segB.ptIdx + 2 < ptsB.length ? ptsB[segB.ptIdx + 2].y : ptsB[segB.ptIdx + 1].y);
-          return refA - refB;
+          const avgA = (ptsA[0].y + ptsA[ptsA.length - 1].y) / 2;
+          const avgB = (ptsB[0].y + ptsB[ptsB.length - 1].y) / 2;
+          return avgA - avgB;
         });
 
         const baseVal = group[cluster[0]].fixedVal;

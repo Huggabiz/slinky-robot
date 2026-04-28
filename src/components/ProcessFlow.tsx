@@ -399,23 +399,6 @@ function ProcessFlowInner({
 
   return (
     <div className="process-flow">
-      {/* Custom arrow marker — lives outside ReactFlow but in the
-          same document, so url(#slinky-arrow) resolves globally. */}
-      <svg width="0" height="0" style={{ position: 'absolute' }}>
-        <defs>
-          <marker
-            id="slinky-arrow"
-            viewBox="0 0 10 20"
-            refX="10"
-            refY="10"
-            markerWidth="10"
-            markerHeight="20"
-            orient="auto-start-reverse"
-          >
-            <path d="M 0 0 L 10 10 L 0 20 Z" fill="#888" />
-          </marker>
-        </defs>
-      </svg>
       <ReactFlow
         nodes={allNodes}
         edges={allEdges}
