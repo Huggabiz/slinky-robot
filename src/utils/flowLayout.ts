@@ -361,7 +361,7 @@ function buildResult(
 
   // Separate overlapping horizontal edge segments so parallel edges
   // running through the same between-layer gap are visually distinct.
-  deoverlapHorizontalSegments(edgePointArrays, 8);
+  deoverlapEdgeSegments(edgePointArrays, 8);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -637,91 +637,115 @@ function buildElkInput(
   };
 }
 
-// Post-process: find horizontal edge segments that share the same Y
-// and overlap in X, then spread them apart vertically. This prevents
-// two edges from visually merging when they pass through the same
-// between-layer routing channel. Operates in-place on the point arrays.
-function deoverlapHorizontalSegments(
+// Post-process: find edge segments (horizontal OR vertical) that
+// share the same axis value and overlap on the other axis, then
+// spread them apart so parallel edges through the same channel are
+// visually distinct. Operates in-place on the point arrays.
+function deoverlapEdgeSegments(
   allPoints: { x: number; y: number }[][],
   spacing: number,
 ): void {
-  interface HSeg {
+  interface Seg {
     edgeIdx: number;
     ptIdx: number;
-    y: number;
-    xMin: number;
-    xMax: number;
+    // The fixed-axis value (Y for horizontal segs, X for vertical).
+    fixedVal: number;
+    // The range on the free axis.
+    rangeMin: number;
+    rangeMax: number;
+    // Which axis is fixed: 'h' = horizontal (fixed Y, spread Y),
+    // 'v' = vertical (fixed X, spread X).
+    axis: 'h' | 'v';
   }
 
-  const segments: HSeg[] = [];
+  const segments: Seg[] = [];
   for (let ei = 0; ei < allPoints.length; ei++) {
     const pts = allPoints[ei];
     for (let pi = 0; pi < pts.length - 1; pi++) {
-      if (Math.abs(pts[pi].y - pts[pi + 1].y) < 0.5) {
+      const dx = Math.abs(pts[pi].x - pts[pi + 1].x);
+      const dy = Math.abs(pts[pi].y - pts[pi + 1].y);
+      if (dy < 0.5 && dx > 1) {
+        // Horizontal segment — fixed Y, range on X.
         segments.push({
           edgeIdx: ei,
           ptIdx: pi,
-          y: pts[pi].y,
-          xMin: Math.min(pts[pi].x, pts[pi + 1].x),
-          xMax: Math.max(pts[pi].x, pts[pi + 1].x),
+          fixedVal: pts[pi].y,
+          rangeMin: Math.min(pts[pi].x, pts[pi + 1].x),
+          rangeMax: Math.max(pts[pi].x, pts[pi + 1].x),
+          axis: 'h',
+        });
+      } else if (dx < 0.5 && dy > 1) {
+        // Vertical segment — fixed X, range on Y.
+        segments.push({
+          edgeIdx: ei,
+          ptIdx: pi,
+          fixedVal: pts[pi].x,
+          rangeMin: Math.min(pts[pi].y, pts[pi + 1].y),
+          rangeMax: Math.max(pts[pi].y, pts[pi + 1].y),
+          axis: 'v',
         });
       }
     }
   }
 
-  segments.sort((a, b) => a.y - b.y);
+  // Process horizontal and vertical segments separately.
+  for (const axis of ['h', 'v'] as const) {
+    const axisSeg = segments.filter((s) => s.axis === axis);
+    axisSeg.sort((a, b) => a.fixedVal - b.fixedVal);
 
-  // Group segments that share the same Y (within 1px tolerance).
-  const groups: HSeg[][] = [];
-  let cur: HSeg[] = [];
-  for (const seg of segments) {
-    if (cur.length > 0 && Math.abs(seg.y - cur[0].y) > 1) {
-      groups.push(cur);
-      cur = [];
+    const groups: Seg[][] = [];
+    let cur: Seg[] = [];
+    for (const seg of axisSeg) {
+      if (cur.length > 0 && Math.abs(seg.fixedVal - cur[0].fixedVal) > 1) {
+        groups.push(cur);
+        cur = [];
+      }
+      cur.push(seg);
     }
-    cur.push(seg);
-  }
-  if (cur.length > 0) groups.push(cur);
+    if (cur.length > 0) groups.push(cur);
 
-  for (const group of groups) {
-    if (group.length <= 1) continue;
+    for (const group of groups) {
+      if (group.length <= 1) continue;
 
-    // Within this Y group, find clusters of segments whose X ranges
-    // overlap. Two segments in the same cluster are visually ambiguous.
-    const used = new Set<number>();
-    for (let i = 0; i < group.length; i++) {
-      if (used.has(i)) continue;
-      const cluster = [i];
-      used.add(i);
-      // Greedy expansion: add any segment that overlaps any member.
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (let j = 0; j < group.length; j++) {
-          if (used.has(j)) continue;
-          const gj = group[j];
-          if (
-            cluster.some((ci) => {
-              const gc = group[ci];
-              return gc.xMin < gj.xMax && gj.xMin < gc.xMax;
-            })
-          ) {
-            cluster.push(j);
-            used.add(j);
-            changed = true;
+      const used = new Set<number>();
+      for (let i = 0; i < group.length; i++) {
+        if (used.has(i)) continue;
+        const cluster = [i];
+        used.add(i);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (let j = 0; j < group.length; j++) {
+            if (used.has(j)) continue;
+            const gj = group[j];
+            if (
+              cluster.some((ci) => {
+                const gc = group[ci];
+                return gc.rangeMin < gj.rangeMax && gj.rangeMin < gc.rangeMax;
+              })
+            ) {
+              cluster.push(j);
+              used.add(j);
+              changed = true;
+            }
           }
         }
-      }
 
-      if (cluster.length <= 1) continue;
+        if (cluster.length <= 1) continue;
 
-      const baseY = group[cluster[0]].y;
-      for (let k = 0; k < cluster.length; k++) {
-        const offset = (k - (cluster.length - 1) / 2) * spacing;
-        const seg = group[cluster[k]];
-        const pts = allPoints[seg.edgeIdx];
-        pts[seg.ptIdx].y = baseY + offset;
-        pts[seg.ptIdx + 1].y = baseY + offset;
+        const baseVal = group[cluster[0]].fixedVal;
+        for (let k = 0; k < cluster.length; k++) {
+          const offset = (k - (cluster.length - 1) / 2) * spacing;
+          const seg = group[cluster[k]];
+          const pts = allPoints[seg.edgeIdx];
+          if (axis === 'h') {
+            pts[seg.ptIdx].y = baseVal + offset;
+            pts[seg.ptIdx + 1].y = baseVal + offset;
+          } else {
+            pts[seg.ptIdx].x = baseVal + offset;
+            pts[seg.ptIdx + 1].x = baseVal + offset;
+          }
+        }
       }
     }
   }
