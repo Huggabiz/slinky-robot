@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  type FileMeta,
   type IntroChapter,
   type IntroSection,
   type Phase,
@@ -92,6 +93,7 @@ interface AppState {
   updateFile: (
     updater: (file: ProcessFile) => ProcessFile,
   ) => ProcessFile | null;
+  updateMeta: (patch: Partial<FileMeta>) => void;
   addPhase: () => string | null;
   updatePhase: (id: string, patch: Partial<Phase>) => void;
   deletePhase: (id: string) => { ok: boolean; error?: string };
@@ -359,6 +361,12 @@ export const useAppStore = create<AppState>((set, get) => {
       return next;
     },
 
+    updateMeta: (patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({ ...current, meta: { ...current.meta, ...patch } });
+    },
+
     addPhase: () => {
       const current = get().file;
       if (!current) return null;
@@ -533,6 +541,7 @@ export const useAppStore = create<AppState>((set, get) => {
         title: '',
         subtitle: '',
         body: '',
+        image: null,
       };
       commit({
         ...current,

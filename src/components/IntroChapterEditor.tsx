@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { Markdown } from './Markdown';
 import { MarkdownEditor } from './MarkdownEditor';
+import { pickImageFile, fileToDataUrl } from '../utils/imageUpload';
 import './IntroChapterEditor.css';
 
 interface Props {
@@ -69,6 +70,44 @@ export function IntroChapterEditor({ chapterId }: Props) {
                     })
                   }
                 />
+                <div className="intro-editor-sec-image">
+                  {sec.image && (
+                    <img
+                      src={sec.image}
+                      alt=""
+                      className="intro-editor-sec-image-preview"
+                    />
+                  )}
+                  <div className="intro-editor-sec-image-btns">
+                    <button
+                      type="button"
+                      className="intro-editor-sec-image-btn"
+                      onClick={async () => {
+                        const f = await pickImageFile();
+                        if (!f) return;
+                        const dataUrl = await fileToDataUrl(f);
+                        updateIntroSection(chapterId, sec.id, {
+                          image: dataUrl,
+                        });
+                      }}
+                    >
+                      {sec.image ? 'Change image' : 'Add image'}
+                    </button>
+                    {sec.image && (
+                      <button
+                        type="button"
+                        className="intro-editor-sec-image-btn"
+                        onClick={() =>
+                          updateIntroSection(chapterId, sec.id, {
+                            image: null,
+                          })
+                        }
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <MarkdownEditor
                   value={sec.body}
                   onChange={(body) =>
@@ -92,6 +131,13 @@ export function IntroChapterEditor({ chapterId }: Props) {
                 )}
                 {sec.subtitle && (
                   <h4 className="intro-editor-read-subtitle">{sec.subtitle}</h4>
+                )}
+                {sec.image && (
+                  <img
+                    src={sec.image}
+                    alt=""
+                    className="intro-editor-sec-image-preview"
+                  />
                 )}
                 {sec.body && (
                   <Markdown text={sec.body} className="intro-editor-read-body" />

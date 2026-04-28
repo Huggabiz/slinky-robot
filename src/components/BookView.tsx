@@ -9,6 +9,7 @@ import {
   type Task,
 } from '../types';
 import { getPhaseDeliverableSummary } from '../utils/deliverableSummary';
+import { pickImageFile, fileToDataUrl } from '../utils/imageUpload';
 import { topoSortTasksInPhase } from '../utils/topoSort';
 import { extractRoleRefs } from '../utils/roleRefs';
 import { BookFlowDiagram } from './BookFlowDiagram';
@@ -28,6 +29,8 @@ import './BookView.css';
 // the reader still has full context.
 export function BookView() {
   const file = useAppStore((s) => s.file);
+  const mode = useAppStore((s) => s.mode);
+  const updateMeta = useAppStore((s) => s.updateMeta);
 
   const [selectedDeptIds, setSelectedDeptIds] = useState<Set<string>>(
     () => new Set(),
@@ -58,14 +61,48 @@ export function BookView() {
         onChange={setSelectedDeptIds}
       />
       <article className="book-view">
-        <header className="book-cover">
-          <h1>{file.meta.title}</h1>
-          {file.meta.masterName && file.meta.masterName !== file.meta.title && (
-            <p className="book-cover-sub">{file.meta.masterName}</p>
+        <header
+          className={`book-cover${file.meta.coverImage ? ' book-cover-has-image' : ''}`}
+          style={
+            file.meta.coverImage
+              ? { backgroundImage: `url(${file.meta.coverImage})` }
+              : undefined
+          }
+        >
+          <div className="book-cover-content">
+            <h1>{file.meta.title}</h1>
+            {file.meta.masterName && file.meta.masterName !== file.meta.title && (
+              <p className="book-cover-sub">{file.meta.masterName}</p>
+            )}
+            <p className="book-cover-date">
+              Generated {new Date().toLocaleDateString()}
+            </p>
+          </div>
+          {mode === 'edit' && (
+            <div className="book-cover-image-controls">
+              <button
+                type="button"
+                className="book-cover-image-btn"
+                onClick={async () => {
+                  const f = await pickImageFile();
+                  if (!f) return;
+                  const dataUrl = await fileToDataUrl(f);
+                  updateMeta({ coverImage: dataUrl });
+                }}
+              >
+                {file.meta.coverImage ? 'Change cover image' : 'Add cover image'}
+              </button>
+              {file.meta.coverImage && (
+                <button
+                  type="button"
+                  className="book-cover-image-btn"
+                  onClick={() => updateMeta({ coverImage: null })}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           )}
-          <p className="book-cover-date">
-            Generated {new Date().toLocaleDateString()}
-          </p>
         </header>
 
         <nav className="book-toc">
@@ -177,6 +214,13 @@ function BookIntroChapter({
               )}
               {sec.subtitle && (
                 <h4 className="book-intro-section-subtitle">{sec.subtitle}</h4>
+              )}
+              {sec.image && (
+                <img
+                  src={sec.image}
+                  alt=""
+                  className="book-intro-section-image"
+                />
               )}
               {sec.body && <Markdown text={sec.body} className="book-step-prose" />}
             </div>

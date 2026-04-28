@@ -62,9 +62,29 @@ function normaliseShape(
   const phases = Array.isArray(raw.phases) ? raw.phases : [];
   const tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
 
+  const rawMeta = (raw.meta ?? {}) as Record<string, unknown>;
+
+  // Normalise intro chapter sections to include the image field.
+  const introChapters = Array.isArray(raw.introChapters)
+    ? (raw.introChapters as Record<string, unknown>[]).map((ch) => ({
+        ...ch,
+        sections: Array.isArray(ch.sections)
+          ? (ch.sections as Record<string, unknown>[]).map((s) => ({
+              ...s,
+              image: typeof s.image === 'string' ? s.image : null,
+            }))
+          : [],
+      }))
+    : [];
+
   return {
     ...raw,
-    introChapters: Array.isArray(raw.introChapters) ? raw.introChapters : [],
+    meta: {
+      ...rawMeta,
+      coverImage:
+        typeof rawMeta.coverImage === 'string' ? rawMeta.coverImage : null,
+    },
+    introChapters,
     departments: Array.isArray(raw.departments) ? raw.departments : [],
     roles: Array.isArray(raw.roles)
       ? (raw.roles as Record<string, unknown>[]).map((r) => ({

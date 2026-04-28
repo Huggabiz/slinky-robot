@@ -157,3 +157,40 @@
   color: var(--color-text);
   white-space: pre-wrap;
 }
+
+/* Section image upload + preview. */
+.intro-editor-sec-image {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.intro-editor-sec-image-preview {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.intro-editor-sec-image-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.intro-editor-sec-image-btn {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.intro-editor-sec-image-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}

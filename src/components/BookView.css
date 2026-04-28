@@ -53,6 +53,57 @@
 .book-cover {
   text-align: center;
   padding: 80px var(--space-xl);
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* When a cover image is set, overlay the text on a semi-transparent
+   scrim so it stays readable against any photo. */
+.book-cover-has-image {
+  color: white;
+}
+
+.book-cover-has-image .book-cover-content {
+  position: relative;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  padding: var(--space-xl) var(--space-lg);
+  display: inline-block;
+}
+
+.book-cover-has-image h1,
+.book-cover-has-image .book-cover-sub,
+.book-cover-has-image .book-cover-date {
+  color: white;
+}
+
+.book-cover-image-controls {
+  position: absolute;
+  bottom: var(--space-md);
+  right: var(--space-md);
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.book-cover-image-btn {
+  appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.book-cover-image-btn:hover {
+  background: white;
+  border-color: var(--color-accent);
 }
 
 .book-cover h1 {
@@ -166,6 +217,12 @@
   margin: 0 0 var(--space-sm);
   color: #555;
   font-weight: 500;
+}
+
+.book-intro-section-image {
+  max-width: 100%;
+  border-radius: 4px;
+  margin-bottom: var(--space-sm);
 }
 
 .book-empty {

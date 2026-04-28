@@ -58,17 +58,14 @@ export interface ProcessFile {
 }
 
 export interface FileMeta {
-  // Name of the process master (historically a per-row constant in the
-  // source spreadsheet, e.g. "NPDProcessMaster"). Lifted to file level.
   masterName: string;
-  // Human-friendly title shown in the toolbar.
   title: string;
-  // ISO-8601 timestamp of last save. Stamped by serializeProcessFile.
   updatedAt: string;
-  // Obfuscated (NOT encrypted) password blob, or null if the file has no
-  // edit gate. See utils/password.ts — a determined reader with the source
-  // can always recover it; this only blocks casual tool users from editing.
   passwordCipher: string | null;
+  // Base64 data-URL for a cover background image shown in the book
+  // view. Null = plain white cover. Stored inline so the JSON stays
+  // a self-contained single file.
+  coverImage: string | null;
 }
 
 export interface Phase {
@@ -120,6 +117,9 @@ export interface IntroSection {
   title: string;
   subtitle: string;
   body: string;
+  // Optional inline image (base64 data-URL). Rendered above the body
+  // text in the book view and intro-chapter editor.
+  image: string | null;
 }
 
 export interface DeliverableTarget {
@@ -177,6 +177,7 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
       title,
       updatedAt: new Date().toISOString(),
       passwordCipher: null,
+      coverImage: null,
     },
     phases: [],
     tasks: [],
