@@ -387,6 +387,24 @@
   border-color: var(--color-accent);
 }
 
+/* Red: deliverable item not used by any task. */
+.deliv-item-unused {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.06);
+}
+
+/* Yellow: some states of the item are not used by any task. */
+.deliv-item-partial {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.06);
+}
+
+/* Individual unused state row inside an expanded item. */
+.registry-state-unused {
+  background: rgba(220, 38, 38, 0.08);
+  border-radius: var(--radius-sm);
+}
+
 .deliv-item-row {
   display: flex;
   align-items: center;

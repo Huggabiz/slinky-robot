@@ -252,10 +252,15 @@ export function TaskDetailEdit({ task }: { task: Task }) {
             const assignedIds = new Set(
               task.deliverableTargets.map((dt) => dt.itemId),
             );
-            const unassigned = file.deliverableItems.filter(
-              (i) => !assignedIds.has(i.id) && i.states.length > 0,
-            );
+            const unassigned = file.deliverableItems
+              .filter((i) => !assignedIds.has(i.id) && i.states.length > 0)
+              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             if (unassigned.length === 0) return null;
+            const groups = [...(file.deliverableGroups ?? [])].sort(
+              (a, b) => a.order - b.order,
+            );
+            const ungrouped = unassigned.filter((i) => !i.groupId);
+            const hasGroups = groups.length > 0;
             return (
               <select
                 className="task-edit-input"
@@ -272,11 +277,34 @@ export function TaskDetailEdit({ task }: { task: Task }) {
                 }}
               >
                 <option value="">+ Add deliverable target…</option>
-                {unassigned.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
+                {groups.map((g) => {
+                  const items = unassigned.filter((i) => i.groupId === g.id);
+                  if (items.length === 0) return null;
+                  return (
+                    <optgroup key={g.id} label={g.name}>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+                {hasGroups && ungrouped.length > 0 ? (
+                  <optgroup label="Ungrouped">
+                    {ungrouped.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  ungrouped.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))
+                )}
               </select>
             );
           })()}

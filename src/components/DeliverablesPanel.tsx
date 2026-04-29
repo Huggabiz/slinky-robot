@@ -53,6 +53,20 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
     return map;
   }, [file]);
 
+  // Which states of each item are actually referenced by at least one
+  // task's deliverableTargets? Used for the red/yellow warnings.
+  const usedStatesMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const t of (file?.tasks ?? [])) {
+      for (const dt of t.deliverableTargets) {
+        let set = map.get(dt.itemId);
+        if (!set) { set = new Set(); map.set(dt.itemId, set); }
+        set.add(dt.state);
+      }
+    }
+    return map;
+  }, [file]);
+
   if (!isOpen || !file) return null;
 
   const tasksUsingItem = (itemId: string): number =>
@@ -108,10 +122,20 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
     >
       {items.map((item) => {
         const isExpanded = expandedId === item.id;
+        const usedStates = usedStatesMap.get(item.id);
+        const isUnused = !usedStates || usedStates.size === 0;
+        const hasUnusedStates =
+          !isUnused &&
+          item.states.some((s) => !usedStates!.has(s));
+        const warningClass = isUnused
+          ? ' deliv-item-unused'
+          : hasUnusedStates
+            ? ' deliv-item-partial'
+            : '';
         return (
           <div
             key={item.id}
-            className={`deliv-item${isExpanded ? ' deliv-item-expanded' : ''}`}
+            className={`deliv-item${isExpanded ? ' deliv-item-expanded' : ''}${warningClass}`}
             draggable
             onDragStart={() => onDragStart(item.id)}
             onDragOver={onDragOver}
@@ -132,6 +156,7 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
             {isExpanded && (
               <ItemDetail
                 item={item}
+                usedStates={usedStates ?? new Set()}
                 onUpdate={updateDeliverableItem}
                 onDelete={() => handleDeleteItem(item.id, item.name)}
                 onAddState={(name) => addItemState(item.id, name)}
@@ -253,6 +278,7 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
 
 function ItemDetail({
   item,
+  usedStates,
   onUpdate,
   onDelete,
   onAddState,
@@ -261,6 +287,7 @@ function ItemDetail({
   onMoveState,
 }: {
   item: { id: string; name: string; description: string; states: string[] };
+  usedStates: Set<string>;
   onUpdate: (id: string, patch: Partial<{ name: string; description: string }>) => void;
   onDelete: () => void;
   onAddState: (name: string) => boolean;
@@ -304,7 +331,7 @@ function ItemDetail({
       <div className="deliv-detail-field">
         <label className="deliv-detail-label">Resolution states ({item.states.length})</label>
         {item.states.map((state, idx) => (
-          <div key={state} className="registry-state-row">
+          <div key={state} className={`registry-state-row${!usedStates.has(state) ? ' registry-state-unused' : ''}`}>
             <span className="registry-state-order">{idx + 1}</span>
             <input
               type="text"
