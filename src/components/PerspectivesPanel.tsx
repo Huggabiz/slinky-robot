@@ -149,7 +149,7 @@ export function PerspectivesPanel({
           checked={hideOthers}
           onChange={(e) => onHideOthersChange(e.target.checked)}
         />
-        <span>Hide unrelated tasks</span>
+        <span>Dim unrelated tasks</span>
       </label>
 
       {filter && (

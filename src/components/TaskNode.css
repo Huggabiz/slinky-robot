@@ -13,6 +13,25 @@
   transition: border-color 0.1s ease, box-shadow 0.1s ease;
 }
 
+/* Solid white backing so the gate separator dashed line and any
+   other canvas elements don't bleed through the semi-transparent
+   perspective tint backgrounds. The pseudo-element sits behind
+   the node's content but fills the same area. */
+.task-node::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: white;
+  z-index: -1;
+}
+
+/* When dimmed, let the backing go transparent too so the fade
+   effect looks natural. */
+.task-node-desaturated::before {
+  background: transparent;
+}
+
 .task-node:hover {
   border-color: var(--color-accent);
 }
