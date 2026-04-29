@@ -22,7 +22,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: white;
+  background: var(--color-surface);
   z-index: -1;
 }
 
