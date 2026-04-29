@@ -315,6 +315,7 @@ export function buildProcessFileFromCsv(
     departments: [],
     roles,
     deliverableItems: [],
+    deliverableGroups: [],
     introChapters: [],
   };
 

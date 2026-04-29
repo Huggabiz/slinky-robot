@@ -138,6 +138,16 @@ interface AppState {
     stateName: string,
     direction: 'up' | 'down',
   ) => void;
+  // ---- Deliverable groups ----
+  addDeliverableGroup: (name: string) => string | null;
+  renameDeliverableGroup: (id: string, name: string) => void;
+  deleteDeliverableGroup: (id: string) => void;
+  moveDeliverableGroup: (id: string, direction: 'up' | 'down') => void;
+  moveDeliverableItem: (
+    itemId: string,
+    targetGroupId: string | null,
+    targetIndex: number,
+  ) => void;
   // ---- Intro chapters ----
   addIntroChapter: (title?: string) => string | null;
   updateIntroChapter: (id: string, patch: Partial<IntroChapter>) => void;
@@ -808,11 +818,17 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!current) return null;
       const trimmed = name.trim();
       if (!trimmed) return null;
+      const maxOrder = current.deliverableItems.reduce(
+        (m, i) => Math.max(m, i.order ?? 0),
+        0,
+      );
       const newItem = {
         id: makeId(),
         name: trimmed,
         description,
         states: [...DEFAULT_DELIVERABLE_STATES],
+        groupId: null as string | null,
+        order: maxOrder + 10,
       };
       commit({
         ...current,
@@ -937,6 +953,91 @@ export const useAppStore = create<AppState>((set, get) => {
         ...current,
         deliverableItems: current.deliverableItems.map((i) =>
           i.id === itemId ? { ...i, states: next } : i,
+        ),
+      });
+    },
+
+    // ---- Deliverable groups ----
+
+    addDeliverableGroup: (name) => {
+      const current = get().file;
+      if (!current) return null;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const maxOrder = (current.deliverableGroups ?? []).reduce(
+        (m, g) => Math.max(m, g.order),
+        0,
+      );
+      const g = { id: makeId(), name: trimmed, order: maxOrder + 10 };
+      commit({
+        ...current,
+        deliverableGroups: [...(current.deliverableGroups ?? []), g],
+      });
+      return g.id;
+    },
+
+    renameDeliverableGroup: (id, name) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        deliverableGroups: (current.deliverableGroups ?? []).map((g) =>
+          g.id === id ? { ...g, name } : g,
+        ),
+      });
+    },
+
+    deleteDeliverableGroup: (id) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        deliverableGroups: (current.deliverableGroups ?? []).filter(
+          (g) => g.id !== id,
+        ),
+        deliverableItems: current.deliverableItems.map((i) =>
+          i.groupId === id ? { ...i, groupId: null } : i,
+        ),
+      });
+    },
+
+    moveDeliverableGroup: (id, direction) => {
+      const current = get().file;
+      if (!current) return;
+      const groups = [...(current.deliverableGroups ?? [])].sort(
+        (a, b) => a.order - b.order,
+      );
+      const idx = groups.findIndex((g) => g.id === id);
+      if (idx === -1) return;
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= groups.length) return;
+      const tmpOrder = groups[idx].order;
+      groups[idx] = { ...groups[idx], order: groups[swapIdx].order };
+      groups[swapIdx] = { ...groups[swapIdx], order: tmpOrder };
+      commit({ ...current, deliverableGroups: groups });
+    },
+
+    moveDeliverableItem: (itemId, targetGroupId, targetIndex) => {
+      const current = get().file;
+      if (!current) return;
+      const items = current.deliverableItems.map((i) =>
+        i.id === itemId ? { ...i, groupId: targetGroupId } : i,
+      );
+      // Re-number order within the target group so the item lands
+      // at targetIndex.
+      const inGroup = items
+        .filter((i) => i.groupId === targetGroupId)
+        .sort((a, b) => a.order - b.order);
+      const moving = inGroup.find((i) => i.id === itemId);
+      if (!moving) return;
+      const others = inGroup.filter((i) => i.id !== itemId);
+      others.splice(targetIndex, 0, moving);
+      const orderMap = new Map<string, number>();
+      others.forEach((i, idx) => orderMap.set(i.id, idx * 10));
+      commit({
+        ...current,
+        deliverableItems: items.map((i) =>
+          orderMap.has(i.id) ? { ...i, order: orderMap.get(i.id)! } : i,
         ),
       });
     },

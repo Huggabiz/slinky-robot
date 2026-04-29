@@ -364,7 +364,7 @@ function buildResult(
   // or target node are allowed to overlap (they split/merge at that
   // node, so there's no ambiguity). Only edges with DIFFERENT
   // source AND target pairs are nudged apart.
-  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 12);
+  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -624,11 +624,11 @@ function buildElkInput(
       config.favorStraightEdges,
     ),
     'elk.spacing.nodeNode': String(config.nodesep),
-    'elk.spacing.edgeEdge': '18',
+    'elk.spacing.edgeEdge': '10',
     'elk.spacing.edgeNode': '16',
     'elk.layered.spacing.nodeNodeBetweenLayers': String(config.ranksep),
     'elk.layered.spacing.edgeNodeBetweenLayers': '16',
-    'elk.layered.spacing.edgeEdgeBetweenLayers': '18',
+    'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.mergeEdges': 'false',
   };

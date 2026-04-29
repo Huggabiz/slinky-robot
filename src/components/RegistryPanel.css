@@ -327,9 +327,56 @@
   min-width: 20px;
 }
 
+/* ---- Deliverable groups ---- */
+
+.deliv-group {
+  margin-bottom: var(--space-md);
+}
+
+.deliv-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+  margin-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.deliv-group-name-input {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  flex: 1;
+}
+
+.deliv-group-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.deliv-group-name-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex: 1;
+  padding: 2px 6px;
+}
+
+.registry-ctrl-danger:hover:not(:disabled) {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
 /* ---- Deliverables panel accordion ---- */
 
 .deliv-item {
+  cursor: grab;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
@@ -351,6 +398,14 @@
 
 .deliv-item-row:hover {
   background: var(--color-surface);
+}
+
+.deliv-item-drag {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .deliv-item-chevron {

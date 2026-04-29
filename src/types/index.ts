@@ -50,6 +50,7 @@ export interface ProcessFile {
   roles: Role[];
   // Fixed-list document types tracked through the process.
   deliverableItems: DeliverableItem[];
+  deliverableGroups: DeliverableGroup[];
   // Introductory chapters that appear BEFORE the milestone-phase
   // chapters in the book view. Each chapter has a title and an ordered
   // list of sections (heading + body). Use these for "How to use this
@@ -97,14 +98,21 @@ export interface Role {
   departmentId: string | null;
 }
 
+export interface DeliverableGroup {
+  id: string;
+  name: string;
+  order: number;
+}
+
 export interface DeliverableItem {
   id: string;
   name: string;
   description: string;
-  // Per-item resolution states, e.g. ["Draft", "Reviewed", "Approved"].
-  // Each item can have its own progression ladder. Tasks reference a
-  // state from this list in DeliverableTarget.state.
   states: string[];
+  // Optional group for organisation in the deliverables manager.
+  groupId: string | null;
+  // Sort key within the group (or among ungrouped items). Lower = earlier.
+  order: number;
 }
 
 export interface IntroChapter {
@@ -187,6 +195,7 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
     departments: [],
     roles: [],
     deliverableItems: [],
+    deliverableGroups: [],
     introChapters: [],
   };
 }

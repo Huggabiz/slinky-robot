@@ -96,10 +96,15 @@ function normaliseShape(
         }))
       : [],
     deliverableItems: Array.isArray(raw.deliverableItems)
-      ? (raw.deliverableItems as Record<string, unknown>[]).map((di) => ({
+      ? (raw.deliverableItems as Record<string, unknown>[]).map((di, idx) => ({
           ...di,
           states: Array.isArray(di.states) ? di.states : [],
+          groupId: typeof di.groupId === 'string' ? di.groupId : null,
+          order: typeof di.order === 'number' ? di.order : idx,
         }))
+      : [],
+    deliverableGroups: Array.isArray(raw.deliverableGroups)
+      ? raw.deliverableGroups
       : [],
     phases: phases.map((p) => {
       const o = (p ?? {}) as Record<string, unknown>;
