@@ -641,65 +641,6 @@ function buildElkInput(
   };
 }
 
-// Spread terminal points of edges that share a source or target node
-// so arrowheads don't stack on top of each other. Only adjusts the
-// last point (and its vertical neighbour) for shared targets, and the
-// first point (and its vertical neighbour) for shared sources. The
-// middle routing stays unchanged.
-function spreadTerminalPoints(
-  allPoints: { x: number; y: number }[][],
-  meta: { sourceId: string; targetId: string }[],
-  spacing: number,
-): void {
-  const bySource = new Map<string, number[]>();
-  const byTarget = new Map<string, number[]>();
-  for (let i = 0; i < meta.length; i++) {
-    let s = bySource.get(meta[i].sourceId);
-    if (!s) { s = []; bySource.set(meta[i].sourceId, s); }
-    s.push(i);
-    let t = byTarget.get(meta[i].targetId);
-    if (!t) { t = []; byTarget.set(meta[i].targetId, t); }
-    t.push(i);
-  }
-
-  // Spread the first points (source end) of edges leaving the same node.
-  for (const indices of bySource.values()) {
-    if (indices.length <= 1) continue;
-    indices.sort((a, b) => {
-      const la = allPoints[a][allPoints[a].length - 1];
-      const lb = allPoints[b][allPoints[b].length - 1];
-      return la.x - lb.x;
-    });
-    for (let k = 0; k < indices.length; k++) {
-      const pts = allPoints[indices[k]];
-      const dx = (k - (indices.length - 1) / 2) * spacing;
-      pts[0].x += dx;
-      if (pts.length >= 2 && Math.abs(pts[1].x - (pts[0].x - dx)) < 0.5) {
-        pts[1].x += dx;
-      }
-    }
-  }
-
-  // Spread the last points (target end) of edges entering the same node.
-  for (const indices of byTarget.values()) {
-    if (indices.length <= 1) continue;
-    indices.sort((a, b) => {
-      const fa = allPoints[a][0];
-      const fb = allPoints[b][0];
-      return fa.x - fb.x;
-    });
-    for (let k = 0; k < indices.length; k++) {
-      const pts = allPoints[indices[k]];
-      const last = pts.length - 1;
-      const dx = (k - (indices.length - 1) / 2) * spacing;
-      pts[last].x += dx;
-      if (last >= 1 && Math.abs(pts[last - 1].x - (pts[last].x - dx)) < 0.5) {
-        pts[last - 1].x += dx;
-      }
-    }
-  }
-}
-
 // Post-process: find edge segments (horizontal OR vertical) that
 // share the same axis value and overlap on the other axis, then
 // spread them apart so parallel edges through the same channel are
