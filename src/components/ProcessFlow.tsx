@@ -327,6 +327,40 @@ function ProcessFlowInner({
     [mode, phaseId, insertTaskOnEdge, selectTask],
   );
 
+  // Arrow-key navigation between tasks in navigate mode. Tasks are
+  // sorted top-to-bottom, left-to-right (by Y then X) so up/down
+  // feels like reading order. Left/right move to the previous/next
+  // task in the same visual row.
+  useEffect(() => {
+    if (mode === 'edit' || !selectedTaskId || layout.nodes.length === 0) return;
+    const taskNodes = layout.nodes
+      .filter((n) => n.type === 'task')
+      .sort((a, b) => {
+        const dy = a.position.y - b.position.y;
+        if (Math.abs(dy) > 10) return dy;
+        return a.position.x - b.position.x;
+      });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown' &&
+          e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      const idx = taskNodes.findIndex((n) => n.id === selectedTaskId);
+      if (idx === -1) return;
+      let next: number;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        next = Math.min(idx + 1, taskNodes.length - 1);
+      } else {
+        next = Math.max(idx - 1, 0);
+      }
+      if (next !== idx) selectTask(taskNodes[next].id);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mode, selectedTaskId, layout.nodes, selectTask]);
+
   // Cross-phase indicators: for tasks in the current phase that have
   // prerequisites or dependents in OTHER phases, add phantom indicator
   // nodes at the top/bottom of the canvas with faded dashed edges.
