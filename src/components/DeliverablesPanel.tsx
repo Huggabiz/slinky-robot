@@ -154,10 +154,10 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
   const ungrouped = itemsByGroup.get(null) ?? [];
 
   return (
-    <div className="registry-backdrop" onClick={onClose}>
+    <div className="registry-backdrop" onMouseDown={onClose}>
       <div
         className="registry-panel registry-panel-wide"
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Deliverable items"
       >
