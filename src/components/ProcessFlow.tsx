@@ -370,6 +370,7 @@ function ProcessFlowInner({
           },
           width: gateWidth,
           height: 1,
+          zIndex: -1,
           data: {
             label: task.abbr ?? '',
           },
