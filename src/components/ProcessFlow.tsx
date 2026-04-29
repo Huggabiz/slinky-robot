@@ -366,7 +366,7 @@ function ProcessFlowInner({
           type: 'gateSeparator',
           position: {
             x: leftMost - 40,
-            y: n.position.y - 16,
+            y: n.position.y + (n.height ?? 96) / 2,
           },
           width: gateWidth,
           height: 1,

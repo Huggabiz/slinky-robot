@@ -539,6 +539,8 @@
     background: white !important;
     height: auto !important;
     overflow: visible !important;
+    display: block !important;
+    width: auto !important;
   }
 
   /* Hide everything except the book view itself. */
@@ -556,6 +558,21 @@
     background: white !important;
     padding: 0 !important;
     overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Constrain all content (images, SVGs, tables) to the printable
+     area so nothing clips off the right edge of the page. */
+  .book-view img,
+  .book-view svg,
+  .book-view table {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .book-flow-diagram {
+    overflow: hidden !important;
   }
 
   .book-cover,

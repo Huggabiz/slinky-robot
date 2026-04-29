@@ -366,10 +366,6 @@ function buildResult(
   // source AND target pairs are nudged apart.
   deoverlapEdgeSegments(edgePointArrays, edgeMeta, 12);
 
-  // Spread arrowhead termination points so edges entering/leaving
-  // the same node don't stack directly on top of each other.
-  spreadTerminalPoints(edgePointArrays, edgeMeta, 10);
-
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
     source: edgeMeta[i].sourceId,
