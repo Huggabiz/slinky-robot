@@ -743,25 +743,43 @@ function deoverlapEdgeSegments(
         if (cluster.length <= 1) continue;
 
         // Sort the cluster so each segment is placed on the side
-        // that minimises detour. For horizontal segments that got
-        // separated, sort by the average X of the source and target
-        // endpoints of the entire edge — edges heading further
-        // right sit on the right side of the cluster, edges heading
-        // left sit on the left side. For vertical segments, sort by
-        // the average Y of the full edge's endpoints. This keeps
-        // lines on the side nearest their destination, reducing
-        // unnecessary crossovers.
+        // matching its LOCAL direction — where the edge goes
+        // immediately after (and comes from immediately before) the
+        // overlapping segment. Using the adjacent connecting points
+        // rather than global endpoints avoids cross-over-and-back
+        // patterns where edges swap sides and then swap back.
         cluster.sort((a, b) => {
-          const ptsA = allPoints[group[a].edgeIdx];
-          const ptsB = allPoints[group[b].edgeIdx];
+          const segA = group[a];
+          const segB = group[b];
+          const ptsA = allPoints[segA.edgeIdx];
+          const ptsB = allPoints[segB.edgeIdx];
           if (axis === 'h') {
-            const avgA = (ptsA[0].x + ptsA[ptsA.length - 1].x) / 2;
-            const avgB = (ptsB[0].x + ptsB[ptsB.length - 1].x) / 2;
-            return avgA - avgB;
+            // Horizontal segment offset in Y — sort by the X of
+            // the point AFTER the segment (where the edge continues).
+            const afterA = segA.ptIdx + 2 < ptsA.length
+              ? ptsA[segA.ptIdx + 2].x : ptsA[segA.ptIdx + 1].x;
+            const afterB = segB.ptIdx + 2 < ptsB.length
+              ? ptsB[segB.ptIdx + 2].x : ptsB[segB.ptIdx + 1].x;
+            if (Math.abs(afterA - afterB) > 0.5) return afterA - afterB;
+            // Tie-break: point before the segment.
+            const beforeA = segA.ptIdx > 0
+              ? ptsA[segA.ptIdx - 1].x : ptsA[segA.ptIdx].x;
+            const beforeB = segB.ptIdx > 0
+              ? ptsB[segB.ptIdx - 1].x : ptsB[segB.ptIdx].x;
+            return beforeA - beforeB;
           }
-          const avgA = (ptsA[0].y + ptsA[ptsA.length - 1].y) / 2;
-          const avgB = (ptsB[0].y + ptsB[ptsB.length - 1].y) / 2;
-          return avgA - avgB;
+          // Vertical segment offset in X — sort by the Y of the
+          // point AFTER the segment.
+          const afterA = segA.ptIdx + 2 < ptsA.length
+            ? ptsA[segA.ptIdx + 2].y : ptsA[segA.ptIdx + 1].y;
+          const afterB = segB.ptIdx + 2 < ptsB.length
+            ? ptsB[segB.ptIdx + 2].y : ptsB[segB.ptIdx + 1].y;
+          if (Math.abs(afterA - afterB) > 0.5) return afterA - afterB;
+          const beforeA = segA.ptIdx > 0
+            ? ptsA[segA.ptIdx - 1].y : ptsA[segA.ptIdx].y;
+          const beforeB = segB.ptIdx > 0
+            ? ptsB[segB.ptIdx - 1].y : ptsB[segB.ptIdx].y;
+          return beforeA - beforeB;
         });
 
         const baseVal = group[cluster[0]].fixedVal;

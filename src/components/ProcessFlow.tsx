@@ -382,7 +382,7 @@ function ProcessFlowInner({
   }, [file, layout.nodes]);
 
   const allNodes = useMemo(
-    () => [...styledNodes, ...crossPhaseResult.nodes, ...gateSeparatorNodes],
+    () => [...gateSeparatorNodes, ...styledNodes, ...crossPhaseResult.nodes],
     [styledNodes, crossPhaseResult.nodes, gateSeparatorNodes],
   );
 
