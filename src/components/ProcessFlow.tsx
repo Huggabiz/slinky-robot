@@ -354,7 +354,7 @@ function ProcessFlowInner({
     const rightMost = Math.max(
       ...allXs.map((x, i) => x + allWidths[i]),
     );
-    const gateWidth = rightMost - leftMost + 80;
+    const gateWidth = rightMost - leftMost + 200;
 
     for (const n of layout.nodes) {
       const taskData = n.data as { task?: { dateType: string; abbr: string | null } } | undefined;
