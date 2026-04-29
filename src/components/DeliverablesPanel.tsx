@@ -30,13 +30,16 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
   // Drag state.
   const dragItemId = useRef<string | null>(null);
 
-  if (!isOpen || !file) return null;
-
-  const groups = [...(file.deliverableGroups ?? [])].sort(
-    (a, b) => a.order - b.order,
+  const groups = useMemo(
+    () =>
+      [...(file?.deliverableGroups ?? [])].sort(
+        (a, b) => a.order - b.order,
+      ),
+    [file?.deliverableGroups],
   );
 
   const itemsByGroup = useMemo(() => {
+    if (!file) return new Map<string | null, DeliverableItem[]>();
     const map = new Map<string | null, DeliverableItem[]>();
     const sorted = [...file.deliverableItems].sort(
       (a, b) => (a.order ?? 0) - (b.order ?? 0),
@@ -48,7 +51,9 @@ export function DeliverablesPanel({ isOpen, onClose }: Props) {
       list.push(item);
     }
     return map;
-  }, [file.deliverableItems]);
+  }, [file]);
+
+  if (!isOpen || !file) return null;
 
   const tasksUsingItem = (itemId: string): number =>
     file.tasks.reduce(
