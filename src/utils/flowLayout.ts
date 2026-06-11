@@ -355,12 +355,7 @@ function buildResult(
       dxTarget,
     );
 
-    // Simplify BEFORE de-overlapping: merge collinear runs into single
-    // maximal segments and drop duplicate points. Without this, ELK's
-    // redundant bend points split a straight run into several pieces
-    // and the de-overlap pass would nudge only one piece — creating
-    // the tiny Z-jogs that were never in the original route.
-    edgePointArrays.push(deduplicatePoints(points));
+    edgePointArrays.push(normalisePolyline(points));
     edgeMeta.push({ id: elkEdge.id, sourceId, targetId });
   }
 
@@ -376,6 +371,14 @@ function buildResult(
     w: config.nodeWidth,
     h: config.nodeHeight,
   }));
+
+  // Collapse wandering detours through empty space BEFORE judging
+  // overlaps — straightened routes may create new coincidences, and
+  // the set-based de-overlap below handles those correctly.
+  for (let i = 0; i < edgePointArrays.length; i++) {
+    edgePointArrays[i] = collapseDetours(edgePointArrays[i], nodeRects);
+  }
+
   deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6, nodeRects);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
@@ -657,20 +660,169 @@ function buildElkInput(
   };
 }
 
-// Remove only consecutive duplicate points (within 0.5px). Does NOT
-// merge collinear runs — that was too aggressive and created diagonal
-// lines by removing ELK's genuine routing waypoints.
-function deduplicatePoints(
+// Normalise an orthogonal polyline: drop consecutive duplicates and
+// remove EXACTLY collinear interior points (0.01px tolerance on the
+// shared axis). Exact-only matters: an earlier 0.5px "nearly
+// collinear" merge produced visible diagonals by deleting genuine
+// ELK waypoints. Removing exactly-collinear midpoints can never
+// change the drawn line — it only ensures every segment is a maximal
+// run, so the de-overlap pass moves whole runs instead of pieces.
+function normalisePolyline(
   pts: { x: number; y: number }[],
 ): { x: number; y: number }[] {
   if (pts.length <= 1) return pts;
-  const out: { x: number; y: number }[] = [pts[0]];
+  const dedup: { x: number; y: number }[] = [pts[0]];
   for (let i = 1; i < pts.length; i++) {
-    const prev = out[out.length - 1];
-    if (Math.abs(pts[i].x - prev.x) < 0.5 && Math.abs(pts[i].y - prev.y) < 0.5) continue;
-    out.push(pts[i]);
+    const prev = dedup[dedup.length - 1];
+    if (Math.abs(pts[i].x - prev.x) < 0.5 && Math.abs(pts[i].y - prev.y) < 0.5)
+      continue;
+    dedup.push(pts[i]);
   }
+  if (dedup.length <= 2) return dedup;
+  const out: { x: number; y: number }[] = [dedup[0]];
+  for (let i = 1; i < dedup.length - 1; i++) {
+    const a = out[out.length - 1];
+    const b = dedup[i];
+    const c = dedup[i + 1];
+    const colV = Math.abs(a.x - b.x) < 0.01 && Math.abs(b.x - c.x) < 0.01;
+    const colH = Math.abs(a.y - b.y) < 0.01 && Math.abs(b.y - c.y) < 0.01;
+    if (colV || colH) continue;
+    out.push(b);
+  }
+  out.push(dedup[dedup.length - 1]);
   return out;
+}
+
+// ---- Detour collapse -----------------------------------------------------
+//
+// ELK routes a multi-rank edge by threading waypoints through every
+// row it crosses; crossing minimisation places those waypoints with
+// no regard for path length, so a route can swing wide through empty
+// space and come back. This pass replaces any wandering sub-route
+// with a direct straight or single-corner (L) connection when that
+// connection is shorter and passes through node-free space.
+//
+// Constraints:
+//   - Only interior points are considered (i ≥ 1, j ≤ n-2): the port
+//     stubs at both ends are never rerouted, so edges still leave and
+//     arrive exactly as before.
+//   - The new first segment may not reverse the direction the route
+//     arrived with, and the new last segment may not reverse the
+//     direction it departs with (no doubling back on itself).
+//   - Every new segment must clear all task cards by NODE_CLEARANCE.
+
+interface Dir {
+  dx: number;
+  dy: number;
+}
+
+function direction(
+  p: { x: number; y: number },
+  q: { x: number; y: number },
+): Dir {
+  return {
+    dx: Math.sign(Math.round(q.x - p.x)),
+    dy: Math.sign(Math.round(q.y - p.y)),
+  };
+}
+
+function isOpposite(d1: Dir, d2: Dir): boolean {
+  return (
+    (d1.dx !== 0 && d1.dx === -d2.dx) ||
+    (d1.dy !== 0 && d1.dy === -d2.dy)
+  );
+}
+
+function segmentBlocked(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  rects: NodeRect[],
+): boolean {
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+  for (const r of rects) {
+    if (
+      minX < r.x + r.w + NODE_CLEARANCE &&
+      maxX > r.x - NODE_CLEARANCE &&
+      minY < r.y + r.h + NODE_CLEARANCE &&
+      maxY > r.y - NODE_CLEARANCE
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function collapseDetours(
+  pts: { x: number; y: number }[],
+  rects: NodeRect[],
+): { x: number; y: number }[] {
+  let points = pts;
+  // Each successful collapse restarts the scan; bounded so a
+  // pathological path can't loop forever.
+  for (let pass = 0; pass < 8; pass++) {
+    const next = collapseOnce(points, rects);
+    if (!next) break;
+    points = normalisePolyline(next);
+  }
+  return points;
+}
+
+function collapseOnce(
+  points: { x: number; y: number }[],
+  rects: NodeRect[],
+): { x: number; y: number }[] | null {
+  const n = points.length;
+  if (n < 4) return null;
+
+  for (let i = 1; i <= n - 3; i++) {
+    // Scan j from the far end first so the largest detour collapses
+    // in one splice.
+    for (let j = n - 2; j >= i + 2; j--) {
+      const a = points[i];
+      const b = points[j];
+
+      let subLen = 0;
+      for (let k = i; k < j; k++) {
+        subLen +=
+          Math.abs(points[k + 1].x - points[k].x) +
+          Math.abs(points[k + 1].y - points[k].y);
+      }
+      const directLen = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+      if (directLen >= subLen - 1) continue;
+
+      const inDir = direction(points[i - 1], a);
+      const outDir = direction(b, points[j + 1]);
+
+      const sameX = Math.abs(a.x - b.x) < 0.5;
+      const sameY = Math.abs(a.y - b.y) < 0.5;
+      if (sameX || sameY) {
+        const d = direction(a, b);
+        if (isOpposite(inDir, d) || isOpposite(d, outDir)) continue;
+        if (segmentBlocked(a, b, rects)) continue;
+        return [...points.slice(0, i + 1), ...points.slice(j)];
+      }
+
+      // Single-corner candidates: horizontal-then-vertical, then
+      // vertical-then-horizontal.
+      const corners = [
+        { x: b.x, y: a.y },
+        { x: a.x, y: b.y },
+      ];
+      for (const c of corners) {
+        const d1 = direction(a, c);
+        const d2 = direction(c, b);
+        if (isOpposite(inDir, d1) || isOpposite(d1, d2) || isOpposite(d2, outDir))
+          continue;
+        if (segmentBlocked(a, c, rects) || segmentBlocked(c, b, rects))
+          continue;
+        return [...points.slice(0, i + 1), c, ...points.slice(j)];
+      }
+    }
+  }
+  return null;
 }
 
 // Minimum remaining length for a neighbouring stub when a segment is
