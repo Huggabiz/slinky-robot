@@ -379,6 +379,14 @@ function buildResult(
     edgePointArrays[i] = collapseDetours(edgePointArrays[i], nodeRects);
   }
 
+  // Actively merge shared-endpoint runs (the Lab "merge edges"
+  // toggle). Runs before de-overlap: the coincidences it creates are
+  // legal by construction (fan-in/fan-out trees), so the set-based
+  // pass leaves them alone.
+  if (config.mergeEdges) {
+    zipSharedEndpointRuns(edgePointArrays, edgeMeta, nodeRects);
+  }
+
   deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6, nodeRects);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
@@ -645,11 +653,11 @@ function buildElkInput(
     'elk.layered.spacing.edgeNodeBetweenLayers': '16',
     'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-    // When on, ELK routes edges sharing a port as merged hyperedges
-    // (shared prefix from a source / shared suffix into a target,
-    // splitting at proper junctions). The de-overlap pass enforces
-    // the set-level ambiguity rule on whatever ELK produces either way.
-    'elk.layered.mergeEdges': String(config.mergeEdges),
+    // ELK's own mergeEdges only applies to edges WITHOUT explicit
+    // ports; with our FIXED_POS ports it's a silent no-op. Merging is
+    // implemented in our zipSharedEndpointRuns post-pass instead,
+    // driven by config.mergeEdges.
+    'elk.layered.mergeEdges': 'false',
   };
 
   return {
@@ -839,6 +847,171 @@ interface NodeRect {
   h: number;
 }
 
+interface RouteSeg {
+  edgeIdx: number;
+  ptIdx: number;
+  fixedVal: number;
+  rangeMin: number;
+  rangeMax: number;
+  axis: 'h' | 'v';
+  movable: boolean;
+}
+
+// How far a segment may be nudged sideways without breaking a
+// constraint. Returns [lo, hi] with lo ≤ 0 ≤ hi (relative offsets).
+// Constraints: port-anchor segments don't move at all; neighbour
+// stubs keep their direction and ≥ DEOVERLAP_MIN_STUB length; the
+// segment keeps NODE_CLEARANCE from every task card its span crosses.
+function segmentNudgeRange(
+  seg: RouteSeg,
+  allPoints: { x: number; y: number }[][],
+  nodeRects: NodeRect[],
+): [number, number] {
+  if (!seg.movable) return [0, 0];
+  const pts = allPoints[seg.edgeIdx];
+  let lo = -Infinity;
+  let hi = Infinity;
+
+  const prev = pts[seg.ptIdx - 1];
+  const next = pts[seg.ptIdx + 2];
+  const v = seg.fixedVal;
+  const neighbourVals =
+    seg.axis === 'h' ? [prev.y, next.y] : [prev.x, next.x];
+  for (const nb of neighbourVals) {
+    if (nb < v) lo = Math.max(lo, nb + DEOVERLAP_MIN_STUB - v);
+    else if (nb > v) hi = Math.min(hi, nb - DEOVERLAP_MIN_STUB - v);
+  }
+
+  for (const r of nodeRects) {
+    if (seg.axis === 'h') {
+      if (seg.rangeMax < r.x - 2 || seg.rangeMin > r.x + r.w + 2) continue;
+      const top = r.y - NODE_CLEARANCE;
+      const bot = r.y + r.h + NODE_CLEARANCE;
+      if (v < top) hi = Math.min(hi, top - v);
+      else if (v > bot) lo = Math.max(lo, bot - v);
+    } else {
+      if (seg.rangeMax < r.y - 2 || seg.rangeMin > r.y + r.h + 2) continue;
+      const left = r.x - NODE_CLEARANCE;
+      const right = r.x + r.w + NODE_CLEARANCE;
+      if (v < left) hi = Math.min(hi, left - v);
+      else if (v > right) lo = Math.max(lo, right - v);
+    }
+  }
+
+  if (lo > hi) return [0, 0];
+  return [Math.min(lo, 0), Math.max(hi, 0)];
+}
+
+// ---- Shared-endpoint zip merge -------------------------------------------
+//
+// Actively pulls together edges that share a target (or source).
+// Walking back from the shared target port, segment k-from-the-end of
+// each edge is snapped onto a common line when every member can reach
+// it within its nudge constraints. The zip stops at the first level
+// that can't fully merge, so the result is the maximal shared suffix
+// (mirror logic builds the shared prefix from a source). Joins built
+// this way persist all the way to the shared node — the fan-in/fan-out
+// tree discipline holds by construction, so the coincidence is always
+// unambiguous and the set-based de-overlap leaves it untouched.
+const ZIP_MAX_DEPTH = 6;
+const ZIP_MAX_SPREAD = 60;
+
+function zipSharedEndpointRuns(
+  allPoints: { x: number; y: number }[][],
+  meta: { sourceId: string; targetId: string }[],
+  nodeRects: NodeRect[],
+): void {
+  const byTarget = new Map<string, number[]>();
+  const bySource = new Map<string, number[]>();
+  for (let i = 0; i < meta.length; i++) {
+    const t = byTarget.get(meta[i].targetId);
+    if (t) t.push(i);
+    else byTarget.set(meta[i].targetId, [i]);
+    const s = bySource.get(meta[i].sourceId);
+    if (s) s.push(i);
+    else bySource.set(meta[i].sourceId, [i]);
+  }
+
+  for (const group of byTarget.values()) {
+    if (group.length > 1) zipGroup(allPoints, nodeRects, group, 'end');
+  }
+  for (const group of bySource.values()) {
+    if (group.length > 1) zipGroup(allPoints, nodeRects, group, 'start');
+  }
+}
+
+function zipGroup(
+  allPoints: { x: number; y: number }[][],
+  nodeRects: NodeRect[],
+  group: number[],
+  from: 'end' | 'start',
+): void {
+  let active = group;
+  for (let k = 2; k <= ZIP_MAX_DEPTH && active.length >= 2; k++) {
+    const members: RouteSeg[] = [];
+    const nextActive: number[] = [];
+    for (const e of active) {
+      const pts = allPoints[e];
+      const ptIdx = from === 'end' ? pts.length - 1 - k : k - 1;
+      if (ptIdx < 1 || ptIdx + 1 > pts.length - 2) continue;
+      const a = pts[ptIdx];
+      const b = pts[ptIdx + 1];
+      const isH = Math.abs(a.y - b.y) < 0.5;
+      const isV = Math.abs(a.x - b.x) < 0.5;
+      if (isH === isV) continue; // degenerate or diagonal — drop out
+      members.push({
+        edgeIdx: e,
+        ptIdx,
+        axis: isH ? 'h' : 'v',
+        fixedVal: isH ? a.y : a.x,
+        rangeMin: isH ? Math.min(a.x, b.x) : Math.min(a.y, b.y),
+        rangeMax: isH ? Math.max(a.x, b.x) : Math.max(a.y, b.y),
+        movable: true,
+      });
+      nextActive.push(e);
+    }
+    if (members.length < 2) break;
+
+    const axis = members[0].axis;
+    if (!members.every((m) => m.axis === axis)) break;
+
+    const vals = members.map((m) => m.fixedVal);
+    const spread = Math.max(...vals) - Math.min(...vals);
+    if (spread > ZIP_MAX_SPREAD) break;
+    if (spread > 0.5) {
+      // Common line every member can reach within its constraints.
+      let lo = -Infinity;
+      let hi = Infinity;
+      for (const m of members) {
+        const [mlo, mhi] = segmentNudgeRange(m, allPoints, nodeRects);
+        lo = Math.max(lo, m.fixedVal + mlo);
+        hi = Math.min(hi, m.fixedVal + mhi);
+      }
+      if (lo > hi) break;
+      const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
+      const target = Math.max(lo, Math.min(hi, mean));
+      let fullMerge = true;
+      for (const m of members) {
+        if (Math.abs(target - m.fixedVal) > ZIP_MAX_SPREAD) {
+          fullMerge = false;
+          continue;
+        }
+        const pts = allPoints[m.edgeIdx];
+        if (axis === 'h') {
+          pts[m.ptIdx].y = target;
+          pts[m.ptIdx + 1].y = target;
+        } else {
+          pts[m.ptIdx].x = target;
+          pts[m.ptIdx + 1].x = target;
+        }
+      }
+      if (!fullMerge) break;
+    }
+
+    active = nextActive;
+  }
+}
+
 // Post-process: find edge segments (horizontal OR vertical) that
 // share the same axis value and overlap on the other axis, then
 // spread them apart so parallel edges through the same channel are
@@ -862,17 +1035,7 @@ function deoverlapEdgeSegments(
   spacing: number,
   nodeRects: NodeRect[],
 ): void {
-  interface Seg {
-    edgeIdx: number;
-    ptIdx: number;
-    fixedVal: number;
-    rangeMin: number;
-    rangeMax: number;
-    axis: 'h' | 'v';
-    movable: boolean;
-  }
-
-  const segments: Seg[] = [];
+  const segments: RouteSeg[] = [];
   for (let ei = 0; ei < allPoints.length; ei++) {
     const pts = allPoints[ei];
     for (let pi = 0; pi < pts.length - 1; pi++) {
@@ -901,52 +1064,12 @@ function deoverlapEdgeSegments(
     }
   }
 
-  // How far this segment may be nudged in each direction without
-  // breaking a constraint. Returns [lo, hi] (lo ≤ 0 ≤ hi).
-  const allowedRange = (seg: Seg): [number, number] => {
-    if (!seg.movable) return [0, 0];
-    const pts = allPoints[seg.edgeIdx];
-    let lo = -Infinity;
-    let hi = Infinity;
-
-    // Neighbour stubs must keep their direction and minimum length.
-    const prev = pts[seg.ptIdx - 1];
-    const next = pts[seg.ptIdx + 2];
-    const v = seg.fixedVal;
-    const neighbourVals =
-      seg.axis === 'h' ? [prev.y, next.y] : [prev.x, next.x];
-    for (const nb of neighbourVals) {
-      if (nb < v) lo = Math.max(lo, nb + DEOVERLAP_MIN_STUB - v);
-      else if (nb > v) hi = Math.min(hi, nb - DEOVERLAP_MIN_STUB - v);
-    }
-
-    // Stay clear of task cards the segment's span crosses.
-    for (const r of nodeRects) {
-      if (seg.axis === 'h') {
-        if (seg.rangeMax < r.x - 2 || seg.rangeMin > r.x + r.w + 2) continue;
-        const top = r.y - NODE_CLEARANCE;
-        const bot = r.y + r.h + NODE_CLEARANCE;
-        if (v < top) hi = Math.min(hi, top - v);
-        else if (v > bot) lo = Math.max(lo, bot - v);
-      } else {
-        if (seg.rangeMax < r.y - 2 || seg.rangeMin > r.y + r.h + 2) continue;
-        const left = r.x - NODE_CLEARANCE;
-        const right = r.x + r.w + NODE_CLEARANCE;
-        if (v < left) hi = Math.min(hi, left - v);
-        else if (v > right) lo = Math.max(lo, right - v);
-      }
-    }
-
-    if (lo > hi) return [0, 0];
-    return [Math.min(lo, 0), Math.max(hi, 0)];
-  };
-
   for (const axis of ['h', 'v'] as const) {
     const axisSeg = segments.filter((s) => s.axis === axis);
     axisSeg.sort((a, b) => a.fixedVal - b.fixedVal);
 
-    const groups: Seg[][] = [];
-    let cur: Seg[] = [];
+    const groups: RouteSeg[][] = [];
+    let cur: RouteSeg[] = [];
     for (const seg of axisSeg) {
       if (cur.length > 0 && Math.abs(seg.fixedVal - cur[0].fixedVal) > 1) {
         groups.push(cur);
@@ -1025,7 +1148,7 @@ function deoverlapEdgeSegments(
         const bundleOfEdge = new Map<number, number>();
         bundles.forEach((b, bi) => b.forEach((e) => bundleOfEdge.set(e, bi)));
 
-        const bundleSegs: Seg[][] = bundles.map(() => []);
+        const bundleSegs: RouteSeg[][] = bundles.map(() => []);
         for (const ci of cluster) {
           const seg = group[ci];
           const bi = bundleOfEdge.get(seg.edgeIdx);
@@ -1035,7 +1158,7 @@ function deoverlapEdgeSegments(
         // Order bundles by where their edges head immediately after
         // the segment, so each bundle sits on the side matching its
         // direction of travel (avoids cross-over-and-back).
-        const bundleKey = (segs: Seg[]): number => {
+        const bundleKey = (segs: RouteSeg[]): number => {
           let sum = 0;
           let count = 0;
           for (const seg of segs) {
@@ -1075,7 +1198,7 @@ function deoverlapEdgeSegments(
           let lo = -Infinity;
           let hi = Infinity;
           for (const seg of segs) {
-            const [slo, shi] = allowedRange(seg);
+            const [slo, shi] = segmentNudgeRange(seg, allPoints, nodeRects);
             lo = Math.max(lo, slo);
             hi = Math.min(hi, shi);
           }

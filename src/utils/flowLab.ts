@@ -40,11 +40,12 @@ export interface LabConfig {
   // re-routes only the edges touching those two so the rest of the
   // layout stays exactly as BK + favour-straight-edges produced it.
   centreStartEnd: boolean;
-  // When true, ELK routes edges sharing a source or target port as
-  // merged hyperedges — they run on one line and split/join at a
-  // proper junction instead of travelling as parallel strands.
-  // Experimental: evaluate on real data via the Layout Lab before
-  // making it the default.
+  // When true, the zipSharedEndpointRuns post-pass actively pulls
+  // edges that share a source or target onto a common line — shared
+  // prefix out of a source, shared suffix into a target — so they
+  // read as one line that splits/joins instead of parallel strands.
+  // (ELK's own mergeEdges option is a no-op with our FIXED_POS ports,
+  // which is why this is implemented as a post-pass.)
   mergeEdges: boolean;
   nodesep: number;
   ranksep: number;
