@@ -902,19 +902,27 @@ function segmentNudgeRange(
   return [Math.min(lo, 0), Math.max(hi, 0)];
 }
 
-// ---- Shared-endpoint zip merge -------------------------------------------
+// ---- Shared-endpoint merge -----------------------------------------------
 //
-// Actively pulls together edges that share a target (or source).
-// Walking back from the shared target port, segment k-from-the-end of
-// each edge is snapped onto a common line when every member can reach
-// it within its nudge constraints. The zip stops at the first level
-// that can't fully merge, so the result is the maximal shared suffix
-// (mirror logic builds the shared prefix from a source). Joins built
-// this way persist all the way to the shared node — the fan-in/fan-out
-// tree discipline holds by construction, so the coincidence is always
-// unambiguous and the set-based de-overlap leaves it untouched.
-const ZIP_MAX_DEPTH = 6;
-const ZIP_MAX_SPREAD = 60;
+// For edges sharing a target (or source), find parallel segments
+// across the group that are close together and overlapping, then snap
+// them onto a common line. Unlike the old index-based zip, this
+// approach matches segments by spatial proximity — it doesn't care
+// whether an edge has 4 or 8 points, whether the k-th-from-end
+// happens to be the same axis, or how many corners each edge takes
+// to reach the shared node. An edge with a completely different
+// structure simply contributes no matching segments and is ignored
+// without blocking anyone else.
+//
+// The merge is greedy: process vertical segments first (the long
+// parallel runs most visible to the user), then horizontal. Within
+// each axis, group segments within ZIP_MAX_SPREAD px of each other
+// whose range coordinates overlap, then snap each group onto its
+// mean value (clamped to every member's nudge range). One pass per
+// shared-endpoint group is enough — the de-overlap that follows
+// handles any remaining ambiguous coincidences.
+
+const ZIP_MAX_SPREAD = 40;
 
 function zipSharedEndpointRuns(
   allPoints: { x: number; y: number }[][],
@@ -933,53 +941,87 @@ function zipSharedEndpointRuns(
   }
 
   for (const group of byTarget.values()) {
-    if (group.length > 1) zipGroup(allPoints, nodeRects, group, 'end');
+    if (group.length > 1) mergeParallelSegs(allPoints, nodeRects, group);
   }
   for (const group of bySource.values()) {
-    if (group.length > 1) zipGroup(allPoints, nodeRects, group, 'start');
+    if (group.length > 1) mergeParallelSegs(allPoints, nodeRects, group);
   }
 }
 
-function zipGroup(
+function mergeParallelSegs(
   allPoints: { x: number; y: number }[][],
   nodeRects: NodeRect[],
-  group: number[],
-  from: 'end' | 'start',
+  edgeIndices: number[],
 ): void {
-  let active = group;
-  for (let k = 2; k <= ZIP_MAX_DEPTH && active.length >= 2; k++) {
-    const members: RouteSeg[] = [];
-    const nextActive: number[] = [];
-    for (const e of active) {
-      const pts = allPoints[e];
-      const ptIdx = from === 'end' ? pts.length - 1 - k : k - 1;
-      if (ptIdx < 1 || ptIdx + 1 > pts.length - 2) continue;
-      const a = pts[ptIdx];
-      const b = pts[ptIdx + 1];
-      const isH = Math.abs(a.y - b.y) < 0.5;
-      const isV = Math.abs(a.x - b.x) < 0.5;
-      if (isH === isV) continue; // degenerate or diagonal — drop out
-      members.push({
-        edgeIdx: e,
-        ptIdx,
-        axis: isH ? 'h' : 'v',
-        fixedVal: isH ? a.y : a.x,
-        rangeMin: isH ? Math.min(a.x, b.x) : Math.min(a.y, b.y),
-        rangeMax: isH ? Math.max(a.x, b.x) : Math.max(a.y, b.y),
-        movable: true,
-      });
-      nextActive.push(e);
+  // Collect every interior segment from every edge in the group.
+  const segs: RouteSeg[] = [];
+  for (const ei of edgeIndices) {
+    const pts = allPoints[ei];
+    for (let pi = 0; pi < pts.length - 1; pi++) {
+      const dx = Math.abs(pts[pi].x - pts[pi + 1].x);
+      const dy = Math.abs(pts[pi].y - pts[pi + 1].y);
+      const movable = pi > 0 && pi + 1 < pts.length - 1;
+      if (!movable) continue;
+      if (dy < 0.5 && dx > 1) {
+        segs.push({
+          edgeIdx: ei, ptIdx: pi,
+          fixedVal: pts[pi].y,
+          rangeMin: Math.min(pts[pi].x, pts[pi + 1].x),
+          rangeMax: Math.max(pts[pi].x, pts[pi + 1].x),
+          axis: 'h', movable: true,
+        });
+      } else if (dx < 0.5 && dy > 1) {
+        segs.push({
+          edgeIdx: ei, ptIdx: pi,
+          fixedVal: pts[pi].x,
+          rangeMin: Math.min(pts[pi].y, pts[pi + 1].y),
+          rangeMax: Math.max(pts[pi].y, pts[pi + 1].y),
+          axis: 'v', movable: true,
+        });
+      }
     }
-    if (members.length < 2) break;
+  }
 
-    const axis = members[0].axis;
-    if (!members.every((m) => m.axis === axis)) break;
+  // Process vertical first (the long parallel runs), then horizontal.
+  for (const axis of ['v', 'h'] as const) {
+    const axisSeg = segs.filter((s) => s.axis === axis);
+    if (axisSeg.length < 2) continue;
+    axisSeg.sort((a, b) => a.fixedVal - b.fixedVal);
 
-    const vals = members.map((m) => m.fixedVal);
-    const spread = Math.max(...vals) - Math.min(...vals);
-    if (spread > ZIP_MAX_SPREAD) break;
-    if (spread > 0.5) {
-      // Common line every member can reach within its constraints.
+    // Cluster segments whose fixed values are within ZIP_MAX_SPREAD
+    // and whose ranges overlap.
+    const used = new Set<number>();
+    for (let i = 0; i < axisSeg.length; i++) {
+      if (used.has(i)) continue;
+      const cluster = [i];
+      used.add(i);
+      for (let j = i + 1; j < axisSeg.length; j++) {
+        if (used.has(j)) continue;
+        const sj = axisSeg[j];
+        if (sj.fixedVal - axisSeg[i].fixedVal > ZIP_MAX_SPREAD) break;
+        // Must overlap in range AND be from a different edge.
+        if (
+          cluster.some((ci) => {
+            const sc = axisSeg[ci];
+            return (
+              sc.edgeIdx !== sj.edgeIdx &&
+              sc.rangeMin < sj.rangeMax &&
+              sj.rangeMin < sc.rangeMax
+            );
+          })
+        ) {
+          cluster.push(j);
+          used.add(j);
+        }
+      }
+
+      if (cluster.length < 2) continue;
+      // Ensure we have segments from at least 2 different edges.
+      const edgeSet = new Set(cluster.map((ci) => axisSeg[ci].edgeIdx));
+      if (edgeSet.size < 2) continue;
+
+      // Find a common line every member can reach.
+      const members = cluster.map((ci) => axisSeg[ci]);
       let lo = -Infinity;
       let hi = Infinity;
       for (const m of members) {
@@ -987,15 +1029,13 @@ function zipGroup(
         lo = Math.max(lo, m.fixedVal + mlo);
         hi = Math.min(hi, m.fixedVal + mhi);
       }
-      if (lo > hi) break;
+      if (lo > hi) continue;
+
+      const vals = members.map((m) => m.fixedVal);
       const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
       const target = Math.max(lo, Math.min(hi, mean));
-      let fullMerge = true;
+
       for (const m of members) {
-        if (Math.abs(target - m.fixedVal) > ZIP_MAX_SPREAD) {
-          fullMerge = false;
-          continue;
-        }
         const pts = allPoints[m.edgeIdx];
         if (axis === 'h') {
           pts[m.ptIdx].y = target;
@@ -1005,10 +1045,7 @@ function zipGroup(
           pts[m.ptIdx + 1].x = target;
         }
       }
-      if (!fullMerge) break;
     }
-
-    active = nextActive;
   }
 }
 
