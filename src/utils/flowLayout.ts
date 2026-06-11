@@ -642,7 +642,11 @@ function buildElkInput(
     'elk.layered.spacing.edgeNodeBetweenLayers': '16',
     'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-    'elk.layered.mergeEdges': 'false',
+    // When on, ELK routes edges sharing a port as merged hyperedges
+    // (shared prefix from a source / shared suffix into a target,
+    // splitting at proper junctions). The de-overlap pass enforces
+    // the set-level ambiguity rule on whatever ELK produces either way.
+    'elk.layered.mergeEdges': String(config.mergeEdges),
   };
 
   return {
@@ -745,12 +749,6 @@ function deoverlapEdgeSegments(
     }
   }
 
-  // Two edges share an endpoint if they have the same source OR
-  // the same target. Such pairs are allowed to overlap.
-  const sharesEndpoint = (a: number, b: number): boolean =>
-    meta[a].sourceId === meta[b].sourceId ||
-    meta[a].targetId === meta[b].targetId;
-
   // How far this segment may be nudged in each direction without
   // breaking a constraint. Returns [lo, hi] (lo ≤ 0 ≤ hi).
   const allowedRange = (seg: Seg): [number, number] => {
@@ -809,6 +807,9 @@ function deoverlapEdgeSegments(
     for (const group of groups) {
       if (group.length <= 1) continue;
 
+      // Transitive extent-overlap clusters. NO endpoint exemption at
+      // this stage — legality is a property of the full coincident
+      // SET, so we must first gather everything that shares the line.
       const used = new Set<number>();
       for (let i = 0; i < group.length; i++) {
         if (used.has(i)) continue;
@@ -823,11 +824,7 @@ function deoverlapEdgeSegments(
             if (
               cluster.some((ci) => {
                 const gc = group[ci];
-                if (gc.rangeMin >= gj.rangeMax || gj.rangeMin >= gc.rangeMax)
-                  return false;
-                // Skip if these edges share a source or target.
-                if (sharesEndpoint(gc.edgeIdx, gj.edgeIdx)) return false;
-                return true;
+                return gc.rangeMin < gj.rangeMax && gj.rangeMin < gc.rangeMax;
               })
             ) {
               cluster.push(j);
@@ -839,71 +836,109 @@ function deoverlapEdgeSegments(
 
         if (cluster.length <= 1) continue;
 
-        // Sort the cluster so each segment is placed on the side
-        // matching its LOCAL direction — where the edge goes
-        // immediately after (and comes from immediately before) the
-        // overlapping segment. Using the adjacent connecting points
-        // rather than global endpoints avoids cross-over-and-back
-        // patterns where edges swap sides and then swap back.
-        cluster.sort((a, b) => {
-          const segA = group[a];
-          const segB = group[b];
-          const ptsA = allPoints[segA.edgeIdx];
-          const ptsB = allPoints[segB.edgeIdx];
-          if (axis === 'h') {
-            // Horizontal segment offset in Y — sort by the X of
-            // the point AFTER the segment (where the edge continues).
-            const afterA = segA.ptIdx + 2 < ptsA.length
-              ? ptsA[segA.ptIdx + 2].x : ptsA[segA.ptIdx + 1].x;
-            const afterB = segB.ptIdx + 2 < ptsB.length
-              ? ptsB[segB.ptIdx + 2].x : ptsB[segB.ptIdx + 1].x;
-            if (Math.abs(afterA - afterB) > 0.5) return afterA - afterB;
-            // Tie-break: point before the segment.
-            const beforeA = segA.ptIdx > 0
-              ? ptsA[segA.ptIdx - 1].x : ptsA[segA.ptIdx].x;
-            const beforeB = segB.ptIdx > 0
-              ? ptsB[segB.ptIdx - 1].x : ptsB[segB.ptIdx].x;
-            return beforeA - beforeB;
-          }
-          // Vertical segment offset in X — sort by the Y of the
-          // point AFTER the segment.
-          const afterA = segA.ptIdx + 2 < ptsA.length
-            ? ptsA[segA.ptIdx + 2].y : ptsA[segA.ptIdx + 1].y;
-          const afterB = segB.ptIdx + 2 < ptsB.length
-            ? ptsB[segB.ptIdx + 2].y : ptsB[segB.ptIdx + 1].y;
-          if (Math.abs(afterA - afterB) > 0.5) return afterA - afterB;
-          const beforeA = segA.ptIdx > 0
-            ? ptsA[segA.ptIdx - 1].y : ptsA[segA.ptIdx].y;
-          const beforeB = segB.ptIdx > 0
-            ? ptsB[segB.ptIdx - 1].y : ptsB[segB.ptIdx].y;
-          return beforeA - beforeB;
-        });
+        // The coincident EDGE SET on this line. Legal iff EVERY edge
+        // shares one common source, or EVERY edge shares one common
+        // target. Pairwise sharing is not enough: {A→B, A→C, D→C}
+        // chains pairwise yet the set is ambiguous (does D feed B?).
+        const edgeIdxs = [...new Set(cluster.map((ci) => group[ci].edgeIdx))];
+        if (edgeIdxs.length <= 1) continue;
+        const first = meta[edgeIdxs[0]];
+        const allSameSource = edgeIdxs.every(
+          (e) => meta[e].sourceId === first.sourceId,
+        );
+        const allSameTarget = edgeIdxs.every(
+          (e) => meta[e].targetId === first.targetId,
+        );
+        if (allSameSource || allSameTarget) continue;
 
-        // Desired offsets spread the cluster symmetrically. If any
-        // member is pinned (contains a port anchor), shift the whole
-        // pattern so the pinned member's slot is 0 — it can't move,
-        // so everyone else spreads around it.
-        const n = cluster.length;
-        let desired = cluster.map((_, k) => (k - (n - 1) / 2) * spacing);
-        const pinnedPos = cluster.findIndex((ci) => !group[ci].movable);
+        // Illegal set → partition the edges into legal BUNDLES,
+        // grouped by source or by target (whichever needs fewer
+        // bundles = fewer parallel lines), then spread the bundles
+        // apart. Edges within a bundle keep their coincidence —
+        // we never separate lines that are unambiguous together.
+        const bySource = new Map<string, number[]>();
+        const byTarget = new Map<string, number[]>();
+        for (const e of edgeIdxs) {
+          const s = bySource.get(meta[e].sourceId);
+          if (s) s.push(e);
+          else bySource.set(meta[e].sourceId, [e]);
+          const t = byTarget.get(meta[e].targetId);
+          if (t) t.push(e);
+          else byTarget.set(meta[e].targetId, [e]);
+        }
+        const partition =
+          bySource.size <= byTarget.size ? bySource : byTarget;
+        const bundles = [...partition.values()];
+
+        const bundleOfEdge = new Map<number, number>();
+        bundles.forEach((b, bi) => b.forEach((e) => bundleOfEdge.set(e, bi)));
+
+        const bundleSegs: Seg[][] = bundles.map(() => []);
+        for (const ci of cluster) {
+          const seg = group[ci];
+          const bi = bundleOfEdge.get(seg.edgeIdx);
+          if (bi !== undefined) bundleSegs[bi].push(seg);
+        }
+
+        // Order bundles by where their edges head immediately after
+        // the segment, so each bundle sits on the side matching its
+        // direction of travel (avoids cross-over-and-back).
+        const bundleKey = (segs: Seg[]): number => {
+          let sum = 0;
+          let count = 0;
+          for (const seg of segs) {
+            const pts = allPoints[seg.edgeIdx];
+            const after =
+              seg.ptIdx + 2 < pts.length
+                ? pts[seg.ptIdx + 2]
+                : pts[seg.ptIdx + 1];
+            sum += axis === 'h' ? after.x : after.y;
+            count++;
+          }
+          return count === 0 ? 0 : sum / count;
+        };
+        const order = bundles
+          .map((_, bi) => bi)
+          .sort((a, b) => bundleKey(bundleSegs[a]) - bundleKey(bundleSegs[b]));
+
+        // Desired offsets spread the bundles symmetrically. A pinned
+        // bundle (one containing a port-anchor segment) cannot move —
+        // shift the whole pattern so its slot is 0 and the others
+        // spread around it.
+        const nb = order.length;
+        let desired = order.map((_, k) => (k - (nb - 1) / 2) * spacing);
+        const pinnedPos = order.findIndex((bi) =>
+          bundleSegs[bi].some((s) => !s.movable),
+        );
         if (pinnedPos !== -1) {
           const shift = -desired[pinnedPos];
           desired = desired.map((d) => d + shift);
         }
 
-        for (let k = 0; k < n; k++) {
-          const seg = group[cluster[k]];
-          if (!seg.movable) continue;
-          const [lo, hi] = allowedRange(seg);
+        for (let k = 0; k < nb; k++) {
+          const segs = bundleSegs[order[k]];
+          if (segs.length === 0) continue;
+          // The bundle moves as one: clamp its offset into the
+          // intersection of every member segment's allowed range.
+          let lo = -Infinity;
+          let hi = Infinity;
+          for (const seg of segs) {
+            const [slo, shi] = allowedRange(seg);
+            lo = Math.max(lo, slo);
+            hi = Math.min(hi, shi);
+          }
+          if (lo > hi) continue;
           const off = Math.max(lo, Math.min(hi, desired[k]));
           if (Math.abs(off) < 0.01) continue;
-          const pts = allPoints[seg.edgeIdx];
-          if (axis === 'h') {
-            pts[seg.ptIdx].y = seg.fixedVal + off;
-            pts[seg.ptIdx + 1].y = seg.fixedVal + off;
-          } else {
-            pts[seg.ptIdx].x = seg.fixedVal + off;
-            pts[seg.ptIdx + 1].x = seg.fixedVal + off;
+          for (const seg of segs) {
+            const pts = allPoints[seg.edgeIdx];
+            if (axis === 'h') {
+              pts[seg.ptIdx].y = seg.fixedVal + off;
+              pts[seg.ptIdx + 1].y = seg.fixedVal + off;
+            } else {
+              pts[seg.ptIdx].x = seg.fixedVal + off;
+              pts[seg.ptIdx + 1].x = seg.fixedVal + off;
+            }
           }
         }
       }

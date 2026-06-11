@@ -40,6 +40,12 @@ export interface LabConfig {
   // re-routes only the edges touching those two so the rest of the
   // layout stays exactly as BK + favour-straight-edges produced it.
   centreStartEnd: boolean;
+  // When true, ELK routes edges sharing a source or target port as
+  // merged hyperedges — they run on one line and split/join at a
+  // proper junction instead of travelling as parallel strands.
+  // Experimental: evaluate on real data via the Layout Lab before
+  // making it the default.
+  mergeEdges: boolean;
   nodesep: number;
   ranksep: number;
   nodeWidth: number;
@@ -58,6 +64,7 @@ export const DEFAULT_LAB_CONFIG: LabConfig = {
   nodePlacement: 'BRANDES_KOEPF',
   favorStraightEdges: true,
   centreStartEnd: true,
+  mergeEdges: false,
   nodesep: 50,
   ranksep: 50,
   nodeWidth: 200,

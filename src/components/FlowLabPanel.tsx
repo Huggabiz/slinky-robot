@@ -86,6 +86,15 @@ export function FlowLabPanel({ config, onChange, onClose }: Props) {
           />
           <span>Centre start/end on screen</span>
         </label>
+
+        <label className="flow-lab-check">
+          <input
+            type="checkbox"
+            checked={config.mergeEdges}
+            onChange={(e) => set('mergeEdges', e.target.checked)}
+          />
+          <span>Merge shared-endpoint edges (experimental)</span>
+        </label>
       </section>
 
       <section className="flow-lab-section">
