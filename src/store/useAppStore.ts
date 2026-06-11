@@ -1020,11 +1020,9 @@ export const useAppStore = create<AppState>((set, get) => {
     moveDeliverableItem: (itemId, targetGroupId, targetIndex) => {
       const current = get().file;
       if (!current) return;
-      const items = current.deliverableItems.map((i) =>
-        i.id === itemId ? { ...i, groupId: targetGroupId } : i,
+      const items: typeof current.deliverableItems = current.deliverableItems.map(
+        (i) => (i.id === itemId ? { ...i, groupId: targetGroupId } : i),
       );
-      // Re-number order within the target group so the item lands
-      // at targetIndex.
       const inGroup = items
         .filter((i) => i.groupId === targetGroupId)
         .sort((a, b) => a.order - b.order);
@@ -1033,11 +1031,11 @@ export const useAppStore = create<AppState>((set, get) => {
       const others = inGroup.filter((i) => i.id !== itemId);
       others.splice(targetIndex, 0, moving);
       const orderMap = new Map<string, number>();
-      others.forEach((i, idx) => orderMap.set(i.id, idx * 10));
+      others.forEach((item, idx) => orderMap.set(item.id, idx * 10));
       commit({
         ...current,
-        deliverableItems: items.map((i) =>
-          orderMap.has(i.id) ? { ...i, order: orderMap.get(i.id)! } : i,
+        deliverableItems: items.map((item) =>
+          orderMap.has(item.id) ? { ...item, order: orderMap.get(item.id)! } : item,
         ),
       });
     },

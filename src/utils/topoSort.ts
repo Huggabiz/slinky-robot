@@ -6,19 +6,19 @@ import type { ProcessFile, Task } from '../types';
  * depends on (within the same phase). Cross-phase prereqs are ignored
  * since they sit outside this phase's reading scope.
  *
- * Ties (tasks with no dependency between them) are broken by
- * comparing their taskId strings using natural numeric order for
- * numeric segments (so "10.005" < "10.045" < "10.100").
+ * Ties (tasks with no dependency between them) are broken by layout
+ * position when available (Y then X — matching the visual flow), or
+ * by taskId string using natural numeric order as a fallback.
  *
  * Kahn's algorithm: repeatedly pick the "ready" task with the lowest
- * taskId, emit it, remove its outgoing edges, repeat. If the graph
- * contains a cycle the unresolved tasks get appended at the end in
- * taskId order — the book still renders, cycle gets surfaced by
- * dependency visualisation elsewhere.
+ * sort key, emit it, remove its outgoing edges, repeat. If the graph
+ * contains a cycle the unresolved tasks get appended at the end —
+ * the book still renders.
  */
 export function topoSortTasksInPhase(
   file: ProcessFile,
   phaseId: string,
+  positionMap?: Map<string, { x: number; y: number }>,
 ): Task[] {
   const phaseTasks = file.tasks.filter((t) => t.phaseId === phaseId);
   if (phaseTasks.length === 0) return [];
@@ -42,13 +42,26 @@ export function topoSortTasksInPhase(
     }
   }
 
-  const compareTaskId = (a: Task, b: Task): number =>
-    naturalCompare(a.taskId, b.taskId);
+  // Tie-break: use layout position (Y then X) when available, fall
+  // back to taskId for phases where layout hasn't been computed.
+  const compareTask = (a: Task, b: Task): number => {
+    if (positionMap) {
+      const pa = positionMap.get(a.id);
+      const pb = positionMap.get(b.id);
+      if (pa && pb) {
+        const dy = pa.y - pb.y;
+        if (Math.abs(dy) > 5) return dy;
+        const dx = pa.x - pb.x;
+        if (Math.abs(dx) > 5) return dx;
+      }
+    }
+    return naturalCompare(a.taskId, b.taskId);
+  };
 
-  // Ready queue: tasks with in-degree 0, kept sorted by taskId.
+  // Ready queue: tasks with in-degree 0, kept sorted.
   const ready: Task[] = phaseTasks
     .filter((t) => (inDegree.get(t.id) ?? 0) === 0)
-    .sort(compareTaskId);
+    .sort(compareTask);
 
   const output: Task[] = [];
   const emitted = new Set<string>();
@@ -65,7 +78,7 @@ export function topoSortTasksInPhase(
         const child = idToTask.get(childId);
         if (child && !emitted.has(childId)) {
           // Insert in taskId-sorted position.
-          const idx = binaryInsertIndex(ready, child, compareTaskId);
+          const idx = binaryInsertIndex(ready, child, compareTask);
           ready.splice(idx, 0, child);
         }
       }
@@ -76,7 +89,7 @@ export function topoSortTasksInPhase(
   if (output.length < phaseTasks.length) {
     const leftover = phaseTasks
       .filter((t) => !emitted.has(t.id))
-      .sort(compareTaskId);
+      .sort(compareTask);
     output.push(...leftover);
   }
 

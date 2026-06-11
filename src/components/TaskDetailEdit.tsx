@@ -32,32 +32,12 @@ export function TaskDetailEdit({ task }: { task: Task }) {
     [file],
   );
 
-  // Eligible prereqs: exclude self and direct dependents (naive cycle
-  // guard). Full transitive cycle check can come later.
-  const eligiblePrereqs = useMemo(() => {
-    if (!file) return [];
-    const dependentIds = new Set(
-      getDependentTasks(file, task).map((t) => t.id),
-    );
-    return file.tasks.filter(
-      (t) => t.id !== task.id && !dependentIds.has(t.id),
-    );
-  }, [file, task]);
-
-  const prereqSet = useMemo(
-    () => new Set(task.prerequisites),
-    [task.prerequisites],
-  );
-
   if (!file) return null;
 
   const patch = (p: Partial<Task>) => updateTask(task.id, p);
 
-  const togglePrereq = (id: string) => {
-    const next = prereqSet.has(id)
-      ? task.prerequisites.filter((p) => p !== id)
-      : [...task.prerequisites, id];
-    patch({ prerequisites: next });
+  const removePrereq = (id: string) => {
+    patch({ prerequisites: task.prerequisites.filter((p) => p !== id) });
   };
 
   const setDeliverableTarget = (
@@ -337,31 +317,43 @@ export function TaskDetailEdit({ task }: { task: Task }) {
       </Section>
 
       <Section title={`Prerequisites (${task.prerequisites.length})`}>
+        {task.prerequisites.length === 0 ? (
+          <p className="task-detail-muted">No prerequisites.</p>
+        ) : (
+          <ul className="task-link-list">
+            {task.prerequisites
+              .map((id) => file.tasks.find((t) => t.id === id))
+              .filter((t): t is Task => t !== undefined)
+              .map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    className="task-link"
+                    onClick={() => selectTask(t.id)}
+                  >
+                    <span className="task-link-arrow">←</span>
+                    <span className="task-link-id">{t.taskId}</span>
+                    <span className="task-link-name">
+                      {t.name || '(untitled)'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="task-edit-prereq-remove"
+                    onClick={() => removePrereq(t.id)}
+                    title="Remove prerequisite"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
         <p className="task-edit-hint">
-          Tick below, or <strong>Ctrl+Click</strong> (Cmd on Mac) tasks on
-          the flow to toggle.
+          <strong>Ctrl+Click</strong> a task on the flow to add/remove
+          prerequisites. <strong>Shift+Click</strong> to set this task as
+          a prerequisite of the clicked task.
         </p>
-        <div className="task-edit-prereq-list">
-          {eligiblePrereqs.length === 0 ? (
-            <p className="task-detail-muted">
-              No other tasks available yet.
-            </p>
-          ) : (
-            eligiblePrereqs.map((t) => (
-              <label key={t.id} className="task-edit-prereq-row">
-                <input
-                  type="checkbox"
-                  checked={prereqSet.has(t.id)}
-                  onChange={() => togglePrereq(t.id)}
-                />
-                <span className="task-edit-prereq-id">{t.taskId}</span>
-                <span className="task-edit-prereq-name">
-                  {t.name || '(untitled)'}
-                </span>
-              </label>
-            ))
-          )}
-        </div>
       </Section>
 
       <Section title={`Unlocks (${dependents.length})`}>

@@ -92,15 +92,22 @@ function ProcessFlowInner({
   const reactFlow = useReactFlow();
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
+  const addTask = useAppStore((s) => s.addTask);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
   const selectedTaskIds = useAppStore((s) => s.selectedTaskIds);
   const selectTask = useAppStore((s) => s.selectTask);
   const toggleSelectTask = useAppStore((s) => s.toggleSelectTask);
-  const rangeSelectTask = useAppStore((s) => s.rangeSelectTask);
   const togglePrerequisite = useAppStore((s) => s.togglePrerequisite);
-  const insertTaskOnEdge = useAppStore((s) => s.insertTaskOnEdge);
 
   const [layout, setLayout] = useState<LayoutResult>(EMPTY_LAYOUT);
+
+  // Right-click context menu state.
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    taskId: string;
+    phaseId: string;
+  } | null>(null);
 
   // Translate the ALL_PHASES sentinel into null at the layout boundary
   // so layoutTasks renders every phase's tasks together. Same null
@@ -283,26 +290,23 @@ function ProcessFlowInner({
   // All callbacks MUST sit above the early return — rules of hooks.
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      if (mode === 'edit') {
-        // Alt+Click: toggle multi-select membership.
-        if (event.altKey) {
-          toggleSelectTask(node.id);
-          return;
-        }
-        // Shift+Click: range-select.
-        if (event.shiftKey) {
-          rangeSelectTask(node.id);
-          return;
-        }
-        // Ctrl/Cmd+Click: toggle prerequisite of the primary selection.
-        if (
-          (event.ctrlKey || event.metaKey) &&
-          selectedTaskId &&
-          selectedTaskId !== node.id
-        ) {
+      if (mode === 'edit' && selectedTaskId && selectedTaskId !== node.id) {
+        // Ctrl/Cmd+Click: toggle prerequisite of the selected task.
+        // "The clicked task becomes a prerequisite of the selected task."
+        if (event.ctrlKey || event.metaKey) {
           togglePrerequisite(selectedTaskId, node.id);
           return;
         }
+        // Shift+Click: toggle dependent — the selected task becomes
+        // a prerequisite of the clicked task (reverse direction).
+        if (event.shiftKey) {
+          togglePrerequisite(node.id, selectedTaskId);
+          return;
+        }
+      }
+      if (mode === 'edit' && event.altKey) {
+        toggleSelectTask(node.id);
+        return;
       }
       selectTask(node.id);
     },
@@ -311,20 +315,25 @@ function ProcessFlowInner({
       selectedTaskId,
       selectTask,
       toggleSelectTask,
-      rangeSelectTask,
       togglePrerequisite,
     ],
   );
 
-  const handleEdgeClick = useCallback(
-    (_event: React.MouseEvent, edge: { source: string; target: string }) => {
-      // Edge-insert needs a concrete phase to drop the new task into.
-      // In all-phases mode the user has to pick a milestone first.
-      if (mode !== 'edit' || !phaseId || phaseId === ALL_PHASES_ID) return;
-      const newId = insertTaskOnEdge(edge.source, edge.target, phaseId);
-      if (newId) selectTask(newId);
+  const handleNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (mode !== 'edit') return;
+      event.preventDefault();
+      const taskData = node.data as { task?: { id: string; phaseId: string } } | undefined;
+      const task = taskData?.task;
+      if (!task) return;
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        taskId: task.id,
+        phaseId: task.phaseId,
+      });
     },
-    [mode, phaseId, insertTaskOnEdge, selectTask],
+    [mode],
   );
 
   // Arrow-key navigation between tasks in navigate mode. Tasks are
@@ -440,8 +449,8 @@ function ProcessFlowInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodeClick={handleNodeClick}
-        onEdgeClick={handleEdgeClick}
-        onPaneClick={() => selectTask(null)}
+        onNodeContextMenu={handleNodeContextMenu}
+        onPaneClick={() => { selectTask(null); setContextMenu(null); }}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.05}
@@ -459,6 +468,41 @@ function ProcessFlowInner({
           nodeStrokeColor="rgba(0,0,0,0.25)"
         />
       </ReactFlow>
+      {contextMenu && (
+        <div
+          className="flow-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const newId = addTask(contextMenu.phaseId, {
+                autoPrereqOfTaskId: null,
+              });
+              if (newId) {
+                togglePrerequisite(newId, contextMenu.taskId);
+                selectTask(newId);
+              }
+              setContextMenu(null);
+            }}
+          >
+            Create prerequisite task
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const newId = addTask(contextMenu.phaseId, {
+                autoPrereqOfTaskId: contextMenu.taskId,
+              });
+              if (newId) selectTask(newId);
+              setContextMenu(null);
+            }}
+          >
+            Create dependent task
+          </button>
+        </div>
+      )}
     </div>
   );
 }

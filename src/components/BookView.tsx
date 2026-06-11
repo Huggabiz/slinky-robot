@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   findTaskByInternalId,
@@ -11,6 +11,8 @@ import {
 import { getPhaseDeliverableSummary } from '../utils/deliverableSummary';
 import { pickImageFile, fileToDataUrl } from '../utils/imageUpload';
 import { topoSortTasksInPhase } from '../utils/topoSort';
+import { layoutTasks } from '../utils/flowLayout';
+import { DEFAULT_LAB_CONFIG } from '../utils/flowLab';
 import { extractRoleRefs } from '../utils/roleRefs';
 import { BookFlowDiagram } from './BookFlowDiagram';
 import { BookPerspectivesSidebar } from './BookPerspectivesSidebar';
@@ -412,7 +414,31 @@ function BookChapter({
   filter: BookFilter;
   roleToDeptId: Map<string, string>;
 }) {
-  const allTasks = topoSortTasksInPhase(file, phase.id);
+  // Compute layout positions so the book ordering matches the visual
+  // flow (Y then X) rather than taskId string order.
+  const [positionMap, setPositionMap] = useState<
+    Map<string, { x: number; y: number }>
+  >(() => new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    layoutTasks(file.tasks, phase.id, DEFAULT_LAB_CONFIG)
+      .then((result) => {
+        if (cancelled) return;
+        const map = new Map<string, { x: number; y: number }>();
+        for (const n of result.nodes) {
+          map.set(n.id, { x: n.position.x, y: n.position.y });
+        }
+        setPositionMap(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [file, phase.id]);
+
+  const allTasks = useMemo(
+    () => topoSortTasksInPhase(file, phase.id, positionMap.size > 0 ? positionMap : undefined),
+    [file, phase.id, positionMap],
+  );
   const tasks = allTasks.filter((t) =>
     taskMatchesSelection(t, file, filter, roleToDeptId),
   );
