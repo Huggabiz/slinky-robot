@@ -360,7 +360,7 @@ function buildResult(
     // redundant bend points split a straight run into several pieces
     // and the de-overlap pass would nudge only one piece — creating
     // the tiny Z-jogs that were never in the original route.
-    edgePointArrays.push(simplifyPolyline(points));
+    edgePointArrays.push(deduplicatePoints(points));
     edgeMeta.push({ id: elkEdge.id, sourceId, targetId });
   }
 
@@ -643,9 +643,6 @@ function buildElkInput(
     'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.mergeEdges': 'false',
-    // Strip corners that don't change the route — without this ELK
-    // sometimes emits staircase bends through empty space.
-    'elk.layered.unnecessaryBendpoints': 'true',
   };
 
   return {
@@ -656,38 +653,19 @@ function buildElkInput(
   };
 }
 
-// Remove redundant points from an orthogonal polyline: consecutive
-// duplicates and interior points where the incoming and outgoing
-// segments are collinear (both horizontal or both vertical). The
-// result is a polyline whose every segment is a maximal straight run,
-// which is what the de-overlap pass assumes.
-function simplifyPolyline(
+// Remove only consecutive duplicate points (within 0.5px). Does NOT
+// merge collinear runs — that was too aggressive and created diagonal
+// lines by removing ELK's genuine routing waypoints.
+function deduplicatePoints(
   pts: { x: number; y: number }[],
 ): { x: number; y: number }[] {
-  if (pts.length <= 2) return pts;
+  if (pts.length <= 1) return pts;
   const out: { x: number; y: number }[] = [pts[0]];
-  for (let i = 1; i < pts.length - 1; i++) {
-    const a = out[out.length - 1];
-    const b = pts[i];
-    const c = pts[i + 1];
-    if (Math.abs(b.x - a.x) < 0.5 && Math.abs(b.y - a.y) < 0.5) continue;
-    const abH = Math.abs(b.y - a.y) < 0.5;
-    const bcH = Math.abs(c.y - b.y) < 0.5;
-    const abV = Math.abs(b.x - a.x) < 0.5;
-    const bcV = Math.abs(c.x - b.x) < 0.5;
-    if ((abH && bcH) || (abV && bcV)) continue;
-    out.push(b);
+  for (let i = 1; i < pts.length; i++) {
+    const prev = out[out.length - 1];
+    if (Math.abs(pts[i].x - prev.x) < 0.5 && Math.abs(pts[i].y - prev.y) < 0.5) continue;
+    out.push(pts[i]);
   }
-  const last = pts[pts.length - 1];
-  const tail = out[out.length - 1];
-  if (
-    out.length > 1 &&
-    Math.abs(last.x - tail.x) < 0.5 &&
-    Math.abs(last.y - tail.y) < 0.5
-  ) {
-    out.pop();
-  }
-  out.push(last);
   return out;
 }
 
