@@ -355,7 +355,12 @@ function buildResult(
       dxTarget,
     );
 
-    edgePointArrays.push(points);
+    // Simplify BEFORE de-overlapping: merge collinear runs into single
+    // maximal segments and drop duplicate points. Without this, ELK's
+    // redundant bend points split a straight run into several pieces
+    // and the de-overlap pass would nudge only one piece — creating
+    // the tiny Z-jogs that were never in the original route.
+    edgePointArrays.push(simplifyPolyline(points));
     edgeMeta.push({ id: elkEdge.id, sourceId, targetId });
   }
 
@@ -363,8 +368,15 @@ function buildResult(
   // routing channel are visually distinct. Edges that share a source
   // or target node are allowed to overlap (they split/merge at that
   // node, so there's no ambiguity). Only edges with DIFFERENT
-  // source AND target pairs are nudged apart.
-  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6);
+  // source AND target pairs are nudged apart. Node rects let the
+  // pass keep clearance from task cards while nudging.
+  const nodeRects: NodeRect[] = nodes.map((n) => ({
+    x: n.position.x,
+    y: n.position.y,
+    w: config.nodeWidth,
+    h: config.nodeHeight,
+  }));
+  deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6, nodeRects);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -631,6 +643,9 @@ function buildElkInput(
     'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.mergeEdges': 'false',
+    // Strip corners that don't change the route — without this ELK
+    // sometimes emits staircase bends through empty space.
+    'elk.layered.unnecessaryBendpoints': 'true',
   };
 
   return {
@@ -641,17 +656,77 @@ function buildElkInput(
   };
 }
 
+// Remove redundant points from an orthogonal polyline: consecutive
+// duplicates and interior points where the incoming and outgoing
+// segments are collinear (both horizontal or both vertical). The
+// result is a polyline whose every segment is a maximal straight run,
+// which is what the de-overlap pass assumes.
+function simplifyPolyline(
+  pts: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  if (pts.length <= 2) return pts;
+  const out: { x: number; y: number }[] = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = out[out.length - 1];
+    const b = pts[i];
+    const c = pts[i + 1];
+    if (Math.abs(b.x - a.x) < 0.5 && Math.abs(b.y - a.y) < 0.5) continue;
+    const abH = Math.abs(b.y - a.y) < 0.5;
+    const bcH = Math.abs(c.y - b.y) < 0.5;
+    const abV = Math.abs(b.x - a.x) < 0.5;
+    const bcV = Math.abs(c.x - b.x) < 0.5;
+    if ((abH && bcH) || (abV && bcV)) continue;
+    out.push(b);
+  }
+  const last = pts[pts.length - 1];
+  const tail = out[out.length - 1];
+  if (
+    out.length > 1 &&
+    Math.abs(last.x - tail.x) < 0.5 &&
+    Math.abs(last.y - tail.y) < 0.5
+  ) {
+    out.pop();
+  }
+  out.push(last);
+  return out;
+}
+
+// Minimum remaining length for a neighbouring stub when a segment is
+// nudged — prevents a nudge from collapsing or reversing the short
+// connecting piece either side of it.
+const DEOVERLAP_MIN_STUB = 6;
+// Minimum gap kept between a nudged segment and any task card.
+const NODE_CLEARANCE = 8;
+
+interface NodeRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 // Post-process: find edge segments (horizontal OR vertical) that
 // share the same axis value and overlap on the other axis, then
 // spread them apart so parallel edges through the same channel are
 // visually distinct. Edges that share a source or target node are
 // allowed to overlap — they fan out/in at the shared node, so
 // there's no ambiguity. Only edges with DIFFERENT source AND target
-// pairs are separated. Operates in-place on the point arrays.
+// pairs are separated.
+//
+// Constraints applied to every nudge:
+//   - Segments containing the first or last point of an edge are
+//     PINNED. Moving them would drag the port anchor sideways off
+//     the node's connection point (the old port-jog artefact).
+//   - A nudge may not shrink either neighbouring stub below
+//     DEOVERLAP_MIN_STUB or flip its direction.
+//   - A nudge may not bring the segment within NODE_CLEARANCE of any
+//     task card its span crosses (the pass is node-aware).
+// Operates in-place on the point arrays.
 function deoverlapEdgeSegments(
   allPoints: { x: number; y: number }[][],
   meta: { sourceId: string; targetId: string }[],
   spacing: number,
+  nodeRects: NodeRect[],
 ): void {
   interface Seg {
     edgeIdx: number;
@@ -660,6 +735,7 @@ function deoverlapEdgeSegments(
     rangeMin: number;
     rangeMax: number;
     axis: 'h' | 'v';
+    movable: boolean;
   }
 
   const segments: Seg[] = [];
@@ -668,6 +744,7 @@ function deoverlapEdgeSegments(
     for (let pi = 0; pi < pts.length - 1; pi++) {
       const dx = Math.abs(pts[pi].x - pts[pi + 1].x);
       const dy = Math.abs(pts[pi].y - pts[pi + 1].y);
+      const movable = pi > 0 && pi + 1 < pts.length - 1;
       if (dy < 0.5 && dx > 1) {
         segments.push({
           edgeIdx: ei, ptIdx: pi,
@@ -675,6 +752,7 @@ function deoverlapEdgeSegments(
           rangeMin: Math.min(pts[pi].x, pts[pi + 1].x),
           rangeMax: Math.max(pts[pi].x, pts[pi + 1].x),
           axis: 'h',
+          movable,
         });
       } else if (dx < 0.5 && dy > 1) {
         segments.push({
@@ -683,6 +761,7 @@ function deoverlapEdgeSegments(
           rangeMin: Math.min(pts[pi].y, pts[pi + 1].y),
           rangeMax: Math.max(pts[pi].y, pts[pi + 1].y),
           axis: 'v',
+          movable,
         });
       }
     }
@@ -693,6 +772,46 @@ function deoverlapEdgeSegments(
   const sharesEndpoint = (a: number, b: number): boolean =>
     meta[a].sourceId === meta[b].sourceId ||
     meta[a].targetId === meta[b].targetId;
+
+  // How far this segment may be nudged in each direction without
+  // breaking a constraint. Returns [lo, hi] (lo ≤ 0 ≤ hi).
+  const allowedRange = (seg: Seg): [number, number] => {
+    if (!seg.movable) return [0, 0];
+    const pts = allPoints[seg.edgeIdx];
+    let lo = -Infinity;
+    let hi = Infinity;
+
+    // Neighbour stubs must keep their direction and minimum length.
+    const prev = pts[seg.ptIdx - 1];
+    const next = pts[seg.ptIdx + 2];
+    const v = seg.fixedVal;
+    const neighbourVals =
+      seg.axis === 'h' ? [prev.y, next.y] : [prev.x, next.x];
+    for (const nb of neighbourVals) {
+      if (nb < v) lo = Math.max(lo, nb + DEOVERLAP_MIN_STUB - v);
+      else if (nb > v) hi = Math.min(hi, nb - DEOVERLAP_MIN_STUB - v);
+    }
+
+    // Stay clear of task cards the segment's span crosses.
+    for (const r of nodeRects) {
+      if (seg.axis === 'h') {
+        if (seg.rangeMax < r.x - 2 || seg.rangeMin > r.x + r.w + 2) continue;
+        const top = r.y - NODE_CLEARANCE;
+        const bot = r.y + r.h + NODE_CLEARANCE;
+        if (v < top) hi = Math.min(hi, top - v);
+        else if (v > bot) lo = Math.max(lo, bot - v);
+      } else {
+        if (seg.rangeMax < r.y - 2 || seg.rangeMin > r.y + r.h + 2) continue;
+        const left = r.x - NODE_CLEARANCE;
+        const right = r.x + r.w + NODE_CLEARANCE;
+        if (v < left) hi = Math.min(hi, left - v);
+        else if (v > right) lo = Math.max(lo, right - v);
+      }
+    }
+
+    if (lo > hi) return [0, 0];
+    return [Math.min(lo, 0), Math.max(hi, 0)];
+  };
 
   for (const axis of ['h', 'v'] as const) {
     const axisSeg = segments.filter((s) => s.axis === axis);
@@ -782,17 +901,31 @@ function deoverlapEdgeSegments(
           return beforeA - beforeB;
         });
 
-        const baseVal = group[cluster[0]].fixedVal;
-        for (let k = 0; k < cluster.length; k++) {
-          const offset = (k - (cluster.length - 1) / 2) * spacing;
+        // Desired offsets spread the cluster symmetrically. If any
+        // member is pinned (contains a port anchor), shift the whole
+        // pattern so the pinned member's slot is 0 — it can't move,
+        // so everyone else spreads around it.
+        const n = cluster.length;
+        let desired = cluster.map((_, k) => (k - (n - 1) / 2) * spacing);
+        const pinnedPos = cluster.findIndex((ci) => !group[ci].movable);
+        if (pinnedPos !== -1) {
+          const shift = -desired[pinnedPos];
+          desired = desired.map((d) => d + shift);
+        }
+
+        for (let k = 0; k < n; k++) {
           const seg = group[cluster[k]];
+          if (!seg.movable) continue;
+          const [lo, hi] = allowedRange(seg);
+          const off = Math.max(lo, Math.min(hi, desired[k]));
+          if (Math.abs(off) < 0.01) continue;
           const pts = allPoints[seg.edgeIdx];
           if (axis === 'h') {
-            pts[seg.ptIdx].y = baseVal + offset;
-            pts[seg.ptIdx + 1].y = baseVal + offset;
+            pts[seg.ptIdx].y = seg.fixedVal + off;
+            pts[seg.ptIdx + 1].y = seg.fixedVal + off;
           } else {
-            pts[seg.ptIdx].x = baseVal + offset;
-            pts[seg.ptIdx + 1].x = baseVal + offset;
+            pts[seg.ptIdx].x = seg.fixedVal + off;
+            pts[seg.ptIdx + 1].x = seg.fixedVal + off;
           }
         }
       }
