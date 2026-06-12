@@ -65,7 +65,7 @@ export const DEFAULT_LAB_CONFIG: LabConfig = {
   nodePlacement: 'BRANDES_KOEPF',
   favorStraightEdges: true,
   centreStartEnd: true,
-  mergeEdges: false,
+  mergeEdges: true,
   nodesep: 50,
   ranksep: 50,
   nodeWidth: 200,

@@ -379,10 +379,8 @@ function buildResult(
     edgePointArrays[i] = collapseDetours(edgePointArrays[i], nodeRects);
   }
 
-  // Actively merge shared-endpoint runs (the Lab "merge edges"
-  // toggle). Runs before de-overlap: the coincidences it creates are
-  // legal by construction (fan-in/fan-out trees), so the set-based
-  // pass leaves them alone.
+  // Merge shared-endpoint runs (default on). The Lab toggle can
+  // disable it for debugging.
   if (config.mergeEdges) {
     zipSharedEndpointRuns(edgePointArrays, edgeMeta, nodeRects);
   }
