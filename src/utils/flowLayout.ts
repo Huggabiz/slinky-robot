@@ -976,19 +976,32 @@ function zipSharedEndpointRuns(
     else bySource.set(meta[i].sourceId, [i]);
   }
 
+  let groups = 0;
+  let snaps = 0;
   for (const group of byTarget.values()) {
-    if (group.length > 1) mergeParallelSegs(allPoints, nodeRects, group);
+    if (group.length > 1) {
+      groups++;
+      snaps += mergeParallelSegs(allPoints, nodeRects, group);
+    }
   }
   for (const group of bySource.values()) {
-    if (group.length > 1) mergeParallelSegs(allPoints, nodeRects, group);
+    if (group.length > 1) {
+      groups++;
+      snaps += mergeParallelSegs(allPoints, nodeRects, group);
+    }
   }
+  // Diagnostic: visible with "Verbose" enabled in the browser console.
+  // groups = shared-endpoint groups with 2+ edges; snaps = clusters
+  // actually pulled onto a common line this layout.
+  console.debug(`[merge] shared-endpoint groups: ${groups}, snaps applied: ${snaps}`);
 }
 
 function mergeParallelSegs(
   allPoints: { x: number; y: number }[][],
   nodeRects: NodeRect[],
   edgeIndices: number[],
-): void {
+): number {
+  let snaps = 0;
   // Collect every segment from every edge in the group. Pinned
   // segments (containing a port anchor — e.g. an edge that drops
   // straight down from its source) are INCLUDED: they can't move,
@@ -1100,8 +1113,10 @@ function mergeParallelSegs(
           pts[m.ptIdx + 1].x = target;
         }
       }
+      snaps++;
     }
   }
+  return snaps;
 }
 
 // Post-process: find edge segments (horizontal OR vertical) that
