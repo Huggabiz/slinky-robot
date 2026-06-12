@@ -958,6 +958,136 @@ function mergeNudgeRange(
 // shared-endpoint group is enough — the de-overlap that follows
 // handles any remaining ambiguous coincidences.
 
+// ---- Trunk grafting --------------------------------------------------------
+//
+// Sideways nudging cannot merge two edges whose long runs are both
+// port-anchored (e.g. each drops straight down from its own source
+// port) — moving either would detach it from its port. The graft
+// operation changes the route topology instead: the candidate keeps a
+// short stub below its source port, jogs horizontally across to a
+// sibling edge's vertical run (the "trunk"), and then ADOPTS the
+// trunk's exact remaining route to the shared target. Because the
+// tail is copied point-for-point, the two edges are coincident all
+// the way to the port — the fan-in tree discipline holds by
+// construction and the set-based de-overlap leaves the result alone.
+
+const JOIN_MAX_REACH = 300;
+const JOIN_MIN_STUB = 20;
+
+interface VertSeg {
+  x: number;
+  yMin: number;
+  yMax: number;
+  segIdx: number;
+}
+
+function verticalSegsOf(pts: { x: number; y: number }[]): VertSeg[] {
+  const out: VertSeg[] = [];
+  for (let j = 0; j < pts.length - 1; j++) {
+    // Downward-running verticals only — grafting onto an upward run
+    // would reverse the flow direction.
+    if (
+      Math.abs(pts[j].x - pts[j + 1].x) < 0.5 &&
+      pts[j + 1].y - pts[j].y > 1
+    ) {
+      out.push({
+        x: pts[j].x,
+        yMin: pts[j].y,
+        yMax: pts[j + 1].y,
+        segIdx: j,
+      });
+    }
+  }
+  return out;
+}
+
+function manhattanLength(pts: { x: number; y: number }[]): number {
+  let len = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    len +=
+      Math.abs(pts[i + 1].x - pts[i].x) + Math.abs(pts[i + 1].y - pts[i].y);
+  }
+  return len;
+}
+
+// Graft each edge in a shared-target group onto the nearest sibling
+// trunk where geometry allows. Returns the number of grafts applied.
+function joinSharedTargetTrunks(
+  allPoints: { x: number; y: number }[][],
+  group: number[],
+  nodeRects: NodeRect[],
+): number {
+  let joins = 0;
+  for (const c of group) {
+    const cPts = allPoints[c];
+    let done = false;
+    // Walk the candidate's own downward verticals from the source end
+    // so the graft happens at the earliest opportunity (longest shared
+    // suffix).
+    for (let i = 0; i < cPts.length - 1 && !done; i++) {
+      const a = cPts[i];
+      const b = cPts[i + 1];
+      if (Math.abs(a.x - b.x) >= 0.5 || b.y - a.y <= 1) continue;
+      const scx = a.x;
+      const scMax = b.y;
+
+      // Evaluate every feasible trunk and keep the one that joins
+      // EARLIEST (smallest joinY → longest shared run), tie-broken
+      // by the shortest connector.
+      let best: {
+        joinY: number;
+        dx: number;
+        newPts: { x: number; y: number }[];
+      } | null = null;
+      for (const t of group) {
+        if (t === c) continue;
+        for (const v of verticalSegsOf(allPoints[t])) {
+          const dx = Math.abs(v.x - scx);
+          if (dx < 0.5 || dx > JOIN_MAX_REACH) continue;
+
+          let joinY = Math.max(a.y, v.yMin);
+          if (i === 0) joinY = Math.max(joinY, cPts[0].y + JOIN_MIN_STUB);
+          const limit = Math.min(scMax, v.yMax);
+          if (joinY > limit) continue;
+          if (
+            best &&
+            (best.joinY < joinY ||
+              (Math.abs(best.joinY - joinY) < 0.5 && best.dx <= dx))
+          ) {
+            continue;
+          }
+          if (
+            segmentBlocked(
+              { x: scx, y: joinY },
+              { x: v.x, y: joinY },
+              nodeRects,
+            )
+          ) {
+            continue;
+          }
+
+          const tPts = allPoints[t];
+          const newPts = [...cPts.slice(0, i + 1)];
+          if (Math.abs(joinY - a.y) > 0.5) newPts.push({ x: scx, y: joinY });
+          newPts.push({ x: v.x, y: joinY });
+          newPts.push(...tPts.slice(v.segIdx + 1));
+
+          // Reject grafts that meaningfully lengthen the route.
+          if (manhattanLength(newPts) > manhattanLength(cPts) + 80) continue;
+
+          best = { joinY, dx, newPts };
+        }
+      }
+      if (best) {
+        allPoints[c] = normalisePolyline(best.newPts);
+        joins++;
+        done = true;
+      }
+    }
+  }
+  return joins;
+}
+
 const ZIP_MAX_SPREAD = 80;
 
 function zipSharedEndpointRuns(
@@ -977,10 +1107,15 @@ function zipSharedEndpointRuns(
   }
 
   let groups = 0;
+  let grafts = 0;
   let snaps = 0;
+  // Graft first: it handles the port-anchored runs that nudging
+  // can't touch. The segment-snap then merges remaining movable
+  // parallels (and tidies any near-coincidence the grafts leave).
   for (const group of byTarget.values()) {
     if (group.length > 1) {
       groups++;
+      grafts += joinSharedTargetTrunks(allPoints, group, nodeRects);
       snaps += mergeParallelSegs(allPoints, nodeRects, group);
     }
   }
@@ -991,9 +1126,9 @@ function zipSharedEndpointRuns(
     }
   }
   // Diagnostic: visible with "Verbose" enabled in the browser console.
-  // groups = shared-endpoint groups with 2+ edges; snaps = clusters
-  // actually pulled onto a common line this layout.
-  console.debug(`[merge] shared-endpoint groups: ${groups}, snaps applied: ${snaps}`);
+  console.debug(
+    `[merge] shared-endpoint groups: ${groups}, grafts: ${grafts}, snaps: ${snaps}`,
+  );
 }
 
 function mergeParallelSegs(
