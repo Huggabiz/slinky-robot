@@ -382,7 +382,11 @@ function buildResult(
   // Merge shared-endpoint runs (default on). The Lab toggle can
   // disable it for debugging.
   if (config.mergeEdges) {
-    zipSharedEndpointRuns(edgePointArrays, edgeMeta, nodeRects);
+    const labels = edgeMeta.map(
+      (m) =>
+        `${taskById.get(m.sourceId)?.taskId ?? '?'}→${taskById.get(m.targetId)?.taskId ?? '?'}`,
+    );
+    zipSharedEndpointRuns(edgePointArrays, edgeMeta, nodeRects, labels);
   }
 
   deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6, nodeRects);
@@ -1016,11 +1020,16 @@ function joinSharedTargetTrunks(
   allPoints: { x: number; y: number }[][],
   group: number[],
   nodeRects: NodeRect[],
+  trace = false,
+  labelOf: (i: number) => string = (i) => `edge#${i}`,
 ): number {
   let joins = 0;
   for (const c of group) {
     const cPts = allPoints[c];
     let done = false;
+    // Rejection tallies for the trace.
+    const rej = { far: 0, window: 0, blocked: 0, longer: 0 };
+    let evaluated = 0;
     // Walk the candidate's own downward verticals from the source end
     // so the graft happens at the earliest opportunity (longest shared
     // suffix).
@@ -1037,18 +1046,27 @@ function joinSharedTargetTrunks(
       let best: {
         joinY: number;
         dx: number;
+        t: number;
         newPts: { x: number; y: number }[];
       } | null = null;
       for (const t of group) {
         if (t === c) continue;
         for (const v of verticalSegsOf(allPoints[t])) {
           const dx = Math.abs(v.x - scx);
-          if (dx < 0.5 || dx > JOIN_MAX_REACH) continue;
+          if (dx < 0.5) continue; // already on the same line
+          evaluated++;
+          if (dx > JOIN_MAX_REACH) {
+            rej.far++;
+            continue;
+          }
 
           let joinY = Math.max(a.y, v.yMin);
           if (i === 0) joinY = Math.max(joinY, cPts[0].y + JOIN_MIN_STUB);
           const limit = Math.min(scMax, v.yMax);
-          if (joinY > limit) continue;
+          if (joinY > limit) {
+            rej.window++;
+            continue;
+          }
           if (
             best &&
             (best.joinY < joinY ||
@@ -1063,6 +1081,7 @@ function joinSharedTargetTrunks(
               nodeRects,
             )
           ) {
+            rej.blocked++;
             continue;
           }
 
@@ -1073,16 +1092,29 @@ function joinSharedTargetTrunks(
           newPts.push(...tPts.slice(v.segIdx + 1));
 
           // Reject grafts that meaningfully lengthen the route.
-          if (manhattanLength(newPts) > manhattanLength(cPts) + 80) continue;
+          if (manhattanLength(newPts) > manhattanLength(cPts) + 80) {
+            rej.longer++;
+            continue;
+          }
 
-          best = { joinY, dx, newPts };
+          best = { joinY, dx, t, newPts };
         }
       }
       if (best) {
         allPoints[c] = normalisePolyline(best.newPts);
         joins++;
         done = true;
+        if (trace) {
+          console.debug(
+            `[merge:trace]   graft ${labelOf(c)} onto ${labelOf(best.t)} at y=${Math.round(best.joinY)} (dx=${Math.round(best.dx)})`,
+          );
+        }
       }
+    }
+    if (trace && !done && evaluated > 0) {
+      console.debug(
+        `[merge:trace]   no graft for ${labelOf(c)}: evaluated=${evaluated} rejected{tooFar:${rej.far}, noWindow:${rej.window}, blocked:${rej.blocked}, longer:${rej.longer}}`,
+      );
     }
   }
   return joins;
@@ -1090,11 +1122,30 @@ function joinSharedTargetTrunks(
 
 const ZIP_MAX_SPREAD = 80;
 
+// Detailed merge tracing, opt-in via the browser console:
+//   localStorage.mergeTrace = '1'   (then reload)
+// Logs every shared-target group with task IDs and the precise
+// reason each merge candidate was accepted or rejected.
+function mergeTraceOn(): boolean {
+  try {
+    return (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('mergeTrace') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 function zipSharedEndpointRuns(
   allPoints: { x: number; y: number }[][],
   meta: { sourceId: string; targetId: string }[],
   nodeRects: NodeRect[],
+  labels: string[] = [],
 ): void {
+  const trace = mergeTraceOn();
+  const labelOf = (i: number): string => labels[i] ?? `edge#${i}`;
+
   const byTarget = new Map<string, number[]>();
   const bySource = new Map<string, number[]>();
   for (let i = 0; i < meta.length; i++) {
@@ -1115,14 +1166,25 @@ function zipSharedEndpointRuns(
   for (const group of byTarget.values()) {
     if (group.length > 1) {
       groups++;
-      grafts += joinSharedTargetTrunks(allPoints, group, nodeRects);
-      snaps += mergeParallelSegs(allPoints, nodeRects, group);
+      if (trace) {
+        console.debug(
+          `[merge:trace] target group: ${group.map(labelOf).join(', ')}`,
+        );
+      }
+      grafts += joinSharedTargetTrunks(
+        allPoints, group, nodeRects, trace, labelOf,
+      );
+      snaps += mergeParallelSegs(
+        allPoints, nodeRects, group, trace, labelOf,
+      );
     }
   }
   for (const group of bySource.values()) {
     if (group.length > 1) {
       groups++;
-      snaps += mergeParallelSegs(allPoints, nodeRects, group);
+      snaps += mergeParallelSegs(
+        allPoints, nodeRects, group, false, labelOf,
+      );
     }
   }
   // Diagnostic: visible with "Verbose" enabled in the browser console.
@@ -1135,6 +1197,8 @@ function mergeParallelSegs(
   allPoints: { x: number; y: number }[][],
   nodeRects: NodeRect[],
   edgeIndices: number[],
+  trace = false,
+  labelOf: (i: number) => string = (i) => `edge#${i}`,
 ): number {
   let snaps = 0;
   // Collect every segment from every edge in the group. Pinned
@@ -1209,8 +1273,22 @@ function mergeParallelSegs(
       const members = cluster.map((ci) => axisSeg[ci]);
       const edgeSet = new Set(members.map((m) => m.edgeIdx));
       if (edgeSet.size < 2) continue;
+      const clusterDesc = (): string =>
+        members
+          .map(
+            (m) =>
+              `${labelOf(m.edgeIdx)}@${Math.round(m.fixedVal)}${m.movable ? '' : '(pinned)'}`,
+          )
+          .join(' | ');
       const movables = members.filter((m) => m.movable);
-      if (movables.length === 0) continue;
+      if (movables.length === 0) {
+        if (trace) {
+          console.debug(
+            `[merge:trace]   snap skip (${axis}, all pinned): ${clusterDesc()}`,
+          );
+        }
+        continue;
+      }
 
       // Pinned members force the target line: they can't move, so
       // everyone else must come to them. Multiple pinned members on
@@ -1219,7 +1297,14 @@ function mergeParallelSegs(
       let target: number;
       if (pinned.length > 0) {
         const pinnedVals = pinned.map((m) => m.fixedVal);
-        if (Math.max(...pinnedVals) - Math.min(...pinnedVals) > 1) continue;
+        if (Math.max(...pinnedVals) - Math.min(...pinnedVals) > 1) {
+          if (trace) {
+            console.debug(
+              `[merge:trace]   snap skip (${axis}, pinned conflict): ${clusterDesc()}`,
+            );
+          }
+          continue;
+        }
         target = pinnedVals[0];
       } else {
         const vals = movables.map((m) => m.fixedVal);
@@ -1236,7 +1321,19 @@ function mergeParallelSegs(
           break;
         }
       }
-      if (!reachable) continue;
+      if (!reachable) {
+        if (trace) {
+          console.debug(
+            `[merge:trace]   snap skip (${axis}, target ${Math.round(target)} unreachable): ${clusterDesc()}`,
+          );
+        }
+        continue;
+      }
+      if (trace) {
+        console.debug(
+          `[merge:trace]   snap (${axis}) -> ${Math.round(target)}: ${clusterDesc()}`,
+        );
+      }
 
       for (const m of movables) {
         const pts = allPoints[m.edgeIdx];
