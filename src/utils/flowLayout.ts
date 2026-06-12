@@ -909,7 +909,7 @@ function segmentNudgeRange(
 // tighter corner.
 function mergeNudgeRange(
   seg: RouteSeg,
-  allPoints: { x: number; y: number }[][],
+  _allPoints: { x: number; y: number }[][],
   nodeRects: NodeRect[],
 ): [number, number] {
   if (!seg.movable) return [0, 0];
