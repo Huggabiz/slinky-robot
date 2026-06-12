@@ -900,6 +900,44 @@ function segmentNudgeRange(
   return [Math.min(lo, 0), Math.max(hi, 0)];
 }
 
+// Relaxed nudge range for the merge pass: only checks node collision,
+// not stub preservation. Merging two parallel lines 10px apart
+// requires each to move only 5px, but if the horizontal stubs between
+// corners are already short, the strict segmentNudgeRange blocks
+// the move entirely. For merging we accept shorter stubs because the
+// visual win (one clean line instead of two) outweighs a slightly
+// tighter corner.
+function mergeNudgeRange(
+  seg: RouteSeg,
+  allPoints: { x: number; y: number }[][],
+  nodeRects: NodeRect[],
+): [number, number] {
+  if (!seg.movable) return [0, 0];
+  let lo = -Infinity;
+  let hi = Infinity;
+
+  // Only constraint: stay clear of task cards.
+  for (const r of nodeRects) {
+    const v = seg.fixedVal;
+    if (seg.axis === 'h') {
+      if (seg.rangeMax < r.x - 2 || seg.rangeMin > r.x + r.w + 2) continue;
+      const top = r.y - NODE_CLEARANCE;
+      const bot = r.y + r.h + NODE_CLEARANCE;
+      if (v < top) hi = Math.min(hi, top - v);
+      else if (v > bot) lo = Math.max(lo, bot - v);
+    } else {
+      if (seg.rangeMax < r.y - 2 || seg.rangeMin > r.y + r.h + 2) continue;
+      const left = r.x - NODE_CLEARANCE;
+      const right = r.x + r.w + NODE_CLEARANCE;
+      if (v < left) hi = Math.min(hi, left - v);
+      else if (v > right) lo = Math.max(lo, right - v);
+    }
+  }
+
+  if (lo > hi) return [0, 0];
+  return [Math.min(lo, 0), Math.max(hi, 0)];
+}
+
 // ---- Shared-endpoint merge -----------------------------------------------
 //
 // For edges sharing a target (or source), find parallel segments
@@ -920,7 +958,7 @@ function segmentNudgeRange(
 // shared-endpoint group is enough — the de-overlap that follows
 // handles any remaining ambiguous coincidences.
 
-const ZIP_MAX_SPREAD = 40;
+const ZIP_MAX_SPREAD = 80;
 
 function zipSharedEndpointRuns(
   allPoints: { x: number; y: number }[][],
@@ -1023,7 +1061,7 @@ function mergeParallelSegs(
       let lo = -Infinity;
       let hi = Infinity;
       for (const m of members) {
-        const [mlo, mhi] = segmentNudgeRange(m, allPoints, nodeRects);
+        const [mlo, mhi] = mergeNudgeRange(m, allPoints, nodeRects);
         lo = Math.max(lo, m.fixedVal + mlo);
         hi = Math.min(hi, m.fixedVal + mhi);
       }
