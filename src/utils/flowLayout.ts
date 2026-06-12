@@ -989,7 +989,12 @@ function mergeParallelSegs(
   nodeRects: NodeRect[],
   edgeIndices: number[],
 ): void {
-  // Collect every interior segment from every edge in the group.
+  // Collect every segment from every edge in the group. Pinned
+  // segments (containing a port anchor — e.g. an edge that drops
+  // straight down from its source) are INCLUDED: they can't move,
+  // but they act as anchors that other edges' segments snap onto.
+  // Excluding them was the bug that made straight-drop edges
+  // unmergeable — the most common case in practice.
   const segs: RouteSeg[] = [];
   for (const ei of edgeIndices) {
     const pts = allPoints[ei];
@@ -997,14 +1002,13 @@ function mergeParallelSegs(
       const dx = Math.abs(pts[pi].x - pts[pi + 1].x);
       const dy = Math.abs(pts[pi].y - pts[pi + 1].y);
       const movable = pi > 0 && pi + 1 < pts.length - 1;
-      if (!movable) continue;
       if (dy < 0.5 && dx > 1) {
         segs.push({
           edgeIdx: ei, ptIdx: pi,
           fixedVal: pts[pi].y,
           rangeMin: Math.min(pts[pi].x, pts[pi + 1].x),
           rangeMax: Math.max(pts[pi].x, pts[pi + 1].x),
-          axis: 'h', movable: true,
+          axis: 'h', movable,
         });
       } else if (dx < 0.5 && dy > 1) {
         segs.push({
@@ -1012,7 +1016,7 @@ function mergeParallelSegs(
           fixedVal: pts[pi].x,
           rangeMin: Math.min(pts[pi].y, pts[pi + 1].y),
           rangeMax: Math.max(pts[pi].y, pts[pi + 1].y),
-          axis: 'v', movable: true,
+          axis: 'v', movable,
         });
       }
     }
@@ -1052,26 +1056,41 @@ function mergeParallelSegs(
       }
 
       if (cluster.length < 2) continue;
-      // Ensure we have segments from at least 2 different edges.
-      const edgeSet = new Set(cluster.map((ci) => axisSeg[ci].edgeIdx));
-      if (edgeSet.size < 2) continue;
-
-      // Find a common line every member can reach.
+      // Ensure we have segments from at least 2 different edges and
+      // at least one of them can actually move.
       const members = cluster.map((ci) => axisSeg[ci]);
-      let lo = -Infinity;
-      let hi = Infinity;
-      for (const m of members) {
-        const [mlo, mhi] = mergeNudgeRange(m, allPoints, nodeRects);
-        lo = Math.max(lo, m.fixedVal + mlo);
-        hi = Math.min(hi, m.fixedVal + mhi);
+      const edgeSet = new Set(members.map((m) => m.edgeIdx));
+      if (edgeSet.size < 2) continue;
+      const movables = members.filter((m) => m.movable);
+      if (movables.length === 0) continue;
+
+      // Pinned members force the target line: they can't move, so
+      // everyone else must come to them. Multiple pinned members on
+      // meaningfully different lines can't be reconciled — skip.
+      const pinned = members.filter((m) => !m.movable);
+      let target: number;
+      if (pinned.length > 0) {
+        const pinnedVals = pinned.map((m) => m.fixedVal);
+        if (Math.max(...pinnedVals) - Math.min(...pinnedVals) > 1) continue;
+        target = pinnedVals[0];
+      } else {
+        const vals = movables.map((m) => m.fixedVal);
+        target = vals.reduce((s, v) => s + v, 0) / vals.length;
       }
-      if (lo > hi) continue;
 
-      const vals = members.map((m) => m.fixedVal);
-      const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
-      const target = Math.max(lo, Math.min(hi, mean));
+      // Every movable member must be able to reach the target within
+      // its node-clearance range.
+      let reachable = true;
+      for (const m of movables) {
+        const [mlo, mhi] = mergeNudgeRange(m, allPoints, nodeRects);
+        if (target < m.fixedVal + mlo || target > m.fixedVal + mhi) {
+          reachable = false;
+          break;
+        }
+      }
+      if (!reachable) continue;
 
-      for (const m of members) {
+      for (const m of movables) {
         const pts = allPoints[m.edgeIdx];
         if (axis === 'h') {
           pts[m.ptIdx].y = target;
