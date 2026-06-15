@@ -1086,10 +1086,18 @@ function joinSharedTargetTrunks(
           }
 
           const tPts = allPoints[t];
-          const newPts = [...cPts.slice(0, i + 1)];
+          // Clone every point: tPts.slice() copies the array but its
+          // {x,y} objects are SHARED with the trunk edge. A later
+          // in-place mutation (snap/de-overlap) would then corrupt
+          // both edges through the shared reference — the source of
+          // the intermittent diagonal glitches. Fresh objects make
+          // each edge's geometry fully independent.
+          const newPts = cPts.slice(0, i + 1).map((p) => ({ x: p.x, y: p.y }));
           if (Math.abs(joinY - a.y) > 0.5) newPts.push({ x: scx, y: joinY });
           newPts.push({ x: v.x, y: joinY });
-          newPts.push(...tPts.slice(v.segIdx + 1));
+          for (let ti = v.segIdx + 1; ti < tPts.length; ti++) {
+            newPts.push({ x: tPts[ti].x, y: tPts[ti].y });
+          }
 
           // Reject grafts that meaningfully lengthen the route.
           if (manhattanLength(newPts) > manhattanLength(cPts) + 80) {
@@ -1187,10 +1195,12 @@ function zipSharedEndpointRuns(
       );
     }
   }
-  // Diagnostic: visible with "Verbose" enabled in the browser console.
-  console.debug(
-    `[merge] shared-endpoint groups: ${groups}, grafts: ${grafts}, snaps: ${snaps}`,
-  );
+  // Summary only when tracing is enabled (localStorage.mergeTrace).
+  if (trace) {
+    console.debug(
+      `[merge] shared-endpoint groups: ${groups}, grafts: ${grafts}, snaps: ${snaps}`,
+    );
+  }
 }
 
 function mergeParallelSegs(
