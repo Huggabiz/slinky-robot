@@ -32,6 +32,46 @@
   min-width: 28px;
 }
 
+/* Quick Flow/Book view toggle — segmented icon buttons. */
+.app-ribbon-view-toggle {
+  display: inline-flex;
+  margin-left: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.app-ribbon-view-btn {
+  appearance: none;
+  border: none;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-ribbon-view-btn + .app-ribbon-view-btn {
+  border-left: 1px solid var(--color-border);
+}
+
+.app-ribbon-view-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.app-ribbon-view-btn-active {
+  background: var(--color-accent);
+  color: white;
+}
+
+.app-ribbon-view-btn-active:hover {
+  background: var(--color-accent);
+  color: white;
+}
+
 .app-ribbon-icon-btn:hover:not(:disabled) {
   border-color: var(--color-accent);
   color: var(--color-accent);

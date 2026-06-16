@@ -18,7 +18,6 @@ export interface PerspectiveInfo {
   // those modes).
   role: 'accountable' | 'contributor' | 'meetingOrganiser' | 'referenced' | 'none';
   colour: string | null;
-  hideOthers: boolean;
   // For 'allDepartments' mode: colours of departments that contribute
   // to this task (shown as small dots below the node).
   contributorColours?: string[];
@@ -40,19 +39,18 @@ export interface PerspectiveInfo {
 export function computePerspective(
   file: ProcessFile,
   filter: PerspectiveFilter | null,
-  hideOthers: boolean,
 ): Map<string, PerspectiveInfo> {
   const map = new Map<string, PerspectiveInfo>();
   if (!filter) return map;
 
   if (filter.type === 'allDepartments') {
-    return computeAllDepartments(file, hideOthers);
+    return computeAllDepartments(file);
   }
   if (filter.type === 'dates') {
-    return computeDates(file, hideOthers);
+    return computeDates(file);
   }
   if (filter.type === 'deliverables') {
-    return computeDeliverables(file, hideOthers);
+    return computeDeliverables(file);
   }
 
   // Department or role filter.
@@ -98,15 +96,15 @@ export function computePerspective(
       activeNames.has(task.meetingOrganiser);
 
     if (isAccountable) {
-      map.set(task.id, { role: 'accountable', colour, hideOthers });
+      map.set(task.id, { role: 'accountable', colour });
       continue;
     }
     if (isContributor) {
-      map.set(task.id, { role: 'contributor', colour, hideOthers });
+      map.set(task.id, { role: 'contributor', colour });
       continue;
     }
     if (isMeetingOrganiser) {
-      map.set(task.id, { role: 'meetingOrganiser', colour, hideOthers });
+      map.set(task.id, { role: 'meetingOrganiser', colour });
       continue;
     }
 
@@ -124,9 +122,9 @@ export function computePerspective(
       );
 
     if (isReferenced) {
-      map.set(task.id, { role: 'referenced', colour, hideOthers });
+      map.set(task.id, { role: 'referenced', colour });
     } else {
-      map.set(task.id, { role: 'none', colour: null, hideOthers });
+      map.set(task.id, { role: 'none', colour: null });
     }
   }
 
@@ -135,7 +133,6 @@ export function computePerspective(
 
 function computeAllDepartments(
   file: ProcessFile,
-  hideOthers: boolean,
 ): Map<string, PerspectiveInfo> {
   const map = new Map<string, PerspectiveInfo>();
 
@@ -170,18 +167,16 @@ function computeAllDepartments(
       map.set(task.id, {
         role: 'accountable',
         colour,
-        hideOthers,
         contributorColours: contribColours,
       });
     } else if (contribColours.length > 0) {
       map.set(task.id, {
         role: 'contributor',
         colour: contribColours[0],
-        hideOthers,
         contributorColours: contribColours.slice(1),
       });
     } else {
-      map.set(task.id, { role: 'none', colour: null, hideOthers });
+      map.set(task.id, { role: 'none', colour: null });
     }
   }
 
@@ -190,15 +185,14 @@ function computeAllDepartments(
 
 function computeDates(
   file: ProcessFile,
-  hideOthers: boolean,
 ): Map<string, PerspectiveInfo> {
   const map = new Map<string, PerspectiveInfo>();
   const ACCENT = '#f59e0b';
   for (const task of file.tasks) {
     if (task.dateType && task.dateType !== 'NONE') {
-      map.set(task.id, { role: 'accountable', colour: ACCENT, hideOthers });
+      map.set(task.id, { role: 'accountable', colour: ACCENT });
     } else {
-      map.set(task.id, { role: 'none', colour: null, hideOthers });
+      map.set(task.id, { role: 'none', colour: null });
     }
   }
   return map;
@@ -206,15 +200,14 @@ function computeDates(
 
 function computeDeliverables(
   file: ProcessFile,
-  hideOthers: boolean,
 ): Map<string, PerspectiveInfo> {
   const map = new Map<string, PerspectiveInfo>();
   const ACCENT = '#6366f1';
   for (const task of file.tasks) {
     if (task.deliverableTargets.length > 0) {
-      map.set(task.id, { role: 'accountable', colour: ACCENT, hideOthers });
+      map.set(task.id, { role: 'accountable', colour: ACCENT });
     } else {
-      map.set(task.id, { role: 'none', colour: null, hideOthers });
+      map.set(task.id, { role: 'none', colour: null });
     }
   }
   return map;

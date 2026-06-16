@@ -42,12 +42,6 @@
   z-index: -1;
 }
 
-/* When dimmed, let the backing go transparent too so the fade
-   effect looks natural. */
-.task-node-desaturated::before {
-  background: transparent;
-}
-
 .task-node:hover {
   border-color: var(--color-accent);
 }
@@ -176,13 +170,6 @@
 /* Search filter: dim non-matching nodes. */
 .task-node-search-dimmed {
   opacity: 0.2;
-}
-
-/* "Hide unrelated" perspective mode: fade non-matching tasks so
-   the relevant ones pop, but keep content visible for context. */
-.task-node-desaturated {
-  opacity: 0.3;
-  filter: grayscale(1);
 }
 
 .task-node .react-flow__handle {

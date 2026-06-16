@@ -6,8 +6,6 @@ import './PerspectivesPanel.css';
 interface Props {
   filter: PerspectiveFilter | null;
   onFilterChange: (filter: PerspectiveFilter | null) => void;
-  hideOthers: boolean;
-  onHideOthersChange: (hide: boolean) => void;
   simplifyView: boolean;
   onSimplifyViewChange: (simplify: boolean) => void;
 }
@@ -18,8 +16,6 @@ interface Props {
 export function PerspectivesPanel({
   filter,
   onFilterChange,
-  hideOthers,
-  onHideOthersChange,
   simplifyView,
   onSimplifyViewChange,
 }: Props) {
@@ -146,15 +142,6 @@ export function PerspectivesPanel({
           onToggleRole={toggleRole}
         />
       )}
-
-      <label className="perspectives-checkbox">
-        <input
-          type="checkbox"
-          checked={hideOthers}
-          onChange={(e) => onHideOthersChange(e.target.checked)}
-        />
-        <span>Dim unrelated tasks</span>
-      </label>
 
       {(filter?.type === 'department' || filter?.type === 'role') && (
         <label className="perspectives-checkbox">

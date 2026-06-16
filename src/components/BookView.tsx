@@ -127,6 +127,7 @@ export function BookView() {
   const updateMeta = useAppStore((s) => s.updateMeta);
 
   const [filter, setFilter] = useState<BookFilter>(EMPTY_FILTER);
+  const [simplify, setSimplify] = useState(false);
 
   const roleToDeptId = useMemo(() => {
     const map = new Map<string, string>();
@@ -152,6 +153,8 @@ export function BookView() {
       <BookPerspectivesSidebar
         filter={filter}
         onChange={setFilter}
+        simplify={simplify}
+        onSimplifyChange={setSimplify}
       />
       <article className="book-view">
         <header
@@ -310,6 +313,7 @@ export function BookView() {
             file={file}
             filter={filter}
             roleToDeptId={roleToDeptId}
+            simplify={simplify}
           />
         ))}
       </article>
@@ -407,12 +411,14 @@ function BookChapter({
   file,
   filter,
   roleToDeptId,
+  simplify,
 }: {
   phase: { id: string; name: string; intro: string; colour: string | null };
   chapterNumber: number;
   file: ProcessFile;
   filter: BookFilter;
   roleToDeptId: Map<string, string>;
+  simplify: boolean;
 }) {
   // Compute layout positions so the book ordering matches the visual
   // flow (Y then X) rather than taskId string order.
@@ -473,6 +479,11 @@ function BookChapter({
         phaseName={phase.name}
         highlightTaskIds={
           filtered
+            ? new Set(tasks.map((t) => t.id))
+            : null
+        }
+        collapseRelevantIds={
+          simplify && filtered
             ? new Set(tasks.map((t) => t.id))
             : null
         }

@@ -71,7 +71,6 @@ interface Props {
   fadeOver: number | null;
   // Perspective lens config.
   perspectiveFilter: PerspectiveFilter | null;
-  perspectiveHideOthers: boolean;
   // When true + a dept/role filter is active, collapse irrelevant
   // tasks into placeholder nodes for a simplified personal view.
   simplifyView: boolean;
@@ -93,11 +92,11 @@ function ProcessFlowInner({
   highlightEnabled,
   fadeOver,
   perspectiveFilter,
-  perspectiveHideOthers,
   simplifyView,
   searchQuery,
 }: Props) {
   const reactFlow = useReactFlow();
+  const containerRef = useRef<HTMLDivElement>(null);
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
   const addTask = useAppStore((s) => s.addTask);
@@ -204,8 +203,8 @@ function ProcessFlowInner({
   // Perspective lens — compute once per filter/file change.
   const perspectiveMap = useMemo(() => {
     if (!perspectiveFilter || !file) return null;
-    return computePerspective(file, perspectiveFilter, perspectiveHideOthers);
-  }, [perspectiveFilter, perspectiveHideOthers, file]);
+    return computePerspective(file, perspectiveFilter);
+  }, [perspectiveFilter, file]);
 
   // Search matching — when a query is active, non-matching nodes get
   // a 'searchDimmed' flag that TaskNode uses to reduce opacity.
@@ -476,7 +475,7 @@ function ProcessFlowInner({
   }
 
   return (
-    <div className="process-flow">
+    <div className="process-flow" ref={containerRef}>
       <ReactFlow
         nodes={allNodes}
         edges={allEdges}
@@ -485,6 +484,11 @@ function ProcessFlowInner({
         onNodeClick={handleNodeClick}
         onNodeContextMenu={handleNodeContextMenu}
         onPaneClick={() => { selectTask(null); setContextMenu(null); }}
+        onMove={(_e, vp) => {
+          // Expose live zoom as a CSS var so perspective borders can
+          // counter-scale and keep a constant on-screen weight.
+          containerRef.current?.style.setProperty('--rf-zoom', String(vp.zoom));
+        }}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.05}

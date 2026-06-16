@@ -2,29 +2,42 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { layoutTasks, type LayoutResult } from '../utils/flowLayout';
 import { computePerspective, type PerspectiveInfo } from '../utils/perspective';
+import { collapseIrrelevantTasks, COLLAPSED_PREFIX } from '../utils/collapseIrrelevant';
 import { DEFAULT_LAB_CONFIG } from '../utils/flowLab';
 import './BookFlowDiagram.css';
 
 interface Props {
   phaseId: string;
   phaseName: string;
-  // When set, tasks whose ID is in this set get a red highlight ring
-  // in the flow diagram so the reader can see which steps belong to
-  // the active filter. Null = no highlighting (unfiltered view).
+  // When set, tasks whose ID is in this set get a department-coloured
+  // highlight ring so the reader can see which steps belong to the
+  // active filter. Null = no highlighting (unfiltered view).
   highlightTaskIds?: Set<string> | null;
+  // When set, the diagram collapses tasks NOT in this set into
+  // "other tasks" placeholders (simplified per-team flow).
+  collapseRelevantIds?: Set<string> | null;
 }
 
 // Static SVG rendering of a phase's flow diagram for the book view.
 // Runs the same ELK layout as ProcessFlow but renders plain SVG
 // elements instead of React Flow — lighter, printable, no interactivity.
-export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props) {
+export function BookFlowDiagram({
+  phaseId,
+  phaseName,
+  highlightTaskIds,
+  collapseRelevantIds,
+}: Props) {
   const file = useAppStore((s) => s.file);
   const [layout, setLayout] = useState<LayoutResult | null>(null);
 
   useEffect(() => {
     if (!file) return;
     let cancelled = false;
-    layoutTasks(file.tasks, phaseId, DEFAULT_LAB_CONFIG)
+    const tasks =
+      collapseRelevantIds && collapseRelevantIds.size > 0
+        ? collapseIrrelevantTasks(file, phaseId, collapseRelevantIds)
+        : file.tasks;
+    layoutTasks(tasks, phaseId, DEFAULT_LAB_CONFIG)
       .then((result) => {
         if (!cancelled) setLayout(result);
       })
@@ -34,12 +47,12 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
     return () => {
       cancelled = true;
     };
-  }, [file, phaseId]);
+  }, [file, phaseId, collapseRelevantIds]);
 
   // Always compute allDepartments perspective for the book view.
   const perspMap = useMemo(() => {
     if (!file) return new Map<string, PerspectiveInfo>();
-    return computePerspective(file, { type: 'allDepartments' }, false);
+    return computePerspective(file, { type: 'allDepartments' });
   }, [file]);
 
   // Departments represented in this phase's tasks (accountable or
@@ -153,6 +166,36 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
               } | undefined;
               const task = taskData?.task;
               if (!task) return null;
+
+              // Collapsed placeholder: muted dashed box with label.
+              if (task.id.startsWith(COLLAPSED_PREFIX)) {
+                return (
+                  <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
+                    <rect
+                      width={w}
+                      height={h}
+                      rx={4}
+                      ry={4}
+                      fill="#f4f4f4"
+                      stroke="#bbb"
+                      strokeWidth={1.5}
+                      strokeDasharray="5 4"
+                    />
+                    <text
+                      x={w / 2}
+                      y={h / 2}
+                      fontSize={11}
+                      fill="#888"
+                      fontStyle="italic"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      {task.name}
+                    </text>
+                  </g>
+                );
+              }
+
               const persp = perspMap.get(task.id ?? n.id);
               const fillColour = persp?.colour
                 ? `${persp.colour}30`
@@ -162,12 +205,14 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
               const highlighted =
                 highlightTaskIds != null &&
                 highlightTaskIds.has(task.id);
+              // Glow colour matches the task's accountable department
+              // so the highlight reads as "this department's work".
+              const glowColour = persp?.colour ?? '#06b6d4';
               return (
                 <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
-                  {/* Red highlight ring when the task matches the
-                      active book filter. Drawn 3px outside the node
-                      with a 2px gap so it doesn't merge with the
-                      node's own border. */}
+                  {/* Department-coloured highlight ring when the task
+                      matches the active book filter. Drawn 5px outside
+                      the node so it doesn't merge with the node border. */}
                   {highlighted && (
                     <rect
                       x={-5}
@@ -177,7 +222,7 @@ export function BookFlowDiagram({ phaseId, phaseName, highlightTaskIds }: Props)
                       rx={8}
                       ry={8}
                       fill="none"
-                      stroke="#06b6d4"
+                      stroke={glowColour}
                       strokeWidth={3}
                       filter="url(#book-glow)"
                     />

@@ -159,32 +159,16 @@ function PerspectiveSwatch({
   let style: React.CSSProperties;
   switch (variant) {
     case 'accountable':
-      style = {
-        borderColor: colour,
-        backgroundColor: colour + '30',
-        borderStyle: 'solid',
-      };
+      style = { borderColor: colour, backgroundColor: colour + '70', borderStyle: 'solid' };
       break;
     case 'contributor':
-      style = {
-        borderColor: colour,
-        backgroundColor: colour + '15',
-        borderStyle: 'dashed',
-      };
+      style = { borderColor: colour, backgroundColor: colour + '3D', borderStyle: 'solid' };
       break;
     case 'meeting':
-      style = {
-        borderColor: colour,
-        backgroundColor: 'transparent',
-        borderStyle: 'solid',
-      };
+      style = { borderColor: colour, backgroundColor: colour + '1F', borderStyle: 'solid' };
       break;
     case 'referenced':
-      style = {
-        borderColor: colour,
-        backgroundColor: 'transparent',
-        borderStyle: 'dotted',
-      };
+      style = { borderColor: colour, backgroundColor: colour + '0D', borderStyle: 'dotted' };
       break;
   }
   return (

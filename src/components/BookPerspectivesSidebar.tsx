@@ -6,9 +6,16 @@ import './BookPerspectivesSidebar.css';
 interface Props {
   filter: BookFilter;
   onChange: (next: BookFilter) => void;
+  simplify: boolean;
+  onSimplifyChange: (simplify: boolean) => void;
 }
 
-export function BookPerspectivesSidebar({ filter, onChange }: Props) {
+export function BookPerspectivesSidebar({
+  filter,
+  onChange,
+  simplify,
+  onSimplifyChange,
+}: Props) {
   const file = useAppStore((s) => s.file);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
@@ -192,6 +199,22 @@ export function BookPerspectivesSidebar({ filter, onChange }: Props) {
           )}
           {' '}selected
         </p>
+      )}
+
+      {hasAny && (
+        <label className="book-perspectives-simplify">
+          <input
+            type="checkbox"
+            checked={simplify}
+            onChange={(e) => onSimplifyChange(e.target.checked)}
+          />
+          <span>
+            Simplify flow diagrams
+            <small>
+              Collapse unrelated steps into "other tasks" placeholders
+            </small>
+          </span>
+        </label>
       )}
     </aside>
   );

@@ -29,6 +29,15 @@ function highlightStyle(info: HighlightInfo | undefined): CSSProperties {
 
 const FALLBACK_COLOUR = '#6366f1';
 
+// Border weight counter-scaled against the canvas zoom so the visible
+// stroke stays ~2px regardless of how far the user zooms out. --rf-zoom
+// is set imperatively by ProcessFlow on the flow container.
+const PERSP_BORDER_WIDTH = 'clamp(1.5px, calc(2px / var(--rf-zoom, 1)), 18px)';
+
+// Involvement level → background fill alpha (hex suffix). Fill intensity
+// is the primary, zoom-robust signal: the "heat" of a card tells you
+// your involvement level at a glance even when borders are too small to
+// read. Strongest = accountable, fading down to referenced.
 function perspectiveStyle(info: PerspectiveInfo | undefined): {
   style: CSSProperties;
   className: string;
@@ -41,8 +50,9 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
       return {
         style: {
           borderColor: colour,
-          backgroundColor: colour + '30',
+          backgroundColor: colour + '70', // ~44%
           borderStyle: 'solid',
+          borderWidth: PERSP_BORDER_WIDTH,
         },
         className: '',
       };
@@ -50,8 +60,9 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
       return {
         style: {
           borderColor: colour,
-          backgroundColor: colour + '15',
-          borderStyle: 'dashed',
+          backgroundColor: colour + '3D', // ~24%
+          borderStyle: 'solid',
+          borderWidth: PERSP_BORDER_WIDTH,
         },
         className: '',
       };
@@ -59,8 +70,9 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
       return {
         style: {
           borderColor: colour,
-          backgroundColor: 'transparent',
+          backgroundColor: colour + '1F', // ~12%
           borderStyle: 'solid',
+          borderWidth: PERSP_BORDER_WIDTH,
         },
         className: '',
       };
@@ -68,16 +80,14 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
       return {
         style: {
           borderColor: colour,
-          backgroundColor: 'transparent',
+          backgroundColor: colour + '0D', // ~5%
           borderStyle: 'dotted',
+          borderWidth: PERSP_BORDER_WIDTH,
         },
         className: '',
       };
     case 'none':
-      return {
-        style: {},
-        className: info.hideOthers ? 'task-node-desaturated' : '',
-      };
+      return { style: {}, className: '' };
   }
 }
 

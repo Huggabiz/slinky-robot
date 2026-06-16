@@ -83,7 +83,6 @@ function App() {
   // Perspective lens state.
   const [perspectiveFilter, setPerspectiveFilter] =
     useState<PerspectiveFilter | null>({ type: 'allDepartments' });
-  const [perspectiveHideOthers, setPerspectiveHideOthers] = useState(false);
   const [simplifyView, setSimplifyView] = useState(false);
 
   // View toggle: flow chart vs book view.
@@ -242,8 +241,6 @@ function App() {
             <PerspectivesPanel
               filter={perspectiveFilter}
               onFilterChange={setPerspectiveFilter}
-              hideOthers={perspectiveHideOthers}
-              onHideOthersChange={setPerspectiveHideOthers}
               simplifyView={simplifyView}
               onSimplifyViewChange={setSimplifyView}
             />
@@ -264,7 +261,6 @@ function App() {
               highlightEnabled={highlightEnabled}
               fadeOver={fadeOver}
               perspectiveFilter={perspectiveFilter}
-              perspectiveHideOthers={perspectiveHideOthers}
               simplifyView={simplifyView}
               searchQuery={searchQuery}
             />
