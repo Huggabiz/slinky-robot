@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { Role } from '../types';
+import { looksLikeTaskId } from '../utils/taskRefs';
 import './MarkdownEditor.css';
 
 interface Props {
@@ -64,7 +65,7 @@ function tokenizeRoleRefs(
       : undefined;
     out.push(
       <span
-        key={key++}
+        key={`r${key++}`}
         className="md-highlight-role-token"
         style={style}
       >
@@ -76,6 +77,62 @@ function tokenizeRoleRefs(
   if (lastIndex < text.length) {
     out.push(text.slice(lastIndex));
   }
+  return out;
+}
+
+// Split a plain string into runs, tinting each #TaskID run. Valid ids
+// (in validTaskIds) tint teal; id-shaped-but-unknown tokens tint as
+// broken; incidental "#word" / "#1" is left untouched. seg disambiguates
+// React keys across the multiple string segments we tokenise.
+function tokenizeTaskRefs(
+  text: string,
+  validTaskIds: Set<string>,
+  seg: number,
+): ReactNode[] {
+  const pattern = /(^|[^A-Za-z0-9_])#([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?)/g;
+  const out: ReactNode[] = [];
+  let lastIndex = 0;
+  let key = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const prefix = match[1];
+    const token = match[2];
+    const valid = validTaskIds.has(token);
+    if (!valid && !looksLikeTaskId(token)) continue; // leave plain text
+    const hashIndex = match.index + prefix.length;
+    const endIndex = hashIndex + 1 + token.length;
+    if (hashIndex > lastIndex) out.push(text.slice(lastIndex, hashIndex));
+    out.push(
+      <span
+        key={`t${seg}-${key++}`}
+        className={`md-highlight-task-token${valid ? '' : ' md-highlight-task-token-broken'}`}
+      >
+        #{token}
+      </span>,
+    );
+    lastIndex = endIndex;
+  }
+  if (lastIndex < text.length) out.push(text.slice(lastIndex));
+  return out;
+}
+
+// Compose the two: tokenise @Role refs first, then split any remaining
+// plain-string runs by #TaskID refs.
+function tokenizeRefs(
+  text: string,
+  roles: Role[],
+  validTaskIds: Set<string>,
+  colourForRole: (name: string) => string | null,
+): ReactNode[] {
+  const roleNodes = tokenizeRoleRefs(text, roles, colourForRole);
+  const out: ReactNode[] = [];
+  roleNodes.forEach((node, i) => {
+    if (typeof node === 'string') {
+      out.push(...tokenizeTaskRefs(node, validTaskIds, i));
+    } else {
+      out.push(node);
+    }
+  });
   return out;
 }
 
@@ -98,6 +155,12 @@ export function MarkdownEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const file = useAppStore((s) => s.file);
   const roles = file?.roles ?? [];
+  const tasks = file?.tasks ?? [];
+
+  const validTaskIds = useMemo(
+    () => new Set(tasks.map((t) => t.taskId).filter((id) => id.trim() !== '')),
+    [tasks],
+  );
 
   const colourForRole = (roleName: string): string | null => {
     if (!file) return null;
@@ -113,12 +176,13 @@ export function MarkdownEditor({
   // div with white-space: pre-wrap — append a space so the backdrop
   // height matches the textarea height.
   const displayNodes = useMemo(
-    () => tokenizeRoleRefs(
+    () => tokenizeRefs(
       value.endsWith('\n') ? value + ' ' : value,
       roles,
+      validTaskIds,
       colourForRole,
     ),
-    [value, roles, file],
+    [value, roles, validTaskIds, file],
   );
 
   // Auto-grow: resize the textarea to fit content so it never needs
@@ -135,25 +199,55 @@ export function MarkdownEditor({
 
   // Autocomplete state. When non-null, a popover is shown and keys
   // (ArrowUp/Down/Enter/Tab/Escape) are intercepted on the textarea.
+  // `trigger` distinguishes @Role from #TaskID mentions.
   const [autocomplete, setAutocomplete] = useState<{
+    trigger: '@' | '#';
     query: string;
-    fragmentStart: number; // index of `@` in value
+    fragmentStart: number; // index of the trigger char in value
     activeIndex: number;
   } | null>(null);
 
-  const matches = useMemo(() => {
+  // A unified suggestion: `insert` is the text placed after the trigger,
+  // `display` is the popover label (already prefixed with the trigger).
+  const matches = useMemo<
+    { key: string; insert: string; display: string }[]
+  >(() => {
     if (!autocomplete) return [];
     const q = autocomplete.query.toLowerCase();
+    if (autocomplete.trigger === '#') {
+      // Dedupe by display id (ids can collide) and rank prefix-first.
+      const seen = new Set<string>();
+      const items: { id: string; name: string }[] = [];
+      for (const t of tasks) {
+        if (!t.taskId.trim() || seen.has(t.taskId)) continue;
+        seen.add(t.taskId);
+        items.push({ id: t.taskId, name: t.name });
+      }
+      const prefix = items.filter((it) => it.id.toLowerCase().startsWith(q));
+      const inner = items.filter(
+        (it) =>
+          !it.id.toLowerCase().startsWith(q) &&
+          (it.id.toLowerCase().includes(q) ||
+            it.name.toLowerCase().includes(q)),
+      );
+      return [...prefix, ...inner].slice(0, 8).map((it) => ({
+        key: it.id,
+        insert: it.id,
+        display: `#${it.id}${it.name ? ` — ${it.name}` : ''}`,
+      }));
+    }
     const names = roles.map((r) => r.name);
-    // Prefix matches first, then substring matches. Cap at 8 to keep
-    // the popover short.
     const prefix = names.filter((n) => n.toLowerCase().startsWith(q));
     const inner = names.filter(
       (n) =>
         !n.toLowerCase().startsWith(q) && n.toLowerCase().includes(q),
     );
-    return [...prefix, ...inner].slice(0, 8);
-  }, [autocomplete, roles]);
+    return [...prefix, ...inner].slice(0, 8).map((n) => ({
+      key: n,
+      insert: n,
+      display: `@${n}`,
+    }));
+  }, [autocomplete, roles, tasks]);
 
   // Keep activeIndex in range as matches shrink.
   useEffect(() => {
@@ -167,18 +261,22 @@ export function MarkdownEditor({
   // update/close the autocomplete state accordingly. Called after
   // every value/selection change.
   const syncAutocomplete = (nextValue: string, caret: number) => {
-    // Walk back from caret collecting word chars + space + dashes until
-    // we hit an `@` that's at string start or preceded by a non-word
-    // char. If found, the fragment is whatever comes after it up to
-    // the caret.
+    // Walk back from caret collecting fragment chars until we hit a
+    // trigger (`@` for roles, `#` for tasks) that's at string start or
+    // preceded by a non-word char. The fragment is whatever follows the
+    // trigger up to the caret. Role names allow spaces; task ids don't,
+    // but the permissive walk-back is fine — a fragment that can't match
+    // anything just yields an empty (hidden) popover.
     let i = caret - 1;
     let fragment = '';
     while (i >= 0) {
       const ch = nextValue[i];
-      if (ch === '@') {
+      if (ch === '@' || ch === '#') {
         const before = i === 0 ? '' : nextValue[i - 1];
         if (!before || /[^A-Za-z0-9_]/.test(before)) {
+          const trigger = ch as '@' | '#';
           setAutocomplete((prev) => ({
+            trigger,
             query: fragment,
             fragmentStart: i,
             activeIndex: prev?.activeIndex ?? 0,
@@ -187,11 +285,9 @@ export function MarkdownEditor({
         }
         break;
       }
-      // Role names can contain letters, digits, spaces, dashes. Stop
-      // on newline or other punctuation that's unlikely inside a name.
-      if (!/[A-Za-z0-9 \-&()]/.test(ch)) break;
-      // Don't let the fragment cross the previous blank before an `@`
-      // on a different line.
+      // Allow letters, digits, spaces, dashes, and the id punctuation
+      // (._) so both role names and task ids can be typed mid-fragment.
+      if (!/[A-Za-z0-9 _.\-&()]/.test(ch)) break;
       if (ch === '\n') break;
       fragment = ch + fragment;
       i--;
@@ -199,14 +295,16 @@ export function MarkdownEditor({
     setAutocomplete(null);
   };
 
-  const acceptAutocomplete = (name: string) => {
+  const acceptAutocomplete = (suggestion: {
+    insert: string;
+  }) => {
     if (!autocomplete) return;
     const ta = textareaRef.current;
     if (!ta) return;
     const caret = ta.selectionEnd;
     const before = value.slice(0, autocomplete.fragmentStart);
     const after = value.slice(caret);
-    const insertion = `@${name}`;
+    const insertion = `${autocomplete.trigger}${suggestion.insert}`;
     const next = before + insertion + after;
     const newCaret = before.length + insertion.length;
     onChange(next);
@@ -396,8 +494,11 @@ export function MarkdownEditor({
           &ldquo;&ensp;Quote
         </button>
         <span className="md-sep" aria-hidden />
-        <span className="md-hint" title="Type @ in the text to reference a role">
-          @Role
+        <span
+          className="md-hint"
+          title="Type @ to reference a role, # to reference a task"
+        >
+          @Role&ensp;#Task
         </span>
       </div>
       <div className="md-textarea-wrap">
@@ -431,19 +532,19 @@ export function MarkdownEditor({
         />
         {autocomplete && matches.length > 0 && (
           <ul className="md-autocomplete" role="listbox">
-            {matches.map((name, i) => (
+            {matches.map((s, i) => (
               <li
-                key={name}
+                key={s.key}
                 className={`md-autocomplete-item${i === autocomplete.activeIndex ? ' md-autocomplete-active' : ''}`}
                 role="option"
                 aria-selected={i === autocomplete.activeIndex}
                 onMouseDown={(e) => {
                   // Prevent blur from firing before the click.
                   e.preventDefault();
-                  acceptAutocomplete(name);
+                  acceptAutocomplete(s);
                 }}
               >
-                @{name}
+                {s.display}
               </li>
             ))}
           </ul>

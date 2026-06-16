@@ -137,6 +137,32 @@
   text-decoration-color: var(--role-ref-colour, var(--color-accent));
 }
 
+/* #TaskID runs — teal in light, brighter in the edit theme. Colour-only
+   so the backdrop stays pixel-aligned with the textarea. */
+.md-highlight-task-token {
+  color: #0e7490;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  text-decoration-color: #0e7490;
+}
+
+.app.edit-mode .md-highlight-task-token {
+  color: #38bdf8;
+  text-decoration-color: #38bdf8;
+}
+
+.md-highlight-task-token-broken {
+  color: #dc2626;
+  text-decoration-style: wavy;
+  text-decoration-color: #dc2626;
+}
+
+.app.edit-mode .md-highlight-task-token-broken {
+  color: #f87171;
+  text-decoration-color: #f87171;
+}
+
 .md-hint {
   font-size: 11px;
   color: var(--color-text-muted);

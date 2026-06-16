@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   findPhaseById,
@@ -6,6 +6,7 @@ import {
   getPrerequisiteTasks,
   type Task,
 } from '../types';
+import { tasksReferencingTaskId } from '../utils/taskRefs';
 import { Markdown } from './Markdown';
 import './TaskDetail.css';
 
@@ -14,6 +15,14 @@ import './TaskDetail.css';
 export function TaskDetailRead({ task }: { task: Task }) {
   const file = useAppStore((s) => s.file);
   const selectTask = useAppStore((s) => s.selectTask);
+
+  // Tasks whose prose references this one via #TaskID.
+  const referencedIn = useMemo(() => {
+    if (!file) return [];
+    const ids = tasksReferencingTaskId(file, task.taskId, task.id);
+    return file.tasks.filter((t) => ids.has(t.id));
+  }, [file, task.taskId, task.id]);
+
   if (!file) return null;
 
   const phase = findPhaseById(file, task.phaseId);
@@ -89,6 +98,20 @@ export function TaskDetailRead({ task }: { task: Task }) {
           />
         )}
       </Section>
+
+      <Section title={`Referenced in (${referencedIn.length})`}>
+        {referencedIn.length === 0 ? (
+          <p className="task-detail-muted">
+            No other task mentions this one with #{task.taskId}.
+          </p>
+        ) : (
+          <TaskLinkList
+            tasks={referencedIn}
+            onSelect={selectTask}
+            direction="ref"
+          />
+        )}
+      </Section>
     </section>
   );
 }
@@ -148,9 +171,9 @@ function TaskLinkList({
 }: {
   tasks: Task[];
   onSelect: (id: string) => void;
-  direction: 'up' | 'down';
+  direction: 'up' | 'down' | 'ref';
 }) {
-  const arrow = direction === 'up' ? '←' : '→';
+  const arrow = direction === 'up' ? '←' : direction === 'ref' ? '#' : '→';
   return (
     <ul className="task-link-list">
       {tasks.map((t) => (

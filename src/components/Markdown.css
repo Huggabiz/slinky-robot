@@ -79,6 +79,39 @@
   white-space: nowrap;
 }
 
+/* #TaskID references: monospaced, teal tint + dotted underline so they
+   read as a cross-link distinct from the dept-coloured @Role refs.
+   Clickable — selects the referenced task. */
+.markdown-body .task-ref {
+  color: var(--task-ref-colour, #0e7490);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--task-ref-colour, #0e7490);
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.app.edit-mode .markdown-body .task-ref {
+  color: var(--task-ref-colour, #38bdf8);
+  text-decoration-color: var(--task-ref-colour, #38bdf8);
+}
+
+/* Broken ref (the referenced task was deleted / renamed away): red
+   wavy underline so it's obvious which prose needs fixing. */
+.markdown-body .task-ref-broken {
+  color: #dc2626;
+  text-decoration-style: wavy;
+  text-decoration-color: #dc2626;
+  cursor: help;
+}
+
+.app.edit-mode .markdown-body .task-ref-broken {
+  color: #f87171;
+  text-decoration-color: #f87171;
+}
+
 /* Book view uses a slightly larger base size. */
 .book-step-prose.markdown-body,
 .book-chapter-intro .markdown-body {

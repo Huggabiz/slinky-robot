@@ -30,6 +30,7 @@ import {
   computePerspective,
   type PerspectiveFilter,
 } from '../utils/perspective';
+import { extractTaskRefs } from '../utils/taskRefs';
 import {
   findPhaseById,
   findTaskByInternalId,
@@ -201,6 +202,30 @@ function ProcessFlowInner({
   const roleSearchName = searchTrimmed.startsWith('@')
     ? searchTrimmed.slice(1).trim()
     : null;
+  // `#TaskID` matches the task with that id plus any task whose prose
+  // references it via #id.
+  const taskSearchId = searchTrimmed.startsWith('#')
+    ? searchTrimmed.slice(1).trim()
+    : null;
+
+  const taskRefMatchIds = useMemo(() => {
+    if (!taskSearchId || !file) return null;
+    const one = new Set([taskSearchId]);
+    const ids = new Set<string>();
+    for (const t of file.tasks) {
+      if (t.taskId === taskSearchId) {
+        ids.add(t.id);
+        continue;
+      }
+      const prose = [
+        t.description,
+        t.deliverables,
+        t.keyDateRationale ?? '',
+      ].join('\n\n');
+      if (extractTaskRefs(prose, one).has(taskSearchId)) ids.add(t.id);
+    }
+    return ids;
+  }, [taskSearchId, file]);
 
   const roleRefMatchIds = useMemo(() => {
     if (!roleSearchName || !file) return null;
@@ -238,7 +263,9 @@ function ProcessFlowInner({
         const task = taskData?.task;
         let searchMatch = true;
         if (searchLower && task) {
-          if (roleRefMatchIds) {
+          if (taskRefMatchIds) {
+            searchMatch = taskRefMatchIds.has(task.id);
+          } else if (roleRefMatchIds) {
             searchMatch = roleRefMatchIds.has(task.id);
           } else {
             const haystack =
@@ -264,7 +291,7 @@ function ProcessFlowInner({
           },
         };
       }),
-    [layout.nodes, selectedTaskId, selectedTaskIds, perspectiveMap, searchLower, roleRefMatchIds],
+    [layout.nodes, selectedTaskId, selectedTaskIds, perspectiveMap, searchLower, roleRefMatchIds, taskRefMatchIds],
   );
 
   // Colour minimap rectangles by the task's phase colour so the

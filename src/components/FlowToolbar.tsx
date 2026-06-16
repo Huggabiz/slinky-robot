@@ -49,7 +49,7 @@ export function FlowToolbar({
         <input
           type="text"
           className="flow-toolbar-search"
-          placeholder="Search tasks… (@RoleName to find role refs)"
+          placeholder="Search tasks… (@Role or #TaskID to find refs)"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
         />

@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { makeId } from '../utils/id';
 import { renameRoleInFile } from '../utils/roleRefs';
+import { renameTaskRefInFile } from '../utils/taskRefs';
 
 // Review = read-only navigation; Edit = full editing (behind the
 // file's optional password gate, enforced at transition time in the UI).
@@ -103,6 +104,10 @@ interface AppState {
     options?: { autoPrereqOfTaskId?: string | null },
   ) => string | null;
   updateTask: (id: string, patch: Partial<Task>) => void;
+  // Change a task's display id and propagate the rename through #id
+  // references in every prose field. Kept separate from updateTask so
+  // the ref cascade fires once (on commit) rather than per keystroke.
+  renameTaskId: (id: string, newTaskId: string) => void;
   // ---- Departments ----
   addDepartment: (name: string, colour?: string | null) => string | null;
   updateDepartment: (
@@ -499,6 +504,27 @@ export const useAppStore = create<AppState>((set, get) => {
           t.id === id ? { ...t, ...patch } : t,
         ),
       });
+    },
+
+    renameTaskId: (id, newTaskId) => {
+      const current = get().file;
+      if (!current) return;
+      const task = current.tasks.find((t) => t.id === id);
+      if (!task) return;
+      const oldId = task.taskId;
+      if (oldId === newTaskId) return;
+      let nextFile: ProcessFile = {
+        ...current,
+        tasks: current.tasks.map((t) =>
+          t.id === id ? { ...t, taskId: newTaskId } : t,
+        ),
+      };
+      // Only cascade when both ids are non-blank — renaming to/from an
+      // empty id would otherwise produce dangling "#" tokens in prose.
+      if (oldId.trim() !== '' && newTaskId.trim() !== '') {
+        nextFile = renameTaskRefInFile(nextFile, oldId, newTaskId);
+      }
+      commit(nextFile);
     },
 
     // ---- Intro chapters ----

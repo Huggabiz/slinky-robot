@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   ACTIVITY_TYPES,
@@ -8,6 +8,7 @@ import {
   type DeliverableTarget,
   type Task,
 } from '../types';
+import { tasksReferencingTaskId } from '../utils/taskRefs';
 import { RolePicker, RoleMultiPicker } from './RolePicker';
 import { MarkdownEditor } from './MarkdownEditor';
 import './TaskDetailEdit.css';
@@ -18,8 +19,24 @@ import './TaskDetail.css';
 export function TaskDetailEdit({ task }: { task: Task }) {
   const file = useAppStore((s) => s.file);
   const updateTask = useAppStore((s) => s.updateTask);
+  const renameTaskId = useAppStore((s) => s.renameTaskId);
   const deleteTask = useAppStore((s) => s.deleteTask);
   const selectTask = useAppStore((s) => s.selectTask);
+
+  // The display id commits on blur (not per keystroke) so the #id
+  // reference cascade runs once against the original id, not against
+  // every half-typed intermediate value.
+  const [taskIdDraft, setTaskIdDraft] = useState(task.taskId);
+  useEffect(() => {
+    setTaskIdDraft(task.taskId);
+  }, [task.id, task.taskId]);
+
+  // Tasks whose prose references this one via #TaskID.
+  const referencedIn = useMemo(() => {
+    if (!file) return [];
+    const ids = tasksReferencingTaskId(file, task.taskId, task.id);
+    return file.tasks.filter((t) => ids.has(t.id));
+  }, [file, task.taskId, task.id]);
 
   const phases = useMemo(
     () => (file ? getPhasesOrdered(file) : []),
@@ -75,9 +92,18 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           <input
             type="text"
             className="task-edit-id-input"
-            value={task.taskId}
+            value={taskIdDraft}
             placeholder="Task ID"
-            onChange={(e) => patch({ taskId: e.target.value })}
+            title="Changing the ID updates every #reference to this task"
+            onChange={(e) => setTaskIdDraft(e.target.value)}
+            onBlur={() => {
+              if (taskIdDraft !== task.taskId) {
+                renameTaskId(task.id, taskIdDraft);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
           />
           <input
             type="text"
@@ -175,7 +201,7 @@ export function TaskDetailEdit({ task }: { task: Task }) {
           value={task.description}
           onChange={(v) => patch({ description: v })}
           rows={6}
-          placeholder="What does this task involve? Use @Role to reference a role."
+          placeholder="What does this task involve? Use @Role and #TaskID to reference roles and tasks."
         />
       </Section>
 
@@ -383,14 +409,51 @@ export function TaskDetailEdit({ task }: { task: Task }) {
         </p>
       </Section>
 
+      <Section title={`Referenced in (${referencedIn.length})`}>
+        {referencedIn.length === 0 ? (
+          <p className="task-detail-muted">
+            No other task mentions this one with #{task.taskId}.
+          </p>
+        ) : (
+          <ul className="task-link-list">
+            {referencedIn.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  className="task-link"
+                  onClick={() => selectTask(t.id)}
+                >
+                  <span className="task-link-arrow">#</span>
+                  <span className="task-link-id">{t.taskId}</span>
+                  <span className="task-link-name">
+                    {t.name || '(untitled)'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="task-edit-hint">
+          Type <strong>#</strong> in any description or deliverable to
+          reference another task.
+        </p>
+      </Section>
+
       <Section title="Danger zone">
         <button
           type="button"
           className="task-edit-delete-btn"
           onClick={() => {
+            const refWarning =
+              referencedIn.length > 0
+                ? `\n\n⚠ ${referencedIn.length} other task${referencedIn.length === 1 ? '' : 's'} reference this one with #${task.taskId} ` +
+                  `(${referencedIn.map((t) => t.taskId).join(', ')}). ` +
+                  `Those references will be left dangling and shown in red until you fix them.`
+                : '';
             const ok = window.confirm(
               `Delete "${task.taskId}: ${task.name || '(untitled)'}"?\n\n` +
-                `Dependents will inherit this task's prerequisites so the flow stays connected.`,
+                `Dependents will inherit this task's prerequisites so the flow stays connected.` +
+                refWarning,
             );
             if (ok) deleteTask(task.id);
           }}
