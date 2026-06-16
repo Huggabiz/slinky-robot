@@ -41,17 +41,10 @@ export function isAnchorTask(task: Task): boolean {
 export function collapseIrrelevantTasks(
   file: ProcessFile,
   phaseId: string,
-  inputRelevantIds: Set<string>,
+  relevantTaskIds: Set<string>,
 ): Task[] {
   const phaseTasks = file.tasks.filter((t) => t.phaseId === phaseId);
   if (phaseTasks.length === 0) return [];
-
-  // Treat anchor (Start/Milestone) tasks as relevant so they're never
-  // collapsed — they bookend the diagram and keep it legible.
-  const relevantTaskIds = new Set(inputRelevantIds);
-  for (const t of phaseTasks) {
-    if (isAnchorTask(t)) relevantTaskIds.add(t.id);
-  }
 
   const phaseIdSet = new Set(phaseTasks.map((t) => t.id));
 
@@ -73,6 +66,17 @@ export function collapseIrrelevantTasks(
       ) {
         adjacentIds.add(other.id);
       }
+    }
+  }
+
+  // Start/Milestone anchors are shown like adjacent tasks: they render
+  // normally but DON'T pull in their own neighbours. Treating them as
+  // relevant would expand the adjacency frontier around every milestone
+  // (showing the prereq and successor one step away too), which is not
+  // what we want — they should appear without dragging context in.
+  for (const t of phaseTasks) {
+    if (isAnchorTask(t) && !relevantTaskIds.has(t.id)) {
+      adjacentIds.add(t.id);
     }
   }
 

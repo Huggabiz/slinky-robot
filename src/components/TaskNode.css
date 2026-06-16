@@ -13,11 +13,15 @@
   transition: border-color 0.1s ease, box-shadow 0.1s ease;
 }
 
-/* Collapsed placeholder for irrelevant task groups in simplified view. */
+/* Collapsed placeholder for irrelevant task groups in simplified view.
+   Kept fully opaque (the old 0.5 opacity made the label hard to read) —
+   the dashed border alone signals it's a placeholder. The exaggerated
+   corner radius (4× a normal card) makes clear it isn't a single
+   process step. */
 .task-node-collapsed {
   background: var(--color-bg) !important;
   border-style: dashed !important;
-  opacity: 0.5;
+  border-radius: calc(var(--radius-sm) * 4) !important;
   justify-content: center;
   align-items: center;
 }

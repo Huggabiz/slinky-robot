@@ -177,8 +177,8 @@ export function BookFlowDiagram({
                     <rect
                       width={w}
                       height={h}
-                      rx={4}
-                      ry={4}
+                      rx={16}
+                      ry={16}
                       fill="#f4f4f4"
                       stroke="#bbb"
                       strokeWidth={1.5}
