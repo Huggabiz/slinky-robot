@@ -393,13 +393,44 @@ function buildResult(
 
   deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6, nodeRects);
 
-  // Final safety pass: shove any interior segment that ended up lying
-  // across a task card it doesn't connect to off to the nearest clear
-  // side. ELK routes around nodes, but bend-tightening and the merge
-  // passes can reintroduce a crossing (most visibly in the simplified
-  // view, where an A→C edge can drop straight past the B that sits
-  // between them). A no-op for already-clean edges.
+  // Final safety pass: clear any segment lying across a task card the
+  // edge doesn't connect to — sliding interior segments, detouring
+  // port stubs. ELK routes around nodes, but bend-tightening and the
+  // merge passes can reintroduce a crossing (most visibly in the
+  // simplified view, where an A→C edge drops straight past the B that
+  // sits between them). A no-op for already-clean edges.
   repelSegmentsFromNodes(edgePointArrays, edgeMeta, nodeRects, nodeRectById);
+
+  // Opt-in diagnostic: localStorage.flowDebug = '1' (then reload).
+  // Logs any edge segment STILL crossing a non-endpoint card after the
+  // repel pass, with task ids + coordinates, so a stubborn case can be
+  // reported without sharing any sensitive prose.
+  if (flowDebugOn()) {
+    for (let e = 0; e < edgePointArrays.length; e++) {
+      const pts = edgePointArrays[e];
+      const sId = edgeMeta[e].sourceId;
+      const tId = edgeMeta[e].targetId;
+      for (let k = 0; k < pts.length - 1; k++) {
+        for (let ni = 0; ni < nodeRects.length; ni++) {
+          const nId = nodes[ni].id;
+          if (nId === sId || nId === tId) continue;
+          if (segmentHitsNode(pts[k], pts[k + 1], nodeRects[ni])) {
+            const pos =
+              k === 0
+                ? 'first'
+                : k === pts.length - 2
+                  ? 'last'
+                  : 'interior';
+            console.debug(
+              `[flow:repel] ${taskById.get(sId)?.taskId ?? '?'}→${taskById.get(tId)?.taskId ?? '?'} ` +
+                `seg#${k}(${pos}) still crosses ${taskById.get(nId)?.taskId ?? nId} ` +
+                `[(${Math.round(pts[k].x)},${Math.round(pts[k].y)})→(${Math.round(pts[k + 1].x)},${Math.round(pts[k + 1].y)})]`,
+            );
+          }
+        }
+      }
+    }
+  }
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -740,12 +771,107 @@ function segmentHitsNode(
 // rather than fling it across the diagram.
 const REPEL_MAX_SHIFT = 240;
 
-// Nudge any interior segment lying across a non-endpoint card to the
-// nearer clear side, keeping the polyline orthogonal (only the segment's
-// two points move, so its perpendicular neighbours just lengthen). Port
-// stubs (first/last segment) never move — that would detach the edge
-// from its node. If neither side is clear within REPEL_MAX_SHIFT the
-// segment is left as-is (never made worse).
+// True if every consecutive segment in the chain clears all obstacles.
+function chainClearsNodes(
+  chain: { x: number; y: number }[],
+  obstacles: NodeRect[],
+): boolean {
+  for (let i = 0; i < chain.length - 1; i++) {
+    if (obstacles.some((r) => segmentHitsNode(chain[i], chain[i + 1], r))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Build a U-shaped detour that routes segment p0→p1 around `blocker`
+// without moving either endpoint (so a port-anchored stub stays
+// attached). Returns the replacement chain [p0, …, p1] for the nearer
+// clear side, or null if there isn't room above and below the card or
+// neither side is clear.
+function detourChain(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  blocker: NodeRect,
+  obstacles: NodeRect[],
+  vertical: boolean,
+): { x: number; y: number }[] | null {
+  if (vertical) {
+    const x = p0.x;
+    const aboveY = blocker.y - NODE_CLEARANCE;
+    const belowY = blocker.y + blocker.h + NODE_CLEARANCE;
+    const loY = Math.min(p0.y, p1.y);
+    const hiY = Math.max(p0.y, p1.y);
+    // Need clearance to peel off above the card and rejoin below it.
+    if (aboveY <= loY + 2 || belowY >= hiY - 2) return null;
+    const sides = [
+      blocker.x + blocker.w + NODE_CLEARANCE,
+      blocker.x - NODE_CLEARANCE,
+    ].sort((a, b) => Math.abs(a - x) - Math.abs(b - x));
+    for (const sx of sides) {
+      if (Math.abs(sx - x) > REPEL_MAX_SHIFT) continue;
+      // Walk the detour in the segment's own direction of travel.
+      const corners =
+        p0.y < p1.y
+          ? [
+              { x, y: aboveY },
+              { x: sx, y: aboveY },
+              { x: sx, y: belowY },
+              { x, y: belowY },
+            ]
+          : [
+              { x, y: belowY },
+              { x: sx, y: belowY },
+              { x: sx, y: aboveY },
+              { x, y: aboveY },
+            ];
+      const chain = [p0, ...corners, p1];
+      if (chainClearsNodes(chain, obstacles)) return chain;
+    }
+    return null;
+  }
+  // Horizontal segment: mirror the logic across the axes.
+  const y = p0.y;
+  const leftX = blocker.x - NODE_CLEARANCE;
+  const rightX = blocker.x + blocker.w + NODE_CLEARANCE;
+  const loX = Math.min(p0.x, p1.x);
+  const hiX = Math.max(p0.x, p1.x);
+  if (leftX <= loX + 2 || rightX >= hiX - 2) return null;
+  const sides = [
+    blocker.y + blocker.h + NODE_CLEARANCE,
+    blocker.y - NODE_CLEARANCE,
+  ].sort((a, b) => Math.abs(a - y) - Math.abs(b - y));
+  for (const sy of sides) {
+    if (Math.abs(sy - y) > REPEL_MAX_SHIFT) continue;
+    const corners =
+      p0.x < p1.x
+        ? [
+            { x: leftX, y },
+            { x: leftX, y: sy },
+            { x: rightX, y: sy },
+            { x: rightX, y },
+          ]
+        : [
+            { x: rightX, y },
+            { x: rightX, y: sy },
+            { x: leftX, y: sy },
+            { x: leftX, y },
+          ];
+    const chain = [p0, ...corners, p1];
+    if (chainClearsNodes(chain, obstacles)) return chain;
+  }
+  return null;
+}
+
+// Final safety pass. Any segment lying across a card the edge doesn't
+// connect to is cleared one of two ways:
+//   • interior segment → slide the whole segment to the nearer clear
+//     side (its perpendicular neighbours just lengthen);
+//   • port-anchored stub (first/last segment, or the whole edge when
+//     it's a single straight run) → insert a U-detour around the card,
+//     keeping both endpoints fixed so the edge stays on its ports.
+// If neither can be done cleanly the segment is left as-is (never made
+// worse). A no-op for already-clean edges.
 function repelSegmentsFromNodes(
   allPoints: { x: number; y: number }[][],
   edgeMeta: { sourceId: string; targetId: string }[],
@@ -761,55 +887,73 @@ function repelSegmentsFromNodes(
     const obstacles = nodeRects.filter((r) => !exempt.has(r));
     if (obstacles.length === 0) continue;
 
-    for (let pass = 0; pass < 3; pass++) {
+    // Bounded passes: each fix restarts the scan so cascading crossings
+    // (a detour that introduces a new bend near another card) settle.
+    for (let pass = 0; pass < 8; pass++) {
       const pts = allPoints[e];
-      let changed = false;
-      // Interior segments only (k ≥ 1 and k+1 ≤ len-2): the port stubs
-      // at either end stay anchored.
-      for (let k = 1; k <= pts.length - 3; k++) {
+      let fixed = false;
+      for (let k = 0; k <= pts.length - 2; k++) {
         const p0 = pts[k];
         const p1 = pts[k + 1];
-        const before = pts[k - 1];
-        const after = pts[k + 2];
         const vertical = Math.abs(p0.x - p1.x) < 0.5;
         const horizontal = Math.abs(p0.y - p1.y) < 0.5;
         if (!vertical && !horizontal) continue;
-        if (!obstacles.some((r) => segmentHitsNode(p0, p1, r))) continue;
+        const blocker = obstacles.find((r) => segmentHitsNode(p0, p1, r));
+        if (!blocker) continue;
 
-        const blocker = obstacles.find((r) => segmentHitsNode(p0, p1, r))!;
-        // Candidate clear coordinates, nearer side first.
-        const cands = vertical
-          ? [blocker.x + blocker.w + NODE_CLEARANCE, blocker.x - NODE_CLEARANCE]
-          : [blocker.y + blocker.h + NODE_CLEARANCE, blocker.y - NODE_CLEARANCE];
-        const cur = vertical ? p0.x : p0.y;
-        cands.sort((c1, c2) => Math.abs(c1 - cur) - Math.abs(c2 - cur));
+        const interior = k >= 1 && k <= pts.length - 3;
 
-        for (const nc of cands) {
-          if (Math.abs(nc - cur) > REPEL_MAX_SHIFT) continue;
-          const np0 = vertical ? { x: nc, y: p0.y } : { x: p0.x, y: nc };
-          const np1 = vertical ? { x: nc, y: p1.y } : { x: p1.x, y: nc };
-          // The moved segment AND its two stretched neighbours must all
-          // clear every obstacle, or we'd just trade one crossing for
-          // another.
-          const ok =
-            !obstacles.some((r) => segmentHitsNode(np0, np1, r)) &&
-            !obstacles.some((r) => segmentHitsNode(before, np0, r)) &&
-            !obstacles.some((r) => segmentHitsNode(np1, after, r));
-          if (ok) {
-            if (vertical) {
-              p0.x = nc;
-              p1.x = nc;
-            } else {
-              p0.y = nc;
-              p1.y = nc;
+        // 1) Interior: try a clean sideways slide first (fewest bends).
+        if (interior) {
+          const before = pts[k - 1];
+          const after = pts[k + 2];
+          const cur = vertical ? p0.x : p0.y;
+          const cands = (
+            vertical
+              ? [blocker.x + blocker.w + NODE_CLEARANCE, blocker.x - NODE_CLEARANCE]
+              : [blocker.y + blocker.h + NODE_CLEARANCE, blocker.y - NODE_CLEARANCE]
+          ).sort((c1, c2) => Math.abs(c1 - cur) - Math.abs(c2 - cur));
+          let slid = false;
+          for (const nc of cands) {
+            if (Math.abs(nc - cur) > REPEL_MAX_SHIFT) continue;
+            const np0 = vertical ? { x: nc, y: p0.y } : { x: p0.x, y: nc };
+            const np1 = vertical ? { x: nc, y: p1.y } : { x: p1.x, y: nc };
+            if (
+              !obstacles.some((r) => segmentHitsNode(np0, np1, r)) &&
+              !obstacles.some((r) => segmentHitsNode(before, np0, r)) &&
+              !obstacles.some((r) => segmentHitsNode(np1, after, r))
+            ) {
+              if (vertical) {
+                p0.x = nc;
+                p1.x = nc;
+              } else {
+                p0.y = nc;
+                p1.y = nc;
+              }
+              slid = true;
+              break;
             }
-            changed = true;
+          }
+          if (slid) {
+            allPoints[e] = normalisePolyline(pts);
+            fixed = true;
             break;
           }
         }
+
+        // 2) Port stub or slide failed: detour around the card.
+        const chain = detourChain(p0, p1, blocker, obstacles, vertical);
+        if (chain) {
+          allPoints[e] = normalisePolyline([
+            ...pts.slice(0, k),
+            ...chain,
+            ...pts.slice(k + 2),
+          ]);
+          fixed = true;
+          break;
+        }
       }
-      if (!changed) break;
-      allPoints[e] = normalisePolyline(pts);
+      if (!fixed) break;
     }
   }
 }
@@ -1250,6 +1394,17 @@ function mergeTraceOn(): boolean {
     return (
       typeof localStorage !== 'undefined' &&
       localStorage.getItem('mergeTrace') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
+function flowDebugOn(): boolean {
+  try {
+    return (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('flowDebug') === '1'
     );
   } catch {
     return false;
