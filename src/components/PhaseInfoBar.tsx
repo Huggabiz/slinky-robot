@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { findPhaseById } from '../types';
-import { Markdown } from './Markdown';
+import { SectionsEditor } from './SectionsEditor';
 import './PhaseInfoBar.css';
 
 interface Props {
@@ -17,6 +17,9 @@ export function PhaseInfoBar({ phaseId }: Props) {
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
   const updatePhase = useAppStore((s) => s.updatePhase);
+  const addPhaseSection = useAppStore((s) => s.addPhaseSection);
+  const updatePhaseSection = useAppStore((s) => s.updatePhaseSection);
+  const deletePhaseSection = useAppStore((s) => s.deletePhaseSection);
   const [expanded, setExpanded] = useState(false);
 
   if (!file || !phaseId) return null;
@@ -59,7 +62,7 @@ export function PhaseInfoBar({ phaseId }: Props) {
 
       {expanded && (
         <div className="phase-info-bar-body">
-          {editing ? (
+          {editing && (
             <div className="phase-info-bar-fields">
               <label className="phase-info-bar-field">
                 <span className="phase-info-bar-label">Name</span>
@@ -92,29 +95,18 @@ export function PhaseInfoBar({ phaseId }: Props) {
                   )}
                 </div>
               </label>
-              <label className="phase-info-bar-field">
-                <span className="phase-info-bar-label">Intro</span>
-                <textarea
-                  value={phase.intro}
-                  onChange={(e) =>
-                    updatePhase(phase.id, { intro: e.target.value })
-                  }
-                  rows={6}
-                  placeholder="Phase introduction / description…"
-                />
-              </label>
-            </div>
-          ) : (
-            <div className="phase-info-bar-read">
-              {phase.intro ? (
-                <Markdown text={phase.intro} className="phase-info-bar-intro" />
-              ) : (
-                <p className="phase-info-bar-empty">
-                  No intro written for this phase yet.
-                </p>
-              )}
             </div>
           )}
+          <SectionsEditor
+            sections={phase.sections ?? []}
+            editing={editing}
+            onAdd={() => addPhaseSection(phase.id)}
+            onUpdate={(sectionId, patch) =>
+              updatePhaseSection(phase.id, sectionId, patch)
+            }
+            onDelete={(sectionId) => deletePhaseSection(phase.id, sectionId)}
+            emptyLabel="No intro written for this phase yet."
+          />
         </div>
       )}
     </section>

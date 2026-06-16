@@ -75,7 +75,15 @@ export interface Phase {
   id: string;                // internal stable id
   order: number;             // manual sort key, lower = earlier
   name: string;
-  intro: string;             // free markdown for v1; constrained template later
+  // Legacy single-field intro. Superseded by `sections` (which support
+  // titles, subtitles, images and multiple blocks like intro chapters).
+  // Retained so older files still parse; the loader migrates a non-empty
+  // intro into a single section. Not rendered directly any more.
+  intro: string;
+  // Structured intro built from the same IntroSection shape used by
+  // intro chapters. Optional for back-compat; guarded with `?? []` at
+  // read sites. The loader seeds it from `intro` on first load.
+  sections?: IntroSection[];
   // Hex colour string (e.g. "#4f46e5") used for the phase's swatch in
   // the sidebar and any other phase accents. Null = no colour chosen.
   // Rendered the same way in both Navigate and Edit modes.

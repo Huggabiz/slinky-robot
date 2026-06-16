@@ -108,9 +108,36 @@ function normaliseShape(
       : [],
     phases: phases.map((p) => {
       const o = (p ?? {}) as Record<string, unknown>;
+      const intro = typeof o.intro === 'string' ? o.intro : '';
+      // Migrate to structured sections. If a `sections` array is present
+      // (even empty) it's authoritative; otherwise seed a single section
+      // from the legacy intro so existing content survives. Gating on the
+      // KEY (not emptiness) means a user who deletes every section won't
+      // have the intro re-seeded on the next load.
+      const hasSectionsKey = Array.isArray(o.sections);
+      const sections = hasSectionsKey
+        ? (o.sections as Record<string, unknown>[]).map((s) => ({
+            id: typeof s.id === 'string' ? s.id : makeId(),
+            title: typeof s.title === 'string' ? s.title : '',
+            subtitle: typeof s.subtitle === 'string' ? s.subtitle : '',
+            body: typeof s.body === 'string' ? s.body : '',
+            image: typeof s.image === 'string' ? s.image : null,
+          }))
+        : intro.trim()
+          ? [
+              {
+                id: makeId(),
+                title: '',
+                subtitle: '',
+                body: intro,
+                image: null,
+              },
+            ]
+          : [];
       return {
         ...o,
-        intro: typeof o.intro === 'string' ? o.intro : '',
+        intro,
+        sections,
         colour:
           typeof o.colour === 'string' || o.colour === null
             ? o.colour

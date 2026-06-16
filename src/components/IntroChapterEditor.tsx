@@ -1,7 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { Markdown } from './Markdown';
-import { MarkdownEditor } from './MarkdownEditor';
-import { pickImageFile, fileToDataUrl } from '../utils/imageUpload';
+import { SectionsEditor } from './SectionsEditor';
 import './IntroChapterEditor.css';
 
 interface Props {
@@ -43,127 +41,16 @@ export function IntroChapterEditor({ chapterId }: Props) {
         )}
       </header>
 
-      <div className="intro-editor-sections">
-        {chapter.sections.map((sec, idx) => (
-          <div key={sec.id} className="intro-editor-section">
-            {editing ? (
-              <>
-                <input
-                  type="text"
-                  className="intro-editor-sec-title"
-                  value={sec.title}
-                  placeholder="Section title"
-                  onChange={(e) =>
-                    updateIntroSection(chapterId, sec.id, {
-                      title: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  className="intro-editor-sec-subtitle"
-                  value={sec.subtitle}
-                  placeholder="Subtitle (optional)"
-                  onChange={(e) =>
-                    updateIntroSection(chapterId, sec.id, {
-                      subtitle: e.target.value,
-                    })
-                  }
-                />
-                <div className="intro-editor-sec-image">
-                  {sec.image && (
-                    <img
-                      src={sec.image}
-                      alt=""
-                      className="intro-editor-sec-image-preview"
-                    />
-                  )}
-                  <div className="intro-editor-sec-image-btns">
-                    <button
-                      type="button"
-                      className="intro-editor-sec-image-btn"
-                      onClick={async () => {
-                        const f = await pickImageFile();
-                        if (!f) return;
-                        const dataUrl = await fileToDataUrl(f);
-                        updateIntroSection(chapterId, sec.id, {
-                          image: dataUrl,
-                        });
-                      }}
-                    >
-                      {sec.image ? 'Change image' : 'Add image'}
-                    </button>
-                    {sec.image && (
-                      <button
-                        type="button"
-                        className="intro-editor-sec-image-btn"
-                        onClick={() =>
-                          updateIntroSection(chapterId, sec.id, {
-                            image: null,
-                          })
-                        }
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <MarkdownEditor
-                  value={sec.body}
-                  onChange={(body) =>
-                    updateIntroSection(chapterId, sec.id, { body })
-                  }
-                  rows={12}
-                  placeholder="Body text… (supports Markdown)"
-                />
-                <button
-                  type="button"
-                  className="intro-editor-sec-del"
-                  onClick={() => deleteIntroSection(chapterId, sec.id)}
-                >
-                  Remove section
-                </button>
-              </>
-            ) : (
-              <>
-                {sec.title && (
-                  <h3 className="intro-editor-read-title">{sec.title}</h3>
-                )}
-                {sec.subtitle && (
-                  <h4 className="intro-editor-read-subtitle">{sec.subtitle}</h4>
-                )}
-                {sec.image && (
-                  <img
-                    src={sec.image}
-                    alt=""
-                    className="intro-editor-sec-image-preview"
-                  />
-                )}
-                {sec.body && (
-                  <Markdown text={sec.body} className="intro-editor-read-body" />
-                )}
-              </>
-            )}
-            {idx < chapter.sections.length - 1 && (
-              <hr className="intro-editor-divider" />
-            )}
-          </div>
-        ))}
-
-        {chapter.sections.length === 0 && !editing && (
-          <p className="intro-editor-empty">No sections in this chapter yet.</p>
-        )}
-
-        {editing && (
-          <button
-            type="button"
-            className="intro-editor-add-sec"
-            onClick={() => addIntroSection(chapterId)}
-          >
-            + Add section
-          </button>
-        )}
-      </div>
+      <SectionsEditor
+        sections={chapter.sections}
+        editing={editing}
+        onAdd={() => addIntroSection(chapterId)}
+        onUpdate={(sectionId, patch) =>
+          updateIntroSection(chapterId, sectionId, patch)
+        }
+        onDelete={(sectionId) => deleteIntroSection(chapterId, sectionId)}
+        emptyLabel="No sections in this chapter yet."
+      />
     </section>
   );
 }

@@ -97,6 +97,14 @@ interface AppState {
   updateMeta: (patch: Partial<FileMeta>) => void;
   addPhase: () => string | null;
   updatePhase: (id: string, patch: Partial<Phase>) => void;
+  // Phase intro sections — mirror the intro-chapter section actions.
+  addPhaseSection: (phaseId: string) => string | null;
+  updatePhaseSection: (
+    phaseId: string,
+    sectionId: string,
+    patch: Partial<IntroSection>,
+  ) => void;
+  deletePhaseSection: (phaseId: string, sectionId: string) => void;
   deletePhase: (id: string) => { ok: boolean; error?: string };
   movePhase: (id: string, direction: 'up' | 'down') => void;
   addTask: (
@@ -406,6 +414,61 @@ export const useAppStore = create<AppState>((set, get) => {
         ...current,
         phases: current.phases.map((p) =>
           p.id === id ? { ...p, ...patch } : p,
+        ),
+      });
+    },
+
+    addPhaseSection: (phaseId) => {
+      const current = get().file;
+      if (!current) return null;
+      const sec: IntroSection = {
+        id: makeId(),
+        title: '',
+        subtitle: '',
+        body: '',
+        image: null,
+      };
+      commit({
+        ...current,
+        phases: current.phases.map((p) =>
+          p.id === phaseId
+            ? { ...p, sections: [...(p.sections ?? []), sec] }
+            : p,
+        ),
+      });
+      return sec.id;
+    },
+
+    updatePhaseSection: (phaseId, sectionId, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        phases: current.phases.map((p) =>
+          p.id === phaseId
+            ? {
+                ...p,
+                sections: (p.sections ?? []).map((s) =>
+                  s.id === sectionId ? { ...s, ...patch } : s,
+                ),
+              }
+            : p,
+        ),
+      });
+    },
+
+    deletePhaseSection: (phaseId, sectionId) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        phases: current.phases.map((p) =>
+          p.id === phaseId
+            ? {
+                ...p,
+                sections: (p.sections ?? []).filter((s) => s.id !== sectionId),
+              }
+            : p,
         ),
       });
     },

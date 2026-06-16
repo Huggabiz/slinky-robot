@@ -5,6 +5,7 @@ import {
   getPhasesOrdered,
   type DeliverableTarget,
   type IntroChapter,
+  type IntroSection,
   type ProcessFile,
   type Task,
 } from '../types';
@@ -502,7 +503,13 @@ function BookChapter({
   roleToDeptId,
   simplify,
 }: {
-  phase: { id: string; name: string; intro: string; colour: string | null };
+  phase: {
+    id: string;
+    name: string;
+    intro: string;
+    sections?: IntroSection[];
+    colour: string | null;
+  };
   chapterNumber: number;
   file: ProcessFile;
   filter: BookFilter;
@@ -586,9 +593,32 @@ function BookChapter({
         </div>
       </header>
 
-      {phase.intro && (
+      {(phase.sections ?? []).length > 0 && (
         <div className="book-chapter-intro">
-          <Markdown text={phase.intro} className="book-step-prose" />
+          <div className="book-intro-sections">
+            {(phase.sections ?? []).map((sec) => (
+              <div key={sec.id} className="book-intro-section">
+                {sec.title && (
+                  <h3 className="book-intro-section-title">{sec.title}</h3>
+                )}
+                {sec.subtitle && (
+                  <h4 className="book-intro-section-subtitle">
+                    {sec.subtitle}
+                  </h4>
+                )}
+                {sec.image && (
+                  <img
+                    src={sec.image}
+                    alt=""
+                    className="book-intro-section-image"
+                  />
+                )}
+                {sec.body && (
+                  <Markdown text={sec.body} className="book-step-prose" />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
