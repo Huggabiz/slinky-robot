@@ -128,6 +128,10 @@ export function BookView() {
 
   const [filter, setFilter] = useState<BookFilter>(EMPTY_FILTER);
   const [simplify, setSimplify] = useState(false);
+  // Screen-only navigation zoom (0.5–2). Independent of print scale.
+  const [zoom, setZoom] = useState(1);
+  const setZoomClamped = (z: number) =>
+    setZoom(Math.round(Math.min(2, Math.max(0.5, z)) * 100) / 100);
 
   const roleToDeptId = useMemo(() => {
     const map = new Map<string, string>();
@@ -156,7 +160,33 @@ export function BookView() {
         simplify={simplify}
         onSimplifyChange={setSimplify}
       />
-      <article className="book-view">
+      <div className="book-zoom-controls" role="group" aria-label="Zoom document">
+        <button
+          type="button"
+          onClick={() => setZoomClamped(zoom - 0.1)}
+          title="Zoom out"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="book-zoom-reset"
+          onClick={() => setZoom(1)}
+          title="Reset zoom to 100%"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoomClamped(zoom + 0.1)}
+          title="Zoom in"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+      </div>
+      <article className="book-view" style={{ zoom }}>
         <header
           className={`book-cover${file.meta.coverImage ? ' book-cover-has-image' : ''}`}
         >

@@ -7,14 +7,61 @@
   display: flex;
   min-height: 0;
   overflow: hidden;
+  /* Anchor for the floating zoom control. */
+  position: relative;
 }
 
 .book-view {
   flex: 1;
-  overflow-y: auto;
+  /* Both axes: zoom > 100% widens content past the column, so allow
+     horizontal scroll rather than clipping. */
+  overflow: auto;
   background: #f7f6f2;
   color: #1a1a1a;
   padding: var(--space-xl) 0;
+}
+
+/* Screen-only navigation zoom for the document (independent of print
+   scale). Sits over the top-right of the book, outside the zoomed
+   article so the control itself stays a constant size. */
+.book-zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.book-zoom-controls button {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  width: 26px;
+  height: 24px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.book-zoom-controls button:hover {
+  background: var(--color-bg);
+}
+
+.book-zoom-reset {
+  width: auto !important;
+  min-width: 46px;
+  font-size: 12px !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .book-filter-note {
@@ -293,7 +340,7 @@
 }
 
 .book-chapter-intro {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.7;
   color: #333;
   margin-bottom: var(--space-xl);
@@ -473,7 +520,7 @@
 
 .book-step-prose {
   margin: 0 0 6px;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
   color: #222;
 }
@@ -606,8 +653,14 @@
     object-fit: cover;
   }
 
-  .book-cover-image-controls {
+  .book-cover-image-controls,
+  .book-zoom-controls {
     display: none !important;
+  }
+
+  /* Navigation zoom must never affect the printed scale. */
+  .book-view {
+    zoom: 1 !important;
   }
 
   .book-toc {

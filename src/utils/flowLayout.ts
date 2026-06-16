@@ -771,12 +771,17 @@ function segmentHitsNode(
 // rather than fling it across the diagram.
 const REPEL_MAX_SHIFT = 240;
 
-// How far a detour's parallel run stands off from the card it skirts.
-// Larger than NODE_CLEARANCE so the line reads as a deliberate bypass
-// with a visible gap, not a stroke hugging the card edge. The jog ends
-// (above/below the card) stay at NODE_CLEARANCE so the detour still fits
-// inside tight rank gaps.
+// How far a detour stands off from the card it skirts — both the
+// parallel run AND the jog ends (above/below, or left/right). Larger
+// than NODE_CLEARANCE so the bypass reads as a deliberate gap rather
+// than a stroke hugging the card edge. Where a rank gap is too tight
+// for the full stand-off the jog shrinks toward NODE_CLEARANCE instead
+// of giving up, so the detour still fits.
 const DETOUR_CLEARANCE = 24;
+
+// Minimum straight stub kept between an endpoint and the detour's first
+// jog, so the line doesn't kink right at the port.
+const DETOUR_MIN_STUB = 6;
 
 // True if every consecutive segment in the chain clears all obstacles.
 function chainClearsNodes(
@@ -805,12 +810,22 @@ function detourChain(
 ): { x: number; y: number }[] | null {
   if (vertical) {
     const x = p0.x;
-    const aboveY = blocker.y - NODE_CLEARANCE;
-    const belowY = blocker.y + blocker.h + NODE_CLEARANCE;
     const loY = Math.min(p0.y, p1.y);
     const hiY = Math.max(p0.y, p1.y);
-    // Need clearance to peel off above the card and rejoin below it.
-    if (aboveY <= loY + 2 || belowY >= hiY - 2) return null;
+    // Peel off above the card and rejoin below it, standing off by
+    // DETOUR_CLEARANCE where the rank gap allows but never crossing the
+    // endpoints' stubs. Bail only if even minimal clearance won't fit.
+    const aboveY = Math.max(loY + DETOUR_MIN_STUB, blocker.y - DETOUR_CLEARANCE);
+    const belowY = Math.min(
+      hiY - DETOUR_MIN_STUB,
+      blocker.y + blocker.h + DETOUR_CLEARANCE,
+    );
+    if (
+      aboveY > blocker.y - NODE_CLEARANCE ||
+      belowY < blocker.y + blocker.h + NODE_CLEARANCE
+    ) {
+      return null;
+    }
     // The parallel run stands off by DETOUR_CLEARANCE so the bypass is
     // clearly separated from the card rather than hugging its edge.
     const sides = [
@@ -841,11 +856,19 @@ function detourChain(
   }
   // Horizontal segment: mirror the logic across the axes.
   const y = p0.y;
-  const leftX = blocker.x - NODE_CLEARANCE;
-  const rightX = blocker.x + blocker.w + NODE_CLEARANCE;
   const loX = Math.min(p0.x, p1.x);
   const hiX = Math.max(p0.x, p1.x);
-  if (leftX <= loX + 2 || rightX >= hiX - 2) return null;
+  const leftX = Math.max(loX + DETOUR_MIN_STUB, blocker.x - DETOUR_CLEARANCE);
+  const rightX = Math.min(
+    hiX - DETOUR_MIN_STUB,
+    blocker.x + blocker.w + DETOUR_CLEARANCE,
+  );
+  if (
+    leftX > blocker.x - NODE_CLEARANCE ||
+    rightX < blocker.x + blocker.w + NODE_CLEARANCE
+  ) {
+    return null;
+  }
   const sides = [
     blocker.y + blocker.h + DETOUR_CLEARANCE,
     blocker.y - DETOUR_CLEARANCE,

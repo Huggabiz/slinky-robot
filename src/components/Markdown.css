@@ -112,8 +112,11 @@
   text-decoration-color: #f87171;
 }
 
-/* Book view uses a slightly larger base size. */
+/* Book view body prose — a touch smaller than the on-screen detail
+   panel so paragraphs read comfortably at document scale. Structural
+   headings (chapter/section titles) are fixed sizes in BookView.css and
+   are unaffected. */
 .book-step-prose.markdown-body,
 .book-chapter-intro .markdown-body {
-  font-size: 14px;
+  font-size: 12px;
 }
