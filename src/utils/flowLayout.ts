@@ -1,7 +1,6 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { Task } from '../types';
-import type { HighlightInfo } from './highlight';
 import type { PerspectiveInfo } from './perspective';
 import type { LabConfig } from './flowLab';
 
@@ -11,7 +10,6 @@ export interface TaskNodeData extends Record<string, unknown> {
   task: Task;
   width: number;
   height: number;
-  highlight?: HighlightInfo;
   perspective?: PerspectiveInfo;
   searchDimmed?: boolean;
 }

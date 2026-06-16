@@ -9,10 +9,13 @@ import './BookFlowDiagram.css';
 interface Props {
   phaseId: string;
   phaseName: string;
-  // When set, tasks whose ID is in this set get a department-coloured
-  // highlight ring so the reader can see which steps belong to the
-  // active filter. Null = no highlighting (unfiltered view).
-  highlightTaskIds?: Set<string> | null;
+  // Maps a matched task's ID → the glow colour for its highlight ring.
+  // The colour is the SELECTED department/role's colour (what the book
+  // is filtered to), NOT the task's own accountable-department colour —
+  // e.g. a Design-owned (blue) task that matches because Category Manager
+  // (yellow) contributes stays blue-filled but gets a yellow glow.
+  // Null/absent = no highlighting (unfiltered view).
+  highlightColours?: Map<string, string> | null;
   // When set, the diagram collapses tasks NOT in this set into
   // "other tasks" placeholders (simplified per-team flow).
   collapseRelevantIds?: Set<string> | null;
@@ -24,7 +27,7 @@ interface Props {
 export function BookFlowDiagram({
   phaseId,
   phaseName,
-  highlightTaskIds,
+  highlightColours,
   collapseRelevantIds,
 }: Props) {
   const file = useAppStore((s) => s.file);
@@ -202,12 +205,11 @@ export function BookFlowDiagram({
                 : 'white';
               const strokeColour = persp?.colour ?? '#ccc';
               const contribDots = persp?.contributorColours ?? [];
-              const highlighted =
-                highlightTaskIds != null &&
-                highlightTaskIds.has(task.id);
-              // Glow colour matches the task's accountable department
-              // so the highlight reads as "this department's work".
-              const glowColour = persp?.colour ?? '#06b6d4';
+              // Glow colour comes from the active book filter (the selected
+              // department/role), not the task's own accountable dept — so
+              // the ring signals "this is why the task is in your view".
+              const glowColour = highlightColours?.get(task.id) ?? null;
+              const highlighted = glowColour != null;
               return (
                 <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
                   {/* Department-coloured highlight ring when the task
@@ -222,7 +224,7 @@ export function BookFlowDiagram({
                       rx={8}
                       ry={8}
                       fill="none"
-                      stroke={glowColour}
+                      stroke={glowColour ?? '#06b6d4'}
                       strokeWidth={3}
                       filter="url(#book-glow)"
                     />

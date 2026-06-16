@@ -30,13 +30,28 @@ export function isCollapsedTask(task: Task): boolean {
   return task.id.startsWith(COLLAPSED_PREFIX);
 }
 
+// Start and Milestone tasks anchor the visual start and finish of a
+// phase's diagram, so they're always shown in simplified views even
+// when they don't match the active filter — collapsing them away leaves
+// the flow looking truncated and rootless.
+export function isAnchorTask(task: Task): boolean {
+  return task.activityType === 'Start' || task.activityType === 'Milestone';
+}
+
 export function collapseIrrelevantTasks(
   file: ProcessFile,
   phaseId: string,
-  relevantTaskIds: Set<string>,
+  inputRelevantIds: Set<string>,
 ): Task[] {
   const phaseTasks = file.tasks.filter((t) => t.phaseId === phaseId);
   if (phaseTasks.length === 0) return [];
+
+  // Treat anchor (Start/Milestone) tasks as relevant so they're never
+  // collapsed — they bookend the diagram and keep it legible.
+  const relevantTaskIds = new Set(inputRelevantIds);
+  for (const t of phaseTasks) {
+    if (isAnchorTask(t)) relevantTaskIds.add(t.id);
+  }
 
   const phaseIdSet = new Set(phaseTasks.map((t) => t.id));
 

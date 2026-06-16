@@ -26,7 +26,6 @@ import {
   type TaskNodeData,
 } from '../utils/flowLayout';
 import { getPhasesOrdered } from '../types';
-import { computeHighlights } from '../utils/highlight';
 import {
   computePerspective,
   type PerspectiveFilter,
@@ -66,9 +65,6 @@ interface Props {
   phaseId: string | null;
   // FLOW LAB: labConfig is temporary.
   labConfig: LabConfig;
-  // Dependency-highlight tool config.
-  highlightEnabled: boolean;
-  fadeOver: number | null;
   // Perspective lens config.
   perspectiveFilter: PerspectiveFilter | null;
   // When true + a dept/role filter is active, collapse irrelevant
@@ -89,8 +85,6 @@ export function ProcessFlow(props: Props) {
 function ProcessFlowInner({
   phaseId,
   labConfig,
-  highlightEnabled,
-  fadeOver,
   perspectiveFilter,
   simplifyView,
   searchQuery,
@@ -191,15 +185,6 @@ function ProcessFlowInner({
     return () => clearTimeout(timer);
   }, [layout, reactFlow]);
 
-  // Dependency highlight pass. Cheap BFS across all tasks (not just the
-  // filtered phase) so cross-phase prereq/dependent chains would also
-  // colour correctly — even though we only render the active phase,
-  // the map is keyed by task id so no harm done.
-  const highlightMap = useMemo(() => {
-    if (!highlightEnabled || !file) return null;
-    return computeHighlights(file.tasks, selectedTaskId, fadeOver);
-  }, [highlightEnabled, file, selectedTaskId, fadeOver]);
-
   // Perspective lens — compute once per filter/file change.
   const perspectiveMap = useMemo(() => {
     if (!perspectiveFilter || !file) return null;
@@ -274,13 +259,12 @@ function ProcessFlowInner({
           selected: n.id === selectedTaskId || selectedTaskIds.has(n.id),
           data: {
             ...n.data,
-            highlight: highlightMap?.get(n.id),
             perspective: perspectiveMap?.get(n.id),
             searchDimmed: searchLower.length > 0 && !searchMatch,
           },
         };
       }),
-    [layout.nodes, selectedTaskId, selectedTaskIds, highlightMap, perspectiveMap, searchLower, roleRefMatchIds],
+    [layout.nodes, selectedTaskId, selectedTaskIds, perspectiveMap, searchLower, roleRefMatchIds],
   );
 
   // Colour minimap rectangles by the task's phase colour so the

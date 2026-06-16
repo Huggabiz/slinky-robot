@@ -9,18 +9,36 @@
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* ---- Edit-mode dark theme ---- */
-/* Charcoal + amber palette. Phase colour swatches use inline
-   backgroundColor via Phase.colour and are therefore unaffected by
-   the theme swap — identical across Navigate and Edit modes. */
+/* ---- Edit-mode theme ---- */
+/* Cool mid-grey (slate) palette with an amber accent. Deliberately
+   lighter than a true dark theme: navigating is easier and the inline
+   department/role colour swatches keep their contrast (a near-black bg
+   muddied saturated blues/greens). The amber accent strip along the top
+   keeps it immediately obvious you're in edit mode. Phase colour swatches
+   use inline backgroundColor via Phase.colour and are unaffected by the
+   theme swap — identical across Navigate and Edit modes. */
 .app.edit-mode {
-  --color-bg: #1a1a2e;
-  --color-surface: #25253e;
-  --color-border: #3a3a54;
-  --color-text: #e2e2ec;
-  --color-text-muted: #8888a4;
+  --color-bg: #2c313a;
+  --color-surface: #363c47;
+  --color-border: #4a515e;
+  --color-text: #eceef2;
+  --color-text-muted: #9aa2b1;
   --color-accent: #f59e0b;
   --color-edit-accent: #f59e0b;
+}
+
+/* Amber top strip: an unmissable "you are editing" cue that doesn't
+   steal layout space (it sits inside the existing top padding region). */
+.app.edit-mode::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  z-index: 2000;
+  pointer-events: none;
 }
 
 .app-main {

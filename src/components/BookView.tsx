@@ -361,6 +361,65 @@ function taskMatchesSelection(
   return false;
 }
 
+// The glow colour for a matched task is the colour of the SELECTED
+// department/role that caused the match — not the task's accountable
+// department. Returns the first matching selection's colour (involved
+// roles are checked first, then prose @-mentions). Null if no colour.
+function selectedColourForTask(
+  task: Task,
+  file: ProcessFile,
+  filter: BookFilter,
+  roleToDeptId: Map<string, string>,
+  deptColourById: Map<string, string>,
+): string | null {
+  const colourForRole = (name: string | null | undefined): string | null => {
+    if (!name) return null;
+    const deptId = roleToDeptId.get(name);
+    // Individually-selected role → its department's colour.
+    if (filter.roleNames.has(name)) {
+      return deptId ? deptColourById.get(deptId) ?? null : null;
+    }
+    // Role belongs to a selected department → that department's colour.
+    if (deptId && filter.deptIds.has(deptId)) {
+      return deptColourById.get(deptId) ?? null;
+    }
+    return null;
+  };
+
+  for (const name of [task.accountable, task.meetingOrganiser, ...task.contributors]) {
+    const colour = colourForRole(name);
+    if (colour) return colour;
+  }
+
+  const prose = [
+    task.description,
+    task.deliverables,
+    task.keyDateRationale ?? '',
+  ].join('\n\n');
+  if (prose.trim()) {
+    for (const refName of extractRoleRefs(prose, file.roles)) {
+      const colour = colourForRole(refName);
+      if (colour) return colour;
+    }
+  }
+
+  return null;
+}
+
+// Human-readable label of what the book is filtered to, for the
+// "no relevant actions" empty state. Lists full-department selections
+// and individually-selected role names.
+function filterLabel(filter: BookFilter, file: ProcessFile): string {
+  const parts: string[] = [];
+  for (const dept of file.departments) {
+    if (filter.deptIds.has(dept.id)) parts.push(dept.name);
+  }
+  for (const name of filter.roleNames) parts.push(name);
+  if (parts.length === 0) return 'the selected filter';
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
 function BookIntroChapter({
   chapter,
   chapterNumber,
@@ -450,6 +509,37 @@ function BookChapter({
   );
   const filtered = isFilterActive(filter);
 
+  // Department id → colour, for resolving glow colours from selections.
+  const deptColourById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of file.departments) {
+      if (d.colour) map.set(d.id, d.colour);
+    }
+    return map;
+  }, [file]);
+
+  // taskId → glow colour (the SELECTED dept/role colour, see item above).
+  const highlightColours = useMemo(() => {
+    if (!filtered) return null;
+    const map = new Map<string, string>();
+    for (const t of tasks) {
+      const colour = selectedColourForTask(
+        t,
+        file,
+        filter,
+        roleToDeptId,
+        deptColourById,
+      );
+      if (colour) map.set(t.id, colour);
+    }
+    return map;
+  }, [tasks, file, filter, roleToDeptId, deptColourById, filtered]);
+
+  // When simplification leaves no relevant tasks in a phase, there's
+  // nothing meaningful to draw — show a plain statement instead of an
+  // all-collapsed diagram.
+  const simplifiedEmpty = simplify && filtered && tasks.length === 0;
+
   return (
     <section className="book-chapter" id={`phase-${phase.id}`}>
       <header className="book-chapter-header">
@@ -474,29 +564,34 @@ function BookChapter({
 
       <PhaseDeliverableSummaryTable file={file} phaseId={phase.id} phaseName={phase.name} />
 
-      <BookFlowDiagram
-        phaseId={phase.id}
-        phaseName={phase.name}
-        highlightTaskIds={
-          filtered
-            ? new Set(tasks.map((t) => t.id))
-            : null
-        }
-        collapseRelevantIds={
-          simplify && filtered
-            ? new Set(tasks.map((t) => t.id))
-            : null
-        }
-      />
+      {simplifiedEmpty ? (
+        <p className="book-empty book-flow-empty">
+          There are no relevant actions within this phase pertaining to{' '}
+          {filterLabel(filter, file)}.
+        </p>
+      ) : (
+        <BookFlowDiagram
+          phaseId={phase.id}
+          phaseName={phase.name}
+          highlightColours={highlightColours}
+          collapseRelevantIds={
+            simplify && filtered
+              ? new Set(tasks.map((t) => t.id))
+              : null
+          }
+        />
+      )}
 
       {allTasks.length === 0 ? (
         <p className="book-empty">No tasks defined for this phase.</p>
       ) : tasks.length === 0 ? (
-        <p className="book-empty">
-          {filtered
-            ? 'No tasks in this phase match the selected departments.'
-            : 'No tasks to display.'}
-        </p>
+        simplifiedEmpty ? null : (
+          <p className="book-empty">
+            {filtered
+              ? 'No tasks in this phase match the selected departments.'
+              : 'No tasks to display.'}
+          </p>
+        )
       ) : (
         <>
           {filtered && (

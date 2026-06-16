@@ -1,31 +1,11 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { CSSProperties } from 'react';
 import type { TaskNodeData } from '../utils/flowLayout';
-import type { HighlightInfo } from '../utils/highlight';
 import type { PerspectiveInfo } from '../utils/perspective';
 import { isCollapsedTask } from '../utils/collapseIrrelevant';
 import './TaskNode.css';
 
 type TaskFlowNode = Node<TaskNodeData, 'task'>;
-
-const HIGHLIGHT_COLOURS: Record<
-  HighlightInfo['role'],
-  { r: number; g: number; b: number }
-> = {
-  self: { r: 6, g: 182, b: 212 },
-  past: { r: 16, g: 185, b: 129 },
-  future: { r: 59, g: 130, b: 246 },
-};
-
-function highlightStyle(info: HighlightInfo | undefined): CSSProperties {
-  if (!info) return {};
-  const c = HIGHLIGHT_COLOURS[info.role];
-  const alpha = info.role === 'self' ? 1 : info.opacity;
-  return {
-    borderColor: `rgba(${c.r}, ${c.g}, ${c.b}, ${alpha})`,
-    backgroundColor: `rgba(${c.r}, ${c.g}, ${c.b}, ${alpha * 0.15})`,
-  };
-}
 
 const FALLBACK_COLOUR = '#6366f1';
 
@@ -34,15 +14,17 @@ const FALLBACK_COLOUR = '#6366f1';
 // is set imperatively by ProcessFlow on the flow container.
 const PERSP_BORDER_WIDTH = 'clamp(1.5px, calc(2px / var(--rf-zoom, 1)), 18px)';
 
-// Involvement level → background fill alpha (hex suffix). Fill intensity
-// is the primary, zoom-robust signal: the "heat" of a card tells you
-// your involvement level at a glance even when borders are too small to
-// read. Strongest = accountable, fading down to referenced.
+// Involvement level → card treatment. Accountable and contributor
+// share the strong dept-colour fill (contributor distinguished by a
+// dashed border); referenced gets a faint fill + dashed border.
+// Meeting organiser does NOT tint the card — instead the calendar
+// badge background is coloured (handled in the component body), which
+// reads cleaner. perspectiveStyle returns the card style; the caller
+// derives the badge colour separately.
 function perspectiveStyle(info: PerspectiveInfo | undefined): {
   style: CSSProperties;
-  className: string;
 } {
-  if (!info) return { style: {}, className: '' };
+  if (!info) return { style: {} };
   const colour = info.colour ?? FALLBACK_COLOUR;
 
   switch (info.role) {
@@ -54,40 +36,30 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
           borderStyle: 'solid',
           borderWidth: PERSP_BORDER_WIDTH,
         },
-        className: '',
       };
     case 'contributor':
       return {
         style: {
           borderColor: colour,
-          backgroundColor: colour + '3D', // ~24%
-          borderStyle: 'solid',
+          backgroundColor: colour + '70', // same fill as accountable
+          borderStyle: 'dashed', // distinguished by dashed border
           borderWidth: PERSP_BORDER_WIDTH,
         },
-        className: '',
       };
     case 'meetingOrganiser':
-      return {
-        style: {
-          borderColor: colour,
-          backgroundColor: colour + '1F', // ~12%
-          borderStyle: 'solid',
-          borderWidth: PERSP_BORDER_WIDTH,
-        },
-        className: '',
-      };
+      // Card left untouched; the calendar badge carries the signal.
+      return { style: {} };
     case 'referenced':
       return {
         style: {
           borderColor: colour,
           backgroundColor: colour + '0D', // ~5%
-          borderStyle: 'dotted',
+          borderStyle: 'dashed',
           borderWidth: PERSP_BORDER_WIDTH,
         },
-        className: '',
       };
     case 'none':
-      return { style: {}, className: '' };
+      return { style: {} };
   }
 }
 
@@ -110,7 +82,6 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
     );
   }
 
-  const hl = data.highlight;
   const persp = data.perspective;
 
   const baseStyle: CSSProperties = {
@@ -118,20 +89,16 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
     minHeight: data.height,
   };
 
-  // Perspective overrides highlight when both are active.
   const perspResult = perspectiveStyle(persp);
-  const hlStyle = persp ? {} : highlightStyle(hl);
 
   const style: CSSProperties = {
     ...baseStyle,
-    ...hlStyle,
     ...perspResult.style,
   };
 
   const classes = [
     'task-node',
     selected ? 'task-node-selected' : '',
-    perspResult.className,
     data.searchDimmed ? 'task-node-search-dimmed' : '',
   ]
     .filter(Boolean)
@@ -139,13 +106,29 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
 
   const contributorDots = persp?.contributorColours ?? [];
 
+  // Meeting-organiser perspective tints the calendar badge instead of
+  // the whole card. Only applies to meeting tasks (the only kind with
+  // an organiser), so the badge is guaranteed present.
+  const meetingBadgeColour =
+    persp?.role === 'meetingOrganiser'
+      ? persp.colour ?? FALLBACK_COLOUR
+      : null;
+
   return (
     <div className={classes} style={style}>
       <Handle type="target" position={Position.Top} />
       <>
         {/* Calendar icon — top right */}
           {task.isMeetingTask && (
-            <span className="task-node-badge task-node-badge-tr" title="Meeting task">
+            <span
+              className={`task-node-badge task-node-badge-tr${meetingBadgeColour ? ' task-node-badge-highlight' : ''}`}
+              style={
+                meetingBadgeColour
+                  ? { backgroundColor: meetingBadgeColour, borderColor: meetingBadgeColour }
+                  : undefined
+              }
+              title={meetingBadgeColour ? 'Meeting organiser' : 'Meeting task'}
+            >
               📅
             </span>
           )}

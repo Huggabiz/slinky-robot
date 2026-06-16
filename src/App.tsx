@@ -72,8 +72,6 @@ function App() {
   }, [undo, redo]);
 
   // Display-tool state (FlowToolbar).
-  const [highlightEnabled, setHighlightEnabled] = useState(false);
-  const [fadeOver, setFadeOver] = useState<number | null>(3);
   const [searchQuery, setSearchQuery] = useState('');
 
   // FLOW LAB: labConfig state + lab open toggle.
@@ -247,10 +245,6 @@ function App() {
           </aside>
           <div className="app-flow-column">
             <FlowToolbar
-              highlightEnabled={highlightEnabled}
-              onHighlightChange={setHighlightEnabled}
-              fadeOver={fadeOver}
-              onFadeChange={setFadeOver}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               perspectiveFilter={perspectiveFilter}
@@ -258,8 +252,6 @@ function App() {
             <ProcessFlow
               phaseId={phaseId}
               labConfig={labConfig}
-              highlightEnabled={highlightEnabled}
-              fadeOver={fadeOver}
               perspectiveFilter={perspectiveFilter}
               simplifyView={simplifyView}
               searchQuery={searchQuery}

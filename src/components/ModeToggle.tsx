@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useAppStore, type EditorMode } from '../store/useAppStore';
 import { encodePassword, verifyPassword } from '../utils/password';
+import { PasswordModal, type PasswordModalMode } from './PasswordModal';
 import './ModeToggle.css';
 
 // Prominent segmented switch between Navigate and Edit modes. Placed
@@ -18,56 +20,43 @@ export function ModeToggle() {
 
   const hasPassword = !!file?.meta.passwordCipher;
 
+  // Which password dialog (if any) is currently open. Replaces the old
+  // window.prompt flows so characters are masked while being typed.
+  const [dialog, setDialog] = useState<PasswordModalMode | null>(null);
+
   const tryEnterEdit = () => {
     if (mode === 'edit') return;
     if (!hasPassword || !file) {
       setMode('edit');
       return;
     }
-    const entered = window.prompt('Enter password to edit this file:');
-    if (entered === null) return;
-    if (!verifyPassword(entered, file.meta.passwordCipher)) {
-      window.alert('Incorrect password.');
-      return;
-    }
-    setMode('edit');
+    setDialog('verify');
   };
 
   const togglePasswordLock = () => {
     if (!file) return;
-    if (hasPassword) {
-      // Removing the lock — confirm with current password to stop
-      // someone bypassing it with a single click.
-      const entered = window.prompt(
-        'Enter the current password to remove the edit lock:',
-      );
-      if (entered === null) return;
-      if (!verifyPassword(entered, file.meta.passwordCipher)) {
-        window.alert('Incorrect password.');
-        return;
-      }
+    // Removing the lock confirms the current password first; setting one
+    // collects a password + confirmation. Both go through the modal.
+    setDialog(hasPassword ? 'remove' : 'set');
+  };
+
+  const verifyEntered = (entered: string) =>
+    !!file && verifyPassword(entered, file.meta.passwordCipher);
+
+  const handleConfirm = (password: string) => {
+    if (dialog === 'verify') {
+      setMode('edit');
+    } else if (dialog === 'remove') {
       updateMeta({ passwordCipher: null });
-      window.alert('Edit lock removed.');
-    } else {
-      const a = window.prompt(
-        'Set a password for editing this file:',
-      );
-      if (!a) return;
-      const b = window.prompt('Confirm the password:');
-      if (a !== b) {
-        window.alert("Passwords didn't match — lock not set.");
-        return;
-      }
-      const cipher = encodePassword(a);
+    } else if (dialog === 'set') {
+      const cipher = encodePassword(password);
       if (!cipher) {
         window.alert('Could not encode password.');
         return;
       }
       updateMeta({ passwordCipher: cipher });
-      window.alert(
-        'Edit lock set. The password will be required next time someone enters edit mode.',
-      );
     }
+    setDialog(null);
   };
 
   return (
@@ -105,6 +94,15 @@ export function ModeToggle() {
         >
           {hasPassword ? '🔒' : '🔓'}
         </button>
+      )}
+
+      {dialog && (
+        <PasswordModal
+          mode={dialog}
+          verify={dialog === 'set' ? undefined : verifyEntered}
+          onConfirm={handleConfirm}
+          onCancel={() => setDialog(null)}
+        />
       )}
     </div>
   );

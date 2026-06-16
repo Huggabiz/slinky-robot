@@ -197,39 +197,6 @@ export function AppRibbon({
         />
       </DropdownButton>
 
-      {/* ---- Quick view toggle (icon buttons) ---- */}
-      {file && (
-        <div className="app-ribbon-view-toggle" role="group" aria-label="View">
-          <button
-            type="button"
-            className={`app-ribbon-view-btn${view === 'flow' ? ' app-ribbon-view-btn-active' : ''}`}
-            onClick={() => onViewChange('flow')}
-            title="Flow chart"
-            aria-pressed={view === 'flow'}
-          >
-            {/* flow-chart glyph */}
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-              <rect x="5.5" y="1" width="5" height="3.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <rect x="1" y="11.5" width="5" height="3.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <rect x="10" y="11.5" width="5" height="3.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M8 4.5 V7 M8 7 H3.5 V11.5 M8 7 H12.5 V11.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={`app-ribbon-view-btn${view === 'book' ? ' app-ribbon-view-btn-active' : ''}`}
-            onClick={() => onViewChange('book')}
-            title="Book view"
-            aria-pressed={view === 'book'}
-          >
-            {/* open-book glyph */}
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-              <path d="M8 3 C6 1.8 3.5 1.8 1.5 2.5 V13 C3.5 12.3 6 12.3 8 13.5 M8 3 C10 1.8 12.5 1.8 14.5 2.5 V13 C12.5 12.3 10 12.3 8 13.5 M8 3 V13.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-      )}
-
       {/* ---- Tools menu ---- */}
       <DropdownButton label="Tools" disabled={!file}>
         <DropdownItem label="Layout Lab…" onClick={onOpenLab} />
@@ -297,6 +264,40 @@ export function AppRibbon({
             aria-label="Redo"
           >
             ↷
+          </button>
+        </div>
+      )}
+
+      {/* ---- Quick view toggle (icon buttons) — far right, in line
+           with the dropdowns so it reads as a window-anchored control. ---- */}
+      {file && (
+        <div className="app-ribbon-view-toggle" role="group" aria-label="View">
+          <button
+            type="button"
+            className={`app-ribbon-view-btn${view === 'flow' ? ' app-ribbon-view-btn-active' : ''}`}
+            onClick={() => onViewChange('flow')}
+            title="Flow chart"
+            aria-pressed={view === 'flow'}
+          >
+            {/* flow-chart glyph */}
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+              <rect x="5.5" y="1" width="5" height="3.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <rect x="1" y="11.5" width="5" height="3.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <rect x="10" y="11.5" width="5" height="3.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M8 4.5 V7 M8 7 H3.5 V11.5 M8 7 H12.5 V11.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`app-ribbon-view-btn${view === 'book' ? ' app-ribbon-view-btn-active' : ''}`}
+            onClick={() => onViewChange('book')}
+            title="Book view"
+            aria-pressed={view === 'book'}
+          >
+            {/* open-book glyph */}
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+              <path d="M8 3 C6 1.8 3.5 1.8 1.5 2.5 V13 C3.5 12.3 6 12.3 8 13.5 M8 3 C10 1.8 12.5 1.8 14.5 2.5 V13 C12.5 12.3 10 12.3 8 13.5 M8 3 V13.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+            </svg>
           </button>
         </div>
       )}

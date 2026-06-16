@@ -6,20 +6,12 @@ import './FlowToolbar.css';
 // so future tools (colour legend, layer hints, etc.) can be added as
 // sibling controls without reshaping a shared config.
 interface Props {
-  highlightEnabled: boolean;
-  onHighlightChange: (enabled: boolean) => void;
-  fadeOver: number | null;
-  onFadeChange: (fade: number | null) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   perspectiveFilter: PerspectiveFilter | null;
 }
 
 export function FlowToolbar({
-  highlightEnabled,
-  onHighlightChange,
-  fadeOver,
-  onFadeChange,
   searchQuery,
   onSearchChange,
   perspectiveFilter,
@@ -71,46 +63,6 @@ export function FlowToolbar({
             ×
           </button>
         )}
-        <span className="flow-toolbar-divider" aria-hidden />
-        <label className="flow-toolbar-check">
-          <input
-            type="checkbox"
-            checked={highlightEnabled}
-            onChange={(e) => onHighlightChange(e.target.checked)}
-          />
-          <span>Dependency highlight</span>
-        </label>
-
-        {highlightEnabled && (
-          <>
-            <span className="flow-toolbar-divider" aria-hidden />
-            <Legend swatchClass="flow-toolbar-swatch-self" label="Selected" />
-            <Legend
-              swatchClass="flow-toolbar-swatch-past"
-              label="Prerequisites"
-            />
-            <Legend
-              swatchClass="flow-toolbar-swatch-future"
-              label="Dependents"
-            />
-            <span className="flow-toolbar-divider" aria-hidden />
-            <label className="flow-toolbar-field">
-              <span className="flow-toolbar-field-label">Fade over</span>
-              <select
-                value={fadeOver === null ? 'none' : String(fadeOver)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  onFadeChange(v === 'none' ? null : Number(v));
-                }}
-              >
-                <option value="3">3 steps</option>
-                <option value="5">5 steps</option>
-                <option value="none">Don't fade</option>
-              </select>
-            </label>
-          </>
-        )}
-
         {perspectiveLegend && (
           <>
             <span className="flow-toolbar-divider" aria-hidden />
@@ -153,42 +105,41 @@ function PerspectiveSwatch({
   variant: 'accountable' | 'contributor' | 'meeting' | 'referenced';
   label: string;
 }) {
-  // Mirror the four TaskNode perspectiveStyle cases so the legend
-  // visually matches the cards on the canvas. Backgrounds use
-  // colour + an alpha hex suffix to imitate the tinted fills.
+  // Mirror the TaskNode perspectiveStyle cases so the legend visually
+  // matches the cards on the canvas. Accountable + contributor share
+  // the strong fill (contributor distinguished by a dashed border);
+  // referenced is a faint fill with a dashed border. Meeting organiser
+  // doesn't tint the card — it colours the calendar badge — so its
+  // swatch shows the coloured 📅 chip instead of a fill.
+  if (variant === 'meeting') {
+    return (
+      <span className="flow-toolbar-legend">
+        <span
+          className="flow-toolbar-perspective-badge"
+          style={{ backgroundColor: colour, borderColor: colour }}
+        >
+          📅
+        </span>
+        <span>{label}</span>
+      </span>
+    );
+  }
+
   let style: React.CSSProperties;
   switch (variant) {
     case 'accountable':
       style = { borderColor: colour, backgroundColor: colour + '70', borderStyle: 'solid' };
       break;
     case 'contributor':
-      style = { borderColor: colour, backgroundColor: colour + '3D', borderStyle: 'solid' };
-      break;
-    case 'meeting':
-      style = { borderColor: colour, backgroundColor: colour + '1F', borderStyle: 'solid' };
+      style = { borderColor: colour, backgroundColor: colour + '70', borderStyle: 'dashed' };
       break;
     case 'referenced':
-      style = { borderColor: colour, backgroundColor: colour + '0D', borderStyle: 'dotted' };
+      style = { borderColor: colour, backgroundColor: colour + '0D', borderStyle: 'dashed' };
       break;
   }
   return (
     <span className="flow-toolbar-legend">
       <span className="flow-toolbar-perspective-swatch" style={style} />
-      <span>{label}</span>
-    </span>
-  );
-}
-
-function Legend({
-  swatchClass,
-  label,
-}: {
-  swatchClass: string;
-  label: string;
-}) {
-  return (
-    <span className="flow-toolbar-legend">
-      <span className={`flow-toolbar-swatch ${swatchClass}`} />
       <span>{label}</span>
     </span>
   );

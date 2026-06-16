@@ -126,6 +126,16 @@
   justify-content: center;
 }
 
+/* Meeting-organiser perspective: the calendar badge is filled with the
+   department colour (set inline) and grows a ring so it pops. The emoji
+   stays legible because it sits on a saturated chip. */
+.task-node-badge-highlight {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 6px rgba(0, 0, 0, 0.25);
+  width: 24px;
+  height: 24px;
+  font-size: 15px;
+}
+
 /* Calendar: top-right, flush with the card edge so it sits at the
    same height as the abbr badge in the header row. */
 .task-node-badge-tr {
