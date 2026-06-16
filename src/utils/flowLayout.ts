@@ -369,6 +369,10 @@ function buildResult(
     w: config.nodeWidth,
     h: config.nodeHeight,
   }));
+  // Same rect objects keyed by id so the repulsion pass can exempt each
+  // edge's own source/target cards (identity comparison).
+  const nodeRectById = new Map<string, NodeRect>();
+  nodes.forEach((n, i) => nodeRectById.set(n.id, nodeRects[i]));
 
   // Collapse wandering detours through empty space BEFORE judging
   // overlaps — straightened routes may create new coincidences, and
@@ -388,6 +392,14 @@ function buildResult(
   }
 
   deoverlapEdgeSegments(edgePointArrays, edgeMeta, 6, nodeRects);
+
+  // Final safety pass: shove any interior segment that ended up lying
+  // across a task card it doesn't connect to off to the nearest clear
+  // side. ELK routes around nodes, but bend-tightening and the merge
+  // passes can reintroduce a crossing (most visibly in the simplified
+  // view, where an A→C edge can drop straight past the B that sits
+  // between them). A no-op for already-clean edges.
+  repelSegmentsFromNodes(edgePointArrays, edgeMeta, nodeRects, nodeRectById);
 
   const edges: Edge<OrthEdgeData>[] = edgePointArrays.map((points, i) => ({
     id: edgeMeta[i].id,
@@ -699,6 +711,107 @@ function normalisePolyline(
   }
   out.push(dedup[dedup.length - 1]);
   return out;
+}
+
+// ---- Node repulsion (final safety pass) ----------------------------------
+//
+// Whether a single straight segment overlaps a card (within clearance).
+// Unlike segmentBlocked this is used post-routing to DETECT crossings,
+// then nudge the offending segment clear.
+function segmentHitsNode(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  r: NodeRect,
+): boolean {
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+  return (
+    minX < r.x + r.w + NODE_CLEARANCE &&
+    maxX > r.x - NODE_CLEARANCE &&
+    minY < r.y + r.h + NODE_CLEARANCE &&
+    maxY > r.y - NODE_CLEARANCE
+  );
+}
+
+// Largest sideways shift we'll apply to clear a card. Beyond this the
+// layout is probably too tight to fix cleanly, so we leave the segment
+// rather than fling it across the diagram.
+const REPEL_MAX_SHIFT = 240;
+
+// Nudge any interior segment lying across a non-endpoint card to the
+// nearer clear side, keeping the polyline orthogonal (only the segment's
+// two points move, so its perpendicular neighbours just lengthen). Port
+// stubs (first/last segment) never move — that would detach the edge
+// from its node. If neither side is clear within REPEL_MAX_SHIFT the
+// segment is left as-is (never made worse).
+function repelSegmentsFromNodes(
+  allPoints: { x: number; y: number }[][],
+  edgeMeta: { sourceId: string; targetId: string }[],
+  nodeRects: NodeRect[],
+  nodeRectById: Map<string, NodeRect>,
+): void {
+  for (let e = 0; e < allPoints.length; e++) {
+    const exempt = new Set<NodeRect>();
+    const sr = nodeRectById.get(edgeMeta[e].sourceId);
+    const tr = nodeRectById.get(edgeMeta[e].targetId);
+    if (sr) exempt.add(sr);
+    if (tr) exempt.add(tr);
+    const obstacles = nodeRects.filter((r) => !exempt.has(r));
+    if (obstacles.length === 0) continue;
+
+    for (let pass = 0; pass < 3; pass++) {
+      const pts = allPoints[e];
+      let changed = false;
+      // Interior segments only (k ≥ 1 and k+1 ≤ len-2): the port stubs
+      // at either end stay anchored.
+      for (let k = 1; k <= pts.length - 3; k++) {
+        const p0 = pts[k];
+        const p1 = pts[k + 1];
+        const before = pts[k - 1];
+        const after = pts[k + 2];
+        const vertical = Math.abs(p0.x - p1.x) < 0.5;
+        const horizontal = Math.abs(p0.y - p1.y) < 0.5;
+        if (!vertical && !horizontal) continue;
+        if (!obstacles.some((r) => segmentHitsNode(p0, p1, r))) continue;
+
+        const blocker = obstacles.find((r) => segmentHitsNode(p0, p1, r))!;
+        // Candidate clear coordinates, nearer side first.
+        const cands = vertical
+          ? [blocker.x + blocker.w + NODE_CLEARANCE, blocker.x - NODE_CLEARANCE]
+          : [blocker.y + blocker.h + NODE_CLEARANCE, blocker.y - NODE_CLEARANCE];
+        const cur = vertical ? p0.x : p0.y;
+        cands.sort((c1, c2) => Math.abs(c1 - cur) - Math.abs(c2 - cur));
+
+        for (const nc of cands) {
+          if (Math.abs(nc - cur) > REPEL_MAX_SHIFT) continue;
+          const np0 = vertical ? { x: nc, y: p0.y } : { x: p0.x, y: nc };
+          const np1 = vertical ? { x: nc, y: p1.y } : { x: p1.x, y: nc };
+          // The moved segment AND its two stretched neighbours must all
+          // clear every obstacle, or we'd just trade one crossing for
+          // another.
+          const ok =
+            !obstacles.some((r) => segmentHitsNode(np0, np1, r)) &&
+            !obstacles.some((r) => segmentHitsNode(before, np0, r)) &&
+            !obstacles.some((r) => segmentHitsNode(np1, after, r));
+          if (ok) {
+            if (vertical) {
+              p0.x = nc;
+              p1.x = nc;
+            } else {
+              p0.y = nc;
+              p1.y = nc;
+            }
+            changed = true;
+            break;
+          }
+        }
+      }
+      if (!changed) break;
+      allPoints[e] = normalisePolyline(pts);
+    }
+  }
 }
 
 // ---- Detour collapse -----------------------------------------------------
