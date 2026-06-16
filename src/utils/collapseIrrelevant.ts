@@ -89,9 +89,15 @@ export function collapseIrrelevantTasks(
     else bucket.set(t.id, 'other');
   }
 
-  // Group consecutive "other" tasks into connected components.
-  // Two "other" tasks are in the same group if one is a prerequisite
-  // of the other (directly or transitively through other "other" tasks).
+  // Group consecutive "other" tasks so they collapse into one
+  // placeholder. Two "other" tasks join the same group when one is a
+  // prerequisite of the other — BUT only if the merge keeps the
+  // contracted graph acyclic. Naively unioning every connected pair can
+  // create a back-edge: if a shown (relevant/adjacent) task sits between
+  // two members of the group (depends on one, is depended on by the
+  // other), contracting them forces an edge to point upstream and ELK
+  // routes a line back up the diagram. Guarding each merge for
+  // convexity prevents those phantom "loops".
   const otherIds = phaseTasks
     .filter((t) => bucket.get(t.id) === 'other')
     .map((t) => t.id);
@@ -115,11 +121,75 @@ export function collapseIrrelevantTasks(
   };
 
   for (const id of otherIds) parent.set(id, id);
+
+  // Directed edges (upstream → downstream) among phase tasks.
+  const edges: Array<[string, string]> = [];
   for (const t of phaseTasks) {
-    if (!otherSet.has(t.id)) continue;
     for (const p of t.prerequisites) {
-      if (otherSet.has(p)) union(t.id, p);
+      if (phaseIdSet.has(p)) edges.push([p, t.id]);
     }
+  }
+
+  // A task's group: its union-find root if "other", else the task is its
+  // own immovable singleton group (relevant/adjacent never merge).
+  const groupOf = (id: string): string => (otherSet.has(id) ? find(id) : id);
+
+  // Successor adjacency of the current group graph (collapsing the task
+  // graph by the present union-find state). Recomputed per merge attempt
+  // because group roots shift as we union; phase sizes are small enough
+  // that the O(E) rebuild is negligible.
+  const groupSuccessors = (): Map<string, Set<string>> => {
+    const adj = new Map<string, Set<string>>();
+    for (const [a, b] of edges) {
+      const ga = groupOf(a);
+      const gb = groupOf(b);
+      if (ga === gb) continue;
+      let s = adj.get(ga);
+      if (!s) {
+        s = new Set();
+        adj.set(ga, s);
+      }
+      s.add(gb);
+    }
+    return adj;
+  };
+
+  // Is there a directed path a ⇒ b of length ≥ 2 (through a third
+  // group)? If so, contracting a and b would close a cycle. We seed the
+  // search from a's successors other than b, so the direct a→b edge
+  // (which just becomes a self-loop and is dropped) doesn't count.
+  const pathThroughThird = (
+    adj: Map<string, Set<string>>,
+    a: string,
+    b: string,
+  ): boolean => {
+    const starts = [...(adj.get(a) ?? [])].filter((s) => s !== b);
+    const seen = new Set<string>(starts);
+    const queue = [...starts];
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (cur === b) return true;
+      for (const nxt of adj.get(cur) ?? []) {
+        if (!seen.has(nxt)) {
+          seen.add(nxt);
+          queue.push(nxt);
+        }
+      }
+    }
+    return false;
+  };
+
+  for (const [a, b] of edges) {
+    if (!otherSet.has(a) || !otherSet.has(b)) continue;
+    const g1 = find(a);
+    const g2 = find(b);
+    if (g1 === g2) continue;
+    const adj = groupSuccessors();
+    // Skip merges that would introduce a back-edge in either direction.
+    if (pathThroughThird(adj, g1, g2) || pathThroughThird(adj, g2, g1)) {
+      continue;
+    }
+    union(a, b);
   }
 
   // Collect groups.
