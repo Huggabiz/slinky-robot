@@ -8,6 +8,8 @@ interface Props {
   onFilterChange: (filter: PerspectiveFilter | null) => void;
   hideOthers: boolean;
   onHideOthersChange: (hide: boolean) => void;
+  simplifyView: boolean;
+  onSimplifyViewChange: (simplify: boolean) => void;
 }
 
 // Tree panel showing departments → roles. Selecting a department or
@@ -18,6 +20,8 @@ export function PerspectivesPanel({
   onFilterChange,
   hideOthers,
   onHideOthersChange,
+  simplifyView,
+  onSimplifyViewChange,
 }: Props) {
   const file = useAppStore((s) => s.file);
   if (!file) return null;
@@ -151,6 +155,17 @@ export function PerspectivesPanel({
         />
         <span>Dim unrelated tasks</span>
       </label>
+
+      {(filter?.type === 'department' || filter?.type === 'role') && (
+        <label className="perspectives-checkbox">
+          <input
+            type="checkbox"
+            checked={simplifyView}
+            onChange={(e) => onSimplifyViewChange(e.target.checked)}
+          />
+          <span>Simplify flow</span>
+        </label>
+      )}
 
       {filter && (
         <button

@@ -1,0 +1,17 @@
+.collapsed-node {
+  background: var(--color-bg);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+}
+
+.collapsed-node-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+  font-style: italic;
+}

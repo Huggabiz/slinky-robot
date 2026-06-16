@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import type { TaskNodeData } from '../utils/flowLayout';
 import type { HighlightInfo } from '../utils/highlight';
 import type { PerspectiveInfo } from '../utils/perspective';
+import { isCollapsedTask } from '../utils/collapseIrrelevant';
 import './TaskNode.css';
 
 type TaskFlowNode = Node<TaskNodeData, 'task'>;
@@ -82,6 +83,23 @@ function perspectiveStyle(info: PerspectiveInfo | undefined): {
 
 export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
   const task = data.task;
+
+  // Collapsed placeholder: muted dashed card with just the label.
+  if (isCollapsedTask(task)) {
+    return (
+      <div
+        className="task-node task-node-collapsed"
+        style={{ width: data.width, minHeight: data.height }}
+      >
+        <Handle type="target" position={Position.Top} />
+        <div className="task-node-collapsed-label">
+          {task.name || 'Other tasks'}
+        </div>
+        <Handle type="source" position={Position.Bottom} />
+      </div>
+    );
+  }
+
   const hl = data.highlight;
   const persp = data.perspective;
 

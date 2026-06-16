@@ -84,6 +84,7 @@ function App() {
   const [perspectiveFilter, setPerspectiveFilter] =
     useState<PerspectiveFilter | null>({ type: 'allDepartments' });
   const [perspectiveHideOthers, setPerspectiveHideOthers] = useState(false);
+  const [simplifyView, setSimplifyView] = useState(false);
 
   // View toggle: flow chart vs book view.
   const [view, setView] = useState<AppView>('flow');
@@ -243,6 +244,8 @@ function App() {
               onFilterChange={setPerspectiveFilter}
               hideOthers={perspectiveHideOthers}
               onHideOthersChange={setPerspectiveHideOthers}
+              simplifyView={simplifyView}
+              onSimplifyViewChange={setSimplifyView}
             />
           </aside>
           <div className="app-flow-column">
@@ -262,6 +265,7 @@ function App() {
               fadeOver={fadeOver}
               perspectiveFilter={perspectiveFilter}
               perspectiveHideOthers={perspectiveHideOthers}
+              simplifyView={simplifyView}
               searchQuery={searchQuery}
             />
             <DeliverablesSummaryBar phaseId={phaseId} />

@@ -13,6 +13,22 @@
   transition: border-color 0.1s ease, box-shadow 0.1s ease;
 }
 
+/* Collapsed placeholder for irrelevant task groups in simplified view. */
+.task-node-collapsed {
+  background: var(--color-bg) !important;
+  border-style: dashed !important;
+  opacity: 0.5;
+  justify-content: center;
+  align-items: center;
+}
+
+.task-node-collapsed-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+  font-style: italic;
+}
+
 /* Solid white backing so the gate separator dashed line and any
    other canvas elements don't bleed through the semi-transparent
    perspective tint backgrounds. The pseudo-element sits behind

@@ -16,6 +16,10 @@ import '@xyflow/react/dist/style.css';
 
 import { useAppStore } from '../store/useAppStore';
 import {
+  collapseIrrelevantTasks,
+  computeRelevantTaskIds,
+} from '../utils/collapseIrrelevant';
+import {
   layoutTasks,
   layoutAllPhasesStacked,
   type LayoutResult,
@@ -68,6 +72,9 @@ interface Props {
   // Perspective lens config.
   perspectiveFilter: PerspectiveFilter | null;
   perspectiveHideOthers: boolean;
+  // When true + a dept/role filter is active, collapse irrelevant
+  // tasks into placeholder nodes for a simplified personal view.
+  simplifyView: boolean;
   // Search filter — dims non-matching nodes.
   searchQuery: string;
 }
@@ -87,6 +94,7 @@ function ProcessFlowInner({
   fadeOver,
   perspectiveFilter,
   perspectiveHideOthers,
+  simplifyView,
   searchQuery,
 }: Props) {
   const reactFlow = useReactFlow();
@@ -115,20 +123,46 @@ function ProcessFlowInner({
   // (every prereq is already on screen, so no off-screen markers).
   const layoutPhaseId = phaseId === ALL_PHASES_ID ? null : phaseId;
 
+  // When simplifyView is active and a dept/role filter is set,
+  // compute the relevance set and collapse irrelevant tasks into
+  // placeholder nodes before feeding the task list to ELK.
+  const shouldSimplify =
+    simplifyView &&
+    perspectiveFilter !== null &&
+    (perspectiveFilter.type === 'department' ||
+      perspectiveFilter.type === 'role');
+
+  const relevantIds = useMemo(() => {
+    if (!shouldSimplify || !file || !perspectiveFilter) return null;
+    if (
+      perspectiveFilter.type !== 'department' &&
+      perspectiveFilter.type !== 'role'
+    )
+      return null;
+    return computeRelevantTaskIds(file, perspectiveFilter);
+  }, [shouldSimplify, file, perspectiveFilter]);
+
   useEffect(() => {
     if (!file) {
       setLayout(EMPTY_LAYOUT);
       return;
     }
+
+    // Build the task list: either collapsed or full.
+    let tasks = file.tasks;
+    if (shouldSimplify && relevantIds && layoutPhaseId) {
+      tasks = collapseIrrelevantTasks(file, layoutPhaseId, relevantIds);
+    }
+
     let cancelled = false;
     const promise =
       layoutPhaseId === null
         ? layoutAllPhasesStacked(
-            file.tasks,
+            tasks,
             getPhasesOrdered(file).map((p) => p.id),
             labConfig,
           )
-        : layoutTasks(file.tasks, layoutPhaseId, labConfig);
+        : layoutTasks(tasks, layoutPhaseId, labConfig);
     promise
       .then((result) => {
         if (cancelled) return;
@@ -141,7 +175,7 @@ function ProcessFlowInner({
     return () => {
       cancelled = true;
     };
-  }, [file, layoutPhaseId, labConfig]);
+  }, [file, layoutPhaseId, labConfig, shouldSimplify, relevantIds]);
 
   // Re-centre / re-fit whenever the layout changes (which happens on
   // phase switch, file edit, etc.). The short delay lets React Flow
