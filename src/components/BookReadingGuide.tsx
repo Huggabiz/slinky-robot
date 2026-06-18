@@ -1,3 +1,4 @@
+import type React from 'react';
 import './BookReadingGuide.css';
 
 // Auto-generated reference section that sits between the intro
@@ -9,12 +10,19 @@ import './BookReadingGuide.css';
 // Keep this in sync with the app's actual rendering — if new node
 // badges, border styles, or concepts are added, update the
 // descriptions here.
-export function BookReadingGuide({ chapterNumber }: { chapterNumber: number }) {
+export function BookReadingGuide({
+  chapterNumber,
+  pageName,
+}: {
+  chapterNumber: number;
+  pageName: string;
+}) {
   return (
-    <section className="book-chapter book-reading-guide" id="reading-guide">
-      <div className="book-running-chapter" aria-hidden>
-        Chapter {chapterNumber} — How to Read This Document
-      </div>
+    <section
+      className="book-chapter book-reading-guide"
+      id="reading-guide"
+      style={{ page: pageName } as React.CSSProperties}
+    >
       <header className="book-chapter-header">
         <div className="book-chapter-heading">
           <div className="book-chapter-number">Chapter {chapterNumber}</div>

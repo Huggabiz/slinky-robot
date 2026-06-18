@@ -232,8 +232,10 @@
 }
 
 .book-cover-edit-title {
-  font-size: 20px;
+  font-size: 22px;
+  font-family: Georgia, 'Times New Roman', serif;
   font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .book-cover-edit-sub {
@@ -320,7 +322,10 @@
 }
 
 .book-cover h1 {
-  font-size: 20px;
+  font-size: 22px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  letter-spacing: -0.3px;
   margin: 0 0 var(--space-sm);
   color: #1a1a1a;
 }
@@ -439,13 +444,6 @@
   height: auto;
   border-radius: 4px;
   margin: 0 auto var(--space-sm);
-}
-
-/* Running chapter name — hidden on screen, shown bottom-left on every
-   printed page the chapter spans. position:fixed in a print context
-   repeats on every page within the section (Chrome/Edge behaviour). */
-.book-running-chapter {
-  display: none;
 }
 
 .book-empty {
@@ -769,16 +767,4 @@
     widows: 3;
   }
 
-  /* Running chapter name — position:fixed in print context repeats on
-     every page the chapter spans (Chrome/Edge). Sits bottom-left to
-     complement the page number (centre) and subtitle (right). */
-  .book-running-chapter {
-    display: block !important;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    font-size: 8pt;
-    color: #aaa;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
 }
