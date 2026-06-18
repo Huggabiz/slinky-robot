@@ -381,22 +381,19 @@ export function BookFlowDiagram({
               {d.name}
             </li>
           ))}
-          {highlightColours && highlightColours.size > 0 && (() => {
-            const glowColour = highlightColours.values().next().value as string;
-            return (
-              <li key="__glow" className="book-flow-legend-glow">
-                <span
-                  className="book-flow-legend-glow-swatch"
-                  style={{
-                    borderColor: glowColour,
-                    boxShadow: `0 0 5px ${glowColour}`,
-                  }}
-                  aria-hidden
-                />
-                Relevant to {glowLabel || 'filter'}
-              </li>
-            );
-          })()}
+          {highlightColours && highlightColours.size > 0 && (
+            <li key="__glow" className="book-flow-legend-glow">
+              <span
+                className="book-flow-legend-glow-swatch"
+                style={{
+                  borderColor: [...highlightColours.values()][0],
+                  boxShadow: `0 0 5px ${[...highlightColours.values()][0]}`,
+                }}
+                aria-hidden
+              />
+              Relevant to {glowLabel || 'filter'}
+            </li>
+          )}
         </ul>
       )}
     </div>
