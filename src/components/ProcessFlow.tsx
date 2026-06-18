@@ -530,7 +530,10 @@ function ProcessFlowInner({
                 autoPrereqOfTaskId: null,
               });
               if (newId) {
-                togglePrerequisite(newId, contextMenu.taskId);
+                // The new task should be a prerequisite OF the
+                // right-clicked task, so add newId to the right-clicked
+                // task's prerequisite list — not the other way round.
+                togglePrerequisite(contextMenu.taskId, newId);
                 selectTask(newId);
               }
               setContextMenu(null);
