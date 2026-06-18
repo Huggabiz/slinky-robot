@@ -29,6 +29,8 @@ interface Props {
   onCreateIntroChapter: () => void;
   onOpenStats: () => void;
   onOpenBulkRoleRef: () => void;
+  onOpenBulkTaskRef: () => void;
+  onOpenDupContrib: () => void;
   view: AppView;
   onViewChange: (view: AppView) => void;
 }
@@ -48,6 +50,8 @@ export function AppRibbon({
   onCreateIntroChapter,
   onOpenStats,
   onOpenBulkRoleRef,
+  onOpenBulkTaskRef,
+  onOpenDupContrib,
   view,
   onViewChange,
 }: Props) {
@@ -212,6 +216,14 @@ export function AppRibbon({
             <DropdownItem
               label="Bulk @Role Suggestions…"
               onClick={onOpenBulkRoleRef}
+            />
+            <DropdownItem
+              label="Bulk #TaskID Suggestions…"
+              onClick={onOpenBulkTaskRef}
+            />
+            <DropdownItem
+              label="Duplicate Contributor Cleanup…"
+              onClick={onOpenDupContrib}
             />
           </>
         )}

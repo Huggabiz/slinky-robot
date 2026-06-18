@@ -19,6 +19,8 @@ import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
 import { RestoreBanner } from './components/RestoreBanner';
 import { BulkRoleRefPanel } from './components/BulkRoleRefPanel';
+import { BulkTaskRefPanel } from './components/BulkTaskRefPanel';
+import { DuplicateContributorPanel } from './components/DuplicateContributorPanel';
 import { DeliverablesSummaryBar } from './components/DeliverablesSummaryBar';
 // FLOW LAB: delete these two imports when the lab is removed.
 import { FlowLabPanel } from './components/FlowLabPanel';
@@ -104,6 +106,8 @@ function App() {
   const [deliverablesPanelOpen, setDeliverablesPanelOpen] = useState(false);
   const [statsPanelOpen, setStatsPanelOpen] = useState(false);
   const [bulkRoleRefOpen, setBulkRoleRefOpen] = useState(false);
+  const [bulkTaskRefOpen, setBulkTaskRefOpen] = useState(false);
+  const [dupContribOpen, setDupContribOpen] = useState(false);
 
   // Right-hand detail panel width, user-resizable.
   const [detailWidth, setDetailWidth] = useState(420);
@@ -194,6 +198,8 @@ function App() {
         onCreateIntroChapter={() => addIntroChapter()}
         onOpenStats={() => setStatsPanelOpen(true)}
         onOpenBulkRoleRef={() => setBulkRoleRefOpen(true)}
+        onOpenBulkTaskRef={() => setBulkTaskRefOpen(true)}
+        onOpenDupContrib={() => setDupContribOpen(true)}
         view={view}
         onViewChange={setView}
       />
@@ -309,6 +315,14 @@ function App() {
       <BulkRoleRefPanel
         isOpen={bulkRoleRefOpen}
         onClose={() => setBulkRoleRefOpen(false)}
+      />
+      <BulkTaskRefPanel
+        isOpen={bulkTaskRefOpen}
+        onClose={() => setBulkTaskRefOpen(false)}
+      />
+      <DuplicateContributorPanel
+        isOpen={dupContribOpen}
+        onClose={() => setDupContribOpen(false)}
       />
     </div>
   );

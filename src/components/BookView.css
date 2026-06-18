@@ -613,11 +613,25 @@
   @page {
     size: A4;
     margin: 20mm 18mm 22mm 18mm;
+
+    /* Page number in the bottom-centre margin box. The counter is
+       automatic — browsers that support CSS Paged Media increment it
+       per page. Chrome, Edge, and Firefox all support this. */
+    @bottom-center {
+      content: counter(page);
+      font-size: 9pt;
+      color: #999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
   }
 
-  /* First page has zero margins so a cover image fills edge-to-edge. */
+  /* First page has zero margins so a cover image fills edge-to-edge,
+     and no page number (it's the cover). */
   @page:first {
     margin: 0;
+    @bottom-center {
+      content: none;
+    }
   }
 
   body,
