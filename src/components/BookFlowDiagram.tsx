@@ -10,15 +10,13 @@ interface Props {
   phaseId: string;
   phaseName: string;
   // Maps a matched task's ID → the glow colour for its highlight ring.
-  // The colour is the SELECTED department/role's colour (what the book
-  // is filtered to), NOT the task's own accountable-department colour —
-  // e.g. a Design-owned (blue) task that matches because Category Manager
-  // (yellow) contributes stays blue-filled but gets a yellow glow.
-  // Null/absent = no highlighting (unfiltered view).
   highlightColours?: Map<string, string> | null;
   // When set, the diagram collapses tasks NOT in this set into
   // "other tasks" placeholders (simplified per-team flow).
   collapseRelevantIds?: Set<string> | null;
+  // Human-readable label for the glow ring in the legend (e.g.
+  // "Category Management"). Shown only when highlightColours is active.
+  glowLabel?: string | null;
 }
 
 // Static SVG rendering of a phase's flow diagram for the book view.
@@ -29,6 +27,7 @@ export function BookFlowDiagram({
   phaseName,
   highlightColours,
   collapseRelevantIds,
+  glowLabel,
 }: Props) {
   const file = useAppStore((s) => s.file);
   const [layout, setLayout] = useState<LayoutResult | null>(null);
@@ -58,17 +57,24 @@ export function BookFlowDiagram({
     return computePerspective(file, { type: 'allDepartments' });
   }, [file]);
 
-  // Departments represented in this phase's tasks (accountable or
-  // contributor). Used for the colour legend under the diagram.
+  // Departments represented in the *rendered* tasks (those that survived
+  // simplification). When the simplified view hides a department's only
+  // tasks, its swatch drops out of the legend so it doesn't mislead.
   const legendDepts = useMemo(() => {
-    if (!file) return [] as { id: string; name: string; colour: string }[];
+    if (!file || !layout) return [] as { id: string; name: string; colour: string }[];
     const roleToDeptId = new Map<string, string>();
     for (const role of file.roles) {
       if (role.departmentId) roleToDeptId.set(role.name, role.departmentId);
     }
+    // Collect IDs of tasks actually in the layout (excludes collapsed
+    // placeholders — their synthetic ids start with COLLAPSED_PREFIX).
+    const visibleIds = new Set<string>();
+    for (const n of layout.nodes) {
+      if (!n.id.startsWith(COLLAPSED_PREFIX)) visibleIds.add(n.id);
+    }
     const used = new Set<string>();
     for (const t of file.tasks) {
-      if (t.phaseId !== phaseId) continue;
+      if (!visibleIds.has(t.id)) continue;
       const acctDept = roleToDeptId.get(t.accountable);
       if (acctDept) used.add(acctDept);
       for (const c of t.contributors) {
@@ -79,7 +85,7 @@ export function BookFlowDiagram({
     return file.departments
       .filter((d) => used.has(d.id) && d.colour)
       .map((d) => ({ id: d.id, name: d.name, colour: d.colour as string }));
-  }, [file, phaseId]);
+  }, [file, layout]);
 
   if (!layout || layout.nodes.length === 0) return null;
 
@@ -363,7 +369,7 @@ export function BookFlowDiagram({
             })}
         </g>
       </svg>
-      {legendDepts.length > 0 && (
+      {(legendDepts.length > 0 || (highlightColours && highlightColours.size > 0)) && (
         <ul className="book-flow-legend">
           {legendDepts.map((d) => (
             <li key={d.id}>
@@ -375,6 +381,22 @@ export function BookFlowDiagram({
               {d.name}
             </li>
           ))}
+          {highlightColours && highlightColours.size > 0 && (() => {
+            const glowColour = highlightColours.values().next().value as string;
+            return (
+              <li key="__glow" className="book-flow-legend-glow">
+                <span
+                  className="book-flow-legend-glow-swatch"
+                  style={{
+                    borderColor: glowColour,
+                    boxShadow: `0 0 5px ${glowColour}`,
+                  }}
+                  aria-hidden
+                />
+                Relevant to {glowLabel || 'filter'}
+              </li>
+            );
+          })()}
         </ul>
       )}
     </div>

@@ -735,6 +735,7 @@ function BookChapter({
               ? new Set(tasks.map((t) => t.id))
               : null
           }
+          glowLabel={filtered ? filterLabel(filter, file) : null}
         />
       )}
 
