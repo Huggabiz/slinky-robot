@@ -12,6 +12,9 @@ import './BookReadingGuide.css';
 export function BookReadingGuide({ chapterNumber }: { chapterNumber: number }) {
   return (
     <section className="book-chapter book-reading-guide" id="reading-guide">
+      <div className="book-running-chapter" aria-hidden>
+        Chapter {chapterNumber} — How to Read This Document
+      </div>
       <header className="book-chapter-header">
         <div className="book-chapter-heading">
           <div className="book-chapter-number">Chapter {chapterNumber}</div>

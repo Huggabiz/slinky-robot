@@ -215,7 +215,7 @@ export function BookView() {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     @bottom-right {
-      content: "Generated ${cssStringEscape(new Date().toLocaleDateString())}";
+      content: ${file.meta.masterName?.trim() ? `"${cssStringEscape(file.meta.masterName.trim())}"` : 'none'};
       font-size: 8pt;
       color: #aaa;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -607,6 +607,9 @@ function BookIntroChapter({
 }) {
   return (
     <section className="book-chapter" id={`intro-${chapter.id}`}>
+      <div className="book-running-chapter" aria-hidden>
+        Chapter {chapterNumber} — {chapter.title}
+      </div>
       <header className="book-chapter-header">
         <div className="book-chapter-heading">
           <div className="book-chapter-number">Chapter {chapterNumber}</div>
@@ -726,6 +729,9 @@ function BookChapter({
 
   return (
     <section className="book-chapter" id={`phase-${phase.id}`}>
+      <div className="book-running-chapter" aria-hidden>
+        Chapter {chapterNumber} — {phase.name}
+      </div>
       <header className="book-chapter-header">
         {phase.colour && (
           <span
