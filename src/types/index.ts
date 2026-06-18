@@ -77,6 +77,10 @@ export interface FileMeta {
   coverTitleColour?: string | null;
   coverSubColour?: string | null;
   coverDateColour?: string | null;
+  // Running header shown top-centre on every printed page except the
+  // cover. Null/empty = no header. Stored in meta so it persists with
+  // the file and can differ between documents.
+  printHeader?: string | null;
 }
 
 export interface Phase {

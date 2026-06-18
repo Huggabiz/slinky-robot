@@ -122,6 +122,14 @@ function FilterBreakdown({
   );
 }
 
+// Escape a string for safe inclusion inside a CSS `content: "..."` value.
+function cssStringEscape(s: string): string {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\a ');
+}
+
 export function BookView() {
   const file = useAppStore((s) => s.file);
   const mode = useAppStore((s) => s.mode);
@@ -187,6 +195,35 @@ export function BookView() {
           +
         </button>
       </div>
+      {/* Dynamic @page margin-box rules: these carry runtime text (the
+          user's header, the generated date) that can't come from a static
+          stylesheet. The font styling matches the static @page rule. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `@media print {
+  @page {
+    @top-center {
+      content: ${file.meta.printHeader?.trim() ? `"${cssStringEscape(file.meta.printHeader.trim())}"` : 'none'};
+      font-size: 8pt;
+      color: #aaa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    @bottom-center {
+      content: counter(page);
+      font-size: 9pt;
+      color: #999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    @bottom-right {
+      content: "Generated ${cssStringEscape(new Date().toLocaleDateString())}";
+      font-size: 8pt;
+      color: #aaa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+  }
+}`,
+        }}
+      />
       <article className="book-view" style={{ zoom }}>
         <header
           className={`book-cover${file.meta.coverImage ? ' book-cover-has-image' : ''}`}
@@ -360,6 +397,20 @@ export function BookView() {
                       Reset
                     </button>
                   )}
+                </label>
+                <label className="book-cover-style-field book-cover-style-field-wide">
+                  <span>Print header</span>
+                  <input
+                    type="text"
+                    className="book-cover-header-input"
+                    value={file.meta.printHeader ?? ''}
+                    placeholder="Running header on every printed page"
+                    onChange={(e) =>
+                      updateMeta({
+                        printHeader: e.target.value || null,
+                      })
+                    }
+                  />
                 </label>
               </div>
             )}
