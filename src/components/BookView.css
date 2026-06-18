@@ -68,16 +68,16 @@
   max-width: 720px;
   margin: 0 auto var(--space-md);
   padding: var(--space-xs) var(--space-md);
-  background: #fff4d6;
-  border-left: 3px solid #d4b14a;
+  background: #fef2f2;
+  border-left: 3px solid #991b1b;
   font-size: 12px;
-  color: #5a4a1a;
+  color: #7f1d1d;
   border-radius: 2px;
 }
 
 .app.edit-mode .book-filter-note {
-  background: color-mix(in srgb, #d4b14a 18%, transparent);
-  color: #d4b14a;
+  background: color-mix(in srgb, #991b1b 18%, transparent);
+  color: #f87171;
 }
 
 /* Reset edit-mode dark palette inside the book since it's designed
@@ -125,10 +125,11 @@
   justify-content: center;
 }
 
+/* Background is set inline via coverBlockOpacity so it can be tuned per
+   file. Only structural rules here. */
 .book-cover-has-image .book-cover-content {
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.85);
   border-radius: 8px;
   padding: var(--space-xl) var(--space-lg);
   display: inline-block;
@@ -152,7 +153,7 @@
   position: relative;
   z-index: 1;
   background: rgba(255, 255, 255, 0.85);
-  border: 2px solid #d97706;
+  border: 2px solid #991b1b;
   border-radius: 8px;
   padding: var(--space-sm) var(--space-lg);
   margin-top: var(--space-md);
@@ -239,6 +240,47 @@
   font-size: 16px;
   font-weight: 400;
   color: #555;
+}
+
+/* Edit-mode cover style controls (opacity slider, colour pickers). Sits
+   below the date line inside the title block so it's contextual and
+   doesn't require a separate panel. Hidden in Navigate mode + print. */
+.book-cover-style-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed rgba(0, 0, 0, 0.15);
+}
+
+.book-cover-style-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #555;
+  cursor: default;
+}
+
+.book-cover-style-field input[type='range'] {
+  width: 80px;
+  cursor: pointer;
+}
+
+.book-cover-style-field input[type='color'] {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.book-cover-style-value {
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: right;
 }
 
 .book-cover-logo {
@@ -654,6 +696,7 @@
   }
 
   .book-cover-image-controls,
+  .book-cover-style-controls,
   .book-zoom-controls {
     display: none !important;
   }

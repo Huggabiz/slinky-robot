@@ -69,6 +69,14 @@ export interface FileMeta {
   coverImage: string | null;
   // Company logo shown above the title on the book cover.
   coverLogo: string | null;
+  // Cover title-block customisation (all optional for back-compat).
+  // Background opacity of the white title block overlaid on the cover
+  // image. 0 = fully transparent, 1 = fully opaque. Default 0.85.
+  coverBlockOpacity?: number;
+  // Font colours for cover text. Null = default (#1a1a1a / #666 / #999).
+  coverTitleColour?: string | null;
+  coverSubColour?: string | null;
+  coverDateColour?: string | null;
 }
 
 export interface Phase {
@@ -197,6 +205,10 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
       passwordCipher: null,
       coverImage: null,
       coverLogo: null,
+      coverBlockOpacity: 0.85,
+      coverTitleColour: null,
+      coverSubColour: null,
+      coverDateColour: null,
     },
     phases: [],
     tasks: [],

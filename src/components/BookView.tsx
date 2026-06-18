@@ -198,7 +198,14 @@ export function BookView() {
               className="book-cover-bg-img"
             />
           )}
-          <div className="book-cover-content">
+          <div
+            className="book-cover-content"
+            style={{
+              background: file.meta.coverImage
+                ? `rgba(255, 255, 255, ${file.meta.coverBlockOpacity ?? 0.85})`
+                : undefined,
+            }}
+          >
             {file.meta.coverLogo && (
               <img
                 src={file.meta.coverLogo}
@@ -238,6 +245,7 @@ export function BookView() {
                   contentEditable
                   suppressContentEditableWarning
                   data-placeholder="Document title"
+                  style={{ color: file.meta.coverTitleColour ?? undefined }}
                   onBlur={(e) => {
                     const text = e.currentTarget.textContent?.trim() ?? '';
                     if (text && text !== file.meta.title) updateMeta({ title: text });
@@ -249,6 +257,7 @@ export function BookView() {
                   contentEditable
                   suppressContentEditableWarning
                   data-placeholder="Subtitle (optional)"
+                  style={{ color: file.meta.coverSubColour ?? undefined }}
                   onBlur={(e) => {
                     const text = e.currentTarget.textContent?.trim() ?? '';
                     if (text !== file.meta.masterName) updateMeta({ masterName: text });
@@ -258,15 +267,102 @@ export function BookView() {
               </>
             ) : (
               <>
-                <h1>{file.meta.title}</h1>
+                <h1 style={{ color: file.meta.coverTitleColour ?? undefined }}>
+                  {file.meta.title}
+                </h1>
                 {file.meta.masterName && file.meta.masterName !== file.meta.title && (
-                  <p className="book-cover-sub">{file.meta.masterName}</p>
+                  <p
+                    className="book-cover-sub"
+                    style={{ color: file.meta.coverSubColour ?? undefined }}
+                  >
+                    {file.meta.masterName}
+                  </p>
                 )}
               </>
             )}
-            <p className="book-cover-date">
+            <p
+              className="book-cover-date"
+              style={{ color: file.meta.coverDateColour ?? undefined }}
+            >
               Generated {new Date().toLocaleDateString()}
             </p>
+            {mode === 'edit' && (
+              <div className="book-cover-style-controls">
+                <label className="book-cover-style-field">
+                  <span>Block opacity</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={file.meta.coverBlockOpacity ?? 0.85}
+                    onChange={(e) =>
+                      updateMeta({ coverBlockOpacity: Number(e.target.value) })
+                    }
+                  />
+                  <span className="book-cover-style-value">
+                    {Math.round((file.meta.coverBlockOpacity ?? 0.85) * 100)}%
+                  </span>
+                </label>
+                <label className="book-cover-style-field">
+                  <span>Title colour</span>
+                  <input
+                    type="color"
+                    value={file.meta.coverTitleColour ?? '#1a1a1a'}
+                    onChange={(e) =>
+                      updateMeta({ coverTitleColour: e.target.value })
+                    }
+                  />
+                  {file.meta.coverTitleColour && (
+                    <button
+                      type="button"
+                      className="book-cover-image-btn"
+                      onClick={() => updateMeta({ coverTitleColour: null })}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </label>
+                <label className="book-cover-style-field">
+                  <span>Subtitle colour</span>
+                  <input
+                    type="color"
+                    value={file.meta.coverSubColour ?? '#666666'}
+                    onChange={(e) =>
+                      updateMeta({ coverSubColour: e.target.value })
+                    }
+                  />
+                  {file.meta.coverSubColour && (
+                    <button
+                      type="button"
+                      className="book-cover-image-btn"
+                      onClick={() => updateMeta({ coverSubColour: null })}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </label>
+                <label className="book-cover-style-field">
+                  <span>Date colour</span>
+                  <input
+                    type="color"
+                    value={file.meta.coverDateColour ?? '#999999'}
+                    onChange={(e) =>
+                      updateMeta({ coverDateColour: e.target.value })
+                    }
+                  />
+                  {file.meta.coverDateColour && (
+                    <button
+                      type="button"
+                      className="book-cover-image-btn"
+                      onClick={() => updateMeta({ coverDateColour: null })}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </label>
+              </div>
+            )}
           </div>
           {filtering && (
             <div className="book-cover-filter-notice">
