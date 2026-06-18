@@ -81,6 +81,8 @@ export interface FileMeta {
   // cover. Null/empty = no header. Stored in meta so it persists with
   // the file and can differ between documents.
   printHeader?: string | null;
+  // Cover title font family key. Null = default (system sans-serif).
+  coverFont?: string | null;
 }
 
 export interface Phase {

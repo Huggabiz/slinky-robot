@@ -233,7 +233,6 @@
 
 .book-cover-edit-title {
   font-size: 22px;
-  font-family: Georgia, 'Times New Roman', serif;
   font-weight: 700;
   letter-spacing: -0.3px;
 }
@@ -290,6 +289,17 @@
   flex-basis: 100%;
 }
 
+.book-cover-font-select {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
 .book-cover-header-input {
   flex: 1;
   font: inherit;
@@ -323,7 +333,6 @@
 
 .book-cover h1 {
   font-size: 22px;
-  font-family: Georgia, 'Times New Roman', serif;
   font-weight: 700;
   letter-spacing: -0.3px;
   margin: 0 0 var(--space-sm);
