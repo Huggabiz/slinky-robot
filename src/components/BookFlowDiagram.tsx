@@ -109,6 +109,17 @@ export function BookFlowDiagram({
   const offsetX = -minX + pad;
   const offsetY = -minY + pad;
 
+  // The SVG is displayed at the book column width (~640px) but capped at
+  // 800px tall. Estimate the on-screen scale so we can tell when the task
+  // boxes would render too small to read. Below that, switch to a compact
+  // mode that shows only the task id (the reader finds full detail in the
+  // step cards that follow). Mirrors how the live flow stays legible.
+  const DISPLAY_W = 640;
+  const MAX_H = 800;
+  const renderScale = Math.min(DISPLAY_W / svgWidth, MAX_H / svgHeight, 1);
+  const nodeW = DEFAULT_LAB_CONFIG.nodeWidth;
+  const compact = nodeW * renderScale < 95;
+
   return (
     <div className="book-flow-diagram">
       <h3 className="book-flow-title">{phaseName} Task Flow</h3>
@@ -216,6 +227,53 @@ export function BookFlowDiagram({
               // the ring signals "this is why the task is in your view".
               const glowColour = highlightColours?.get(task.id) ?? null;
               const highlighted = glowColour != null;
+
+              // Compact mode: just the task id, sized to fill the box, so
+              // it stays legible even when the whole diagram is scaled
+              // right down. Keeps the dept fill + glow ring so the colour
+              // coding and relevance highlight still read.
+              if (compact) {
+                return (
+                  <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
+                    {highlighted && (
+                      <rect
+                        x={-5}
+                        y={-5}
+                        width={w + 10}
+                        height={h + 10}
+                        rx={8}
+                        ry={8}
+                        fill="none"
+                        stroke={glowColour ?? '#06b6d4'}
+                        strokeWidth={3}
+                        filter="url(#book-glow)"
+                      />
+                    )}
+                    <rect
+                      width={w}
+                      height={h}
+                      rx={4}
+                      ry={4}
+                      fill={fillColour}
+                      stroke={strokeColour}
+                      strokeWidth={1.5}
+                    />
+                    <text
+                      x={w / 2}
+                      y={h / 2}
+                      fontSize={Math.min(h * 0.5, 34)}
+                      fontWeight={700}
+                      fill="#1a1a1a"
+                      fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      {task.taskId || '—'}
+                    </text>
+                  </g>
+                );
+              }
+
               return (
                 <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
                   {/* Department-coloured highlight ring when the task
@@ -369,6 +427,13 @@ export function BookFlowDiagram({
             })}
         </g>
       </svg>
+      {compact && (
+        <p className="book-flow-compact-note">
+          This phase has too many steps to label in full at page size —
+          boxes show the task ID only. Full detail for each step follows
+          below.
+        </p>
+      )}
       {(legendDepts.length > 0 || (highlightColours && highlightColours.size > 0)) && (
         <ul className="book-flow-legend">
           {legendDepts.map((d) => (

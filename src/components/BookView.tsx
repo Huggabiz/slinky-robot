@@ -19,9 +19,9 @@ import { BookFlowDiagram } from './BookFlowDiagram';
 import { BookPerspectivesSidebar } from './BookPerspectivesSidebar';
 import {
   BookChaptersSidebar,
+  ChapterFilterBreakdown,
   isChapterFilterActive,
   isChapterVisible,
-  chapterFilterNotice,
   type ChapterFilter,
 } from './BookChaptersSidebar';
 import { BookReadingGuide } from './BookReadingGuide';
@@ -296,19 +296,6 @@ export function BookView() {
   const guideChapterNum = introCount + 1;
   const filtering = isFilterActive(filter);
   const chapterFiltering = isChapterFilterActive(chapterFilter);
-
-  // Build a label map for the chapter filter notice on the cover.
-  const chapterLabels = useMemo(() => {
-    const map = new Map<string, string>();
-    introChapters.forEach((ch, i) =>
-      map.set(`intro-${ch.id}`, `${i + 1}. ${ch.title || '(untitled)'}`),
-    );
-    map.set('guide', 'How to Read This Document');
-    phases.forEach((p, i) =>
-      map.set(`phase-${p.id}`, `${guideChapterNum + i + 1}. ${p.name}`),
-    );
-    return map;
-  }, [introChapters, phases, guideChapterNum]);
 
   return (
     <div className="book-layout">
@@ -589,7 +576,20 @@ export function BookView() {
           )}
           {chapterFiltering && (
             <div className="book-cover-chapter-notice">
-              {chapterFilterNotice(chapterFilter, chapterLabels)}
+              {chapterFilter.mode === 'include' ? (
+                <>
+                  <strong>Configured view</strong> — this book has been
+                  configured to <strong>only include</strong> the following
+                  chapters:
+                </>
+              ) : (
+                <>
+                  <strong>Configured view</strong> — this book has been
+                  configured to <strong>exclude</strong> the following
+                  chapters:
+                </>
+              )}
+              <ChapterFilterBreakdown filter={chapterFilter} file={file} />
             </div>
           )}
           {mode === 'edit' && (

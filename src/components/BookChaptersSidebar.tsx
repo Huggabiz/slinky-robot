@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { getPhasesOrdered } from '../types';
+import { getPhasesOrdered, type ProcessFile } from '../types';
 import './BookChaptersSidebar.css';
 
 export interface ChapterFilter {
   mode: 'include' | 'exclude';
   selectedIds: Set<string>;
+}
+
+export interface ChapterGroup {
+  label: string;
+  items: { id: string; label: string }[];
 }
 
 export function isChapterFilterActive(f: ChapterFilter): boolean {
@@ -20,21 +25,79 @@ export function isChapterVisible(id: string, f: ChapterFilter): boolean {
     : !f.selectedIds.has(id);
 }
 
-// Build the cover notice text.
-export function chapterFilterNotice(
-  f: ChapterFilter,
-  labels: Map<string, string>,
-): string {
-  if (f.selectedIds.size === 0) return '';
-  const names = [...f.selectedIds]
-    .map((id) => labels.get(id) ?? id)
-    .sort();
-  const list = names.length <= 3
-    ? names.join(', ')
-    : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`;
-  return f.mode === 'include'
-    ? `This book has been configured to only include: ${list}.`
-    : `This book has been configured to exclude: ${list}.`;
+// Shared grouping used by both the sidebar tree and the cover notice.
+// Intro chapters, the reading guide, and phase chapters grouped by their
+// section dividers.
+export function computeChapterGroups(file: ProcessFile): ChapterGroup[] {
+  const out: ChapterGroup[] = [];
+
+  const intros = [...file.introChapters].sort((a, b) => a.order - b.order);
+  if (intros.length > 0) {
+    out.push({
+      label: 'Intro Chapters',
+      items: intros.map((ch, i) => ({
+        id: `intro-${ch.id}`,
+        label: `${i + 1}. ${ch.title || '(untitled)'}`,
+      })),
+    });
+  }
+
+  out.push({
+    label: 'Reference',
+    items: [{ id: 'guide', label: 'How to Read This Document' }],
+  });
+
+  const phases = getPhasesOrdered(file);
+  let currentGroup: ChapterGroup | null = null;
+  const guideNum = intros.length + 1;
+
+  for (let i = 0; i < phases.length; i++) {
+    const p = phases[i];
+    const chNum = guideNum + i + 1;
+    if (p.sectionTitle || !currentGroup) {
+      currentGroup = { label: p.sectionTitle || 'Process Phases', items: [] };
+      out.push(currentGroup);
+    }
+    currentGroup.items.push({
+      id: `phase-${p.id}`,
+      label: `${chNum}. ${p.name}`,
+    });
+  }
+
+  return out;
+}
+
+// Cover-page breakdown: lists the included/excluded chapters grouped the
+// same way as the sidebar (mirrors the role FilterBreakdown style).
+export function ChapterFilterBreakdown({
+  filter,
+  file,
+}: {
+  filter: ChapterFilter;
+  file: ProcessFile;
+}) {
+  const groups = computeChapterGroups(file);
+  const shown = groups
+    .map((g) => ({
+      label: g.label,
+      items: g.items.filter((it) => filter.selectedIds.has(it.id)),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  return (
+    <ul className="book-cover-filter-list">
+      {shown.map((g) => (
+        <li key={g.label}>
+          <strong>{g.label}</strong>
+          <ul className="book-cover-filter-roles">
+            {g.items.map((it) => (
+              <li key={it.id}>{it.label}</li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 interface Props {
@@ -42,60 +105,13 @@ interface Props {
   onChange: (next: ChapterFilter) => void;
 }
 
-interface Group {
-  label: string;
-  items: { id: string; label: string }[];
-}
-
 export function BookChaptersSidebar({ filter, onChange }: Props) {
   const file = useAppStore((s) => s.file);
 
-  const groups = useMemo<Group[]>(() => {
-    if (!file) return [];
-    const out: Group[] = [];
-
-    // Intro chapters group.
-    const intros = [...file.introChapters].sort((a, b) => a.order - b.order);
-    if (intros.length > 0) {
-      out.push({
-        label: 'Intro Chapters',
-        items: intros.map((ch, i) => ({
-          id: `intro-${ch.id}`,
-          label: `${i + 1}. ${ch.title || '(untitled)'}`,
-        })),
-      });
-    }
-
-    // Reading guide.
-    out.push({
-      label: 'Reference',
-      items: [{ id: 'guide', label: 'How to Read This Document' }],
-    });
-
-    // Phase chapters, grouped by sectionTitle.
-    const phases = getPhasesOrdered(file);
-    let currentGroup: Group | null = null;
-    const introCount = intros.length;
-    const guideNum = introCount + 1;
-
-    for (let i = 0; i < phases.length; i++) {
-      const p = phases[i];
-      const chNum = guideNum + i + 1;
-      if (p.sectionTitle || !currentGroup) {
-        currentGroup = {
-          label: p.sectionTitle || 'Process Phases',
-          items: [],
-        };
-        out.push(currentGroup);
-      }
-      currentGroup.items.push({
-        id: `phase-${p.id}`,
-        label: `${chNum}. ${p.name}`,
-      });
-    }
-
-    return out;
-  }, [file]);
+  const groups = useMemo<ChapterGroup[]>(
+    () => (file ? computeChapterGroups(file) : []),
+    [file],
+  );
 
   // All item ids for select-all / clear-all.
   const allIds = useMemo(
@@ -110,7 +126,7 @@ export function BookChaptersSidebar({ filter, onChange }: Props) {
     onChange({ ...filter, selectedIds: next });
   };
 
-  const toggleGroup = (g: Group) => {
+  const toggleGroup = (g: ChapterGroup) => {
     const ids = g.items.map((it) => it.id);
     const allChecked = ids.every((id) => filter.selectedIds.has(id));
     const next = new Set(filter.selectedIds);
