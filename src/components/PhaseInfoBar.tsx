@@ -75,6 +75,19 @@ export function PhaseInfoBar({ phaseId }: Props) {
                 />
               </label>
               <label className="phase-info-bar-field">
+                <span className="phase-info-bar-label">Section divider</span>
+                <input
+                  type="text"
+                  value={phase.sectionTitle ?? ''}
+                  placeholder="Leave blank for no divider"
+                  onChange={(e) =>
+                    updatePhase(phase.id, {
+                      sectionTitle: e.target.value || null,
+                    })
+                  }
+                />
+              </label>
+              <label className="phase-info-bar-field">
                 <span className="phase-info-bar-label">Colour</span>
                 <div className="phase-info-bar-colour-row">
                   <input

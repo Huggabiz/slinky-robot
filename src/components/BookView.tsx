@@ -17,6 +17,13 @@ import { DEFAULT_LAB_CONFIG } from '../utils/flowLab';
 import { extractRoleRefs } from '../utils/roleRefs';
 import { BookFlowDiagram } from './BookFlowDiagram';
 import { BookPerspectivesSidebar } from './BookPerspectivesSidebar';
+import {
+  BookChaptersSidebar,
+  isChapterFilterActive,
+  isChapterVisible,
+  chapterFilterNotice,
+  type ChapterFilter,
+} from './BookChaptersSidebar';
 import { BookReadingGuide } from './BookReadingGuide';
 import { Markdown } from './Markdown';
 import './BookView.css';
@@ -261,6 +268,10 @@ export function BookView() {
 
   const [filter, setFilter] = useState<BookFilter>(EMPTY_FILTER);
   const [simplify, setSimplify] = useState(false);
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>({
+    mode: 'exclude',
+    selectedIds: new Set(),
+  });
   // Screen-only navigation zoom (0.5–2). Independent of print scale.
   const [zoom, setZoom] = useState(1);
   const setZoomClamped = (z: number) =>
@@ -284,15 +295,35 @@ export function BookView() {
   const introCount = introChapters.length;
   const guideChapterNum = introCount + 1;
   const filtering = isFilterActive(filter);
+  const chapterFiltering = isChapterFilterActive(chapterFilter);
+
+  // Build a label map for the chapter filter notice on the cover.
+  const chapterLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    introChapters.forEach((ch, i) =>
+      map.set(`intro-${ch.id}`, `${i + 1}. ${ch.title || '(untitled)'}`),
+    );
+    map.set('guide', 'How to Read This Document');
+    phases.forEach((p, i) =>
+      map.set(`phase-${p.id}`, `${guideChapterNum + i + 1}. ${p.name}`),
+    );
+    return map;
+  }, [introChapters, phases, guideChapterNum]);
 
   return (
     <div className="book-layout">
-      <BookPerspectivesSidebar
-        filter={filter}
-        onChange={setFilter}
-        simplify={simplify}
-        onSimplifyChange={setSimplify}
-      />
+      <div className="book-sidebar-scroll">
+        <BookPerspectivesSidebar
+          filter={filter}
+          onChange={setFilter}
+          simplify={simplify}
+          onSimplifyChange={setSimplify}
+        />
+        <BookChaptersSidebar
+          filter={chapterFilter}
+          onChange={setChapterFilter}
+        />
+      </div>
       <div className="book-zoom-controls" role="group" aria-label="Zoom document">
         <button
           type="button"
@@ -556,6 +587,11 @@ export function BookView() {
               <FilterBreakdown filter={filter} file={file} />
             </div>
           )}
+          {chapterFiltering && (
+            <div className="book-cover-chapter-notice">
+              {chapterFilterNotice(chapterFilter, chapterLabels)}
+            </div>
+          )}
           {mode === 'edit' && (
             <div className="book-cover-image-controls">
               <button
@@ -586,57 +622,100 @@ export function BookView() {
         <nav className="book-toc">
           <h2>Contents</h2>
           <ol>
-            {introChapters.map((ch, idx) => (
-              <li key={ch.id}>
-                <a href={`#intro-${ch.id}`}>
-                  <span className="book-toc-num">{idx + 1}.</span>{' '}
-                  {ch.title}
-                </a>
-              </li>
-            ))}
-            <li>
-              <a href="#reading-guide">
-                <span className="book-toc-num">{guideChapterNum}.</span>{' '}
-                How to Read This Document
-              </a>
-            </li>
-            {phases.map((phase, idx) => (
-              <li key={phase.id}>
-                <a href={`#phase-${phase.id}`}>
-                  <span className="book-toc-num">{guideChapterNum + idx + 1}.</span>{' '}
-                  {phase.name}
-                </a>
-              </li>
-            ))}
+            {introChapters.map((ch, idx) => {
+              const excluded = !isChapterVisible(`intro-${ch.id}`, chapterFilter);
+              return (
+                <li key={ch.id} className={excluded ? 'book-toc-excluded' : ''}>
+                  <a href={excluded ? undefined : `#intro-${ch.id}`}>
+                    <span className="book-toc-num">{idx + 1}.</span>{' '}
+                    {ch.title}
+                    {excluded && (
+                      <span className="book-toc-excluded-label">
+                        {' '}(excluded from this version)
+                      </span>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
+            {(() => {
+              const guideExcluded = !isChapterVisible('guide', chapterFilter);
+              return (
+                <li className={guideExcluded ? 'book-toc-excluded' : ''}>
+                  <a href={guideExcluded ? undefined : '#reading-guide'}>
+                    <span className="book-toc-num">{guideChapterNum}.</span>{' '}
+                    How to Read This Document
+                    {guideExcluded && (
+                      <span className="book-toc-excluded-label">
+                        {' '}(excluded from this version)
+                      </span>
+                    )}
+                  </a>
+                </li>
+              );
+            })()}
+            {phases.map((phase, idx) => {
+              const excluded = !isChapterVisible(`phase-${phase.id}`, chapterFilter);
+              return (
+                <li key={phase.id} className={excluded ? 'book-toc-excluded' : ''}>
+                  <a href={excluded ? undefined : `#phase-${phase.id}`}>
+                    <span className="book-toc-num">{guideChapterNum + idx + 1}.</span>{' '}
+                    {phase.name}
+                    {excluded && (
+                      <span className="book-toc-excluded-label">
+                        {' '}(excluded from this version)
+                      </span>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
           </ol>
         </nav>
 
-        {introChapters.map((ch, idx) => (
-          <BookIntroChapter
-            key={ch.id}
-            chapter={ch}
-            chapterNumber={idx + 1}
-            pageName={chapterPageName('intro', idx)}
-          />
-        ))}
+        {introChapters.map((ch, idx) =>
+          isChapterVisible(`intro-${ch.id}`, chapterFilter) ? (
+            <BookIntroChapter
+              key={ch.id}
+              chapter={ch}
+              chapterNumber={idx + 1}
+              pageName={chapterPageName('intro', idx)}
+            />
+          ) : null,
+        )}
 
-        <BookReadingGuide
-          chapterNumber={guideChapterNum}
-          pageName={chapterPageName('guide', 0)}
-        />
-
-        {phases.map((phase, idx) => (
-          <BookChapter
-            key={phase.id}
-            phase={phase}
-            chapterNumber={guideChapterNum + idx + 1}
-            file={file}
-            filter={filter}
-            roleToDeptId={roleToDeptId}
-            simplify={simplify}
-            pageName={chapterPageName('phase', idx)}
+        {isChapterVisible('guide', chapterFilter) && (
+          <BookReadingGuide
+            chapterNumber={guideChapterNum}
+            pageName={chapterPageName('guide', 0)}
           />
-        ))}
+        )}
+
+        {phases.map((phase, idx) => {
+          const visible = isChapterVisible(`phase-${phase.id}`, chapterFilter);
+          return (
+            <div key={phase.id}>
+              {phase.sectionTitle && (
+                <div className="book-section-divider">
+                  <h2 className="book-section-divider-title">
+                    {phase.sectionTitle}
+                  </h2>
+                </div>
+              )}
+              {visible && (
+                <BookChapter
+                  phase={phase}
+                  chapterNumber={guideChapterNum + idx + 1}
+                  file={file}
+                  filter={filter}
+                  roleToDeptId={roleToDeptId}
+                  simplify={simplify}
+                  pageName={chapterPageName('phase', idx)}
+                />
+              )}
+            </div>
+          );
+        })}
       </article>
     </div>
   );

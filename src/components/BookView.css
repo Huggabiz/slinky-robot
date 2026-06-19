@@ -11,6 +11,21 @@
   position: relative;
 }
 
+/* Scrollable wrapper for the left-hand sidebar panels (perspectives +
+   chapters). The panels stack vertically and share one scrollbar. */
+.book-sidebar-scroll {
+  width: 240px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: white;
+  border-right: 1px solid #e5e3dc;
+}
+
+.app.edit-mode .book-sidebar-scroll {
+  background: var(--color-surface);
+  border-right-color: var(--color-border);
+}
+
 .book-view {
   flex: 1;
   /* Both axes: zoom > 100% widens content past the column, so allow
@@ -157,6 +172,22 @@
   border-radius: 8px;
   padding: var(--space-sm) var(--space-lg);
   margin-top: var(--space-md);
+  font-size: 13px;
+  color: #1a1a1a;
+  text-align: left;
+  max-width: 480px;
+  display: inline-block;
+}
+
+/* Chapter inclusion/exclusion notice on the cover. */
+.book-cover-chapter-notice {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #4a5568;
+  border-radius: 8px;
+  padding: var(--space-sm) var(--space-lg);
+  margin-top: var(--space-sm);
   font-size: 13px;
   color: #1a1a1a;
   text-align: left;
@@ -376,10 +407,45 @@
   text-decoration: underline;
 }
 
+/* Excluded chapter entries stay in the TOC but are visually muted. */
+.book-toc-excluded a {
+  color: #bbb;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+
+.book-toc-excluded-label {
+  font-size: 11px;
+  font-style: italic;
+  color: #999;
+  text-decoration: none;
+}
+
 .book-toc-num {
   display: inline-block;
   min-width: 24px;
   color: #888;
+}
+
+/* Titled divider between phase groups in the book. Renders as a
+   full-width banner before the first chapter in each section. */
+.book-section-divider {
+  max-width: 720px;
+  margin: var(--space-xl) auto var(--space-md);
+  padding: var(--space-md) var(--space-xl);
+  text-align: center;
+}
+
+.book-section-divider-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #888;
+  border-top: 2px solid #ddd;
+  border-bottom: 2px solid #ddd;
+  padding: var(--space-sm) 0;
 }
 
 .book-chapter-header {
@@ -687,7 +753,8 @@
   .app-detail-column,
   .detail-resizer,
   .flow-toolbar,
-  .book-filter-note {
+  .book-filter-note,
+  .book-sidebar-scroll {
     display: none !important;
   }
 

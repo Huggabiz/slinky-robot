@@ -88,9 +88,14 @@ export function PhaseSidebar({
           const count = getTasksInPhase(file, phase.id).length;
           const active = phase.id === selectedPhaseId;
           return (
-            <div
-              key={phase.id}
-              className={
+            <div key={phase.id}>
+              {phase.sectionTitle && (
+                <div className="phase-sidebar-divider" aria-hidden>
+                  {phase.sectionTitle}
+                </div>
+              )}
+              <div
+                className={
                 active
                   ? 'phase-sidebar-row phase-sidebar-row-active'
                   : 'phase-sidebar-row'
@@ -139,6 +144,7 @@ export function PhaseSidebar({
                   </button>
                 </div>
               )}
+              </div>
             </div>
           );
         })

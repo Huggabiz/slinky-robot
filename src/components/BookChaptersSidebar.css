@@ -1,0 +1,120 @@
+.book-chapters-sidebar {
+  padding: var(--space-md);
+  font-size: 12px;
+  border-top: 1px solid #e5e3dc;
+  margin-top: var(--space-sm);
+}
+
+.app.edit-mode .book-chapters-sidebar {
+  border-top-color: var(--color-border);
+}
+
+.book-chapters-header h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #555;
+  font-weight: 600;
+}
+
+.app.edit-mode .book-chapters-header h3 {
+  color: var(--color-text-muted);
+}
+
+.book-chapters-mode {
+  display: flex;
+  border: 1px solid #cfcfcf;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-xs);
+}
+
+.app.edit-mode .book-chapters-mode {
+  border-color: var(--color-border);
+}
+
+.book-chapters-mode-btn {
+  flex: 1;
+  text-align: center;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: white;
+  color: #555;
+}
+
+.app.edit-mode .book-chapters-mode-btn {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+}
+
+.book-chapters-mode-btn.active {
+  background: var(--color-accent);
+  color: white;
+}
+
+.book-chapters-mode-btn input {
+  display: none;
+}
+
+.book-chapters-hint {
+  margin: 0 0 var(--space-sm);
+  font-size: 11px;
+  color: #777;
+  line-height: 1.4;
+}
+
+.app.edit-mode .book-chapters-hint {
+  color: var(--color-text-muted);
+}
+
+.book-chapters-actions {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-sm);
+}
+
+.book-chapters-group {
+  margin-bottom: var(--space-xs);
+}
+
+.book-chapters-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.book-chapters-group-label input {
+  margin: 0;
+}
+
+.book-chapters-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.book-chapters-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.book-chapters-item input {
+  margin: 0;
+}
+
+@media print {
+  .book-chapters-sidebar {
+    display: none !important;
+  }
+}

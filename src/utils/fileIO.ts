@@ -138,6 +138,8 @@ function normaliseShape(
         ...o,
         intro,
         sections,
+        sectionTitle:
+          typeof o.sectionTitle === 'string' ? o.sectionTitle : null,
         colour:
           typeof o.colour === 'string' || o.colour === null
             ? o.colour

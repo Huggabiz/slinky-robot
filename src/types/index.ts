@@ -89,19 +89,16 @@ export interface Phase {
   id: string;                // internal stable id
   order: number;             // manual sort key, lower = earlier
   name: string;
-  // Legacy single-field intro. Superseded by `sections` (which support
-  // titles, subtitles, images and multiple blocks like intro chapters).
-  // Retained so older files still parse; the loader migrates a non-empty
-  // intro into a single section. Not rendered directly any more.
+  // Legacy single-field intro. Superseded by `sections`.
   intro: string;
-  // Structured intro built from the same IntroSection shape used by
-  // intro chapters. Optional for back-compat; guarded with `?? []` at
-  // read sites. The loader seeds it from `intro` on first load.
   sections?: IntroSection[];
-  // Hex colour string (e.g. "#4f46e5") used for the phase's swatch in
-  // the sidebar and any other phase accents. Null = no colour chosen.
-  // Rendered the same way in both Navigate and Edit modes.
   colour: string | null;
+  // When set, a titled divider renders above this phase in the sidebar
+  // and book view, visually grouping subsequent phases until the next
+  // sectionTitle. Used to separate main-process phases from periphery /
+  // outlier processes. Null/empty = no divider (phase continues the
+  // current group).
+  sectionTitle?: string | null;
 }
 
 export interface Department {

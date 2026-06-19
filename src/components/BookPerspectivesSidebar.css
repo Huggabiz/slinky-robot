@@ -1,19 +1,11 @@
 .book-perspectives-sidebar {
-  width: 240px;
-  flex-shrink: 0;
   padding: var(--space-md);
-  background: white;
-  border-right: 1px solid #e5e3dc;
-  overflow-y: auto;
   color: #1a1a1a;
   font-size: 12px;
 }
 
-/* Dark mode backdrop to stay consistent with app-edit-mode palette. */
 .app.edit-mode .book-perspectives-sidebar {
-  background: var(--color-surface);
   color: var(--color-text);
-  border-right-color: var(--color-border);
 }
 
 .book-perspectives-header h3 {
