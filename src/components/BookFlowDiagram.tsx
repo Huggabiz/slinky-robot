@@ -118,7 +118,9 @@ export function BookFlowDiagram({
   const MAX_H = 800;
   const renderScale = Math.min(DISPLAY_W / svgWidth, MAX_H / svgHeight, 1);
   const nodeW = DEFAULT_LAB_CONFIG.nodeWidth;
-  const compact = nodeW * renderScale < 95;
+  // Caption appears once boxes have shed their titles (standard box too
+  // small to label), pointing the reader to the step cards below.
+  const reducedDetail = nodeW * renderScale < 90;
 
   return (
     <div className="book-flow-diagram">
@@ -223,215 +225,35 @@ export function BookFlowDiagram({
               const strokeColour = persp?.colour ?? '#ccc';
               const contribDots = persp?.contributorColours ?? [];
               // Glow colour comes from the active book filter (the selected
-              // department/role), not the task's own accountable dept — so
-              // the ring signals "this is why the task is in your view".
+              // department/role), not the task's own accountable dept.
               const glowColour = highlightColours?.get(task.id) ?? null;
-              const highlighted = glowColour != null;
-
-              // Compact mode: just the task id, sized to fill the box, so
-              // it stays legible even when the whole diagram is scaled
-              // right down. Keeps the dept fill + glow ring so the colour
-              // coding and relevance highlight still read.
-              if (compact) {
-                return (
-                  <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
-                    {highlighted && (
-                      <rect
-                        x={-5}
-                        y={-5}
-                        width={w + 10}
-                        height={h + 10}
-                        rx={8}
-                        ry={8}
-                        fill="none"
-                        stroke={glowColour ?? '#06b6d4'}
-                        strokeWidth={3}
-                        filter="url(#book-glow)"
-                      />
-                    )}
-                    <rect
-                      width={w}
-                      height={h}
-                      rx={4}
-                      ry={4}
-                      fill={fillColour}
-                      stroke={strokeColour}
-                      strokeWidth={1.5}
-                    />
-                    <text
-                      x={w / 2}
-                      y={h / 2}
-                      fontSize={Math.min(h * 0.5, 34)}
-                      fontWeight={700}
-                      fill="#1a1a1a"
-                      fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                    >
-                      {task.taskId || '—'}
-                    </text>
-                  </g>
-                );
-              }
-
               return (
-                <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
-                  {/* Department-coloured highlight ring when the task
-                      matches the active book filter. Drawn 5px outside
-                      the node so it doesn't merge with the node border. */}
-                  {highlighted && (
-                    <rect
-                      x={-5}
-                      y={-5}
-                      width={w + 10}
-                      height={h + 10}
-                      rx={8}
-                      ry={8}
-                      fill="none"
-                      stroke={glowColour ?? '#06b6d4'}
-                      strokeWidth={3}
-                      filter="url(#book-glow)"
-                    />
-                  )}
-                  <rect
-                    width={w}
-                    height={h}
-                    rx={4}
-                    ry={4}
-                    fill={fillColour}
-                    stroke={strokeColour}
-                    strokeWidth={1.5}
-                  />
-                  <text
-                    x={8}
-                    y={14}
-                    fontSize={9}
-                    fill="#888"
-                    fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-                  >
-                    {task.taskId}
-                  </text>
-                  {wrapText(task.name || '(untitled)', 26, 2).map(
-                    (line, li) => (
-                      <text
-                        key={li}
-                        x={8}
-                        y={30 + li * 14}
-                        fontSize={11}
-                        fontWeight={600}
-                        fill="#1a1a1a"
-                      >
-                        {line}
-                      </text>
-                    ),
-                  )}
-                  {task.activityType && (
-                    <text
-                      x={8}
-                      y={h - 8}
-                      fontSize={8}
-                      fill="#aaa"
-                      style={{ textTransform: 'uppercase' }}
-                    >
-                      {task.activityType}
-                    </text>
-                  )}
-                  {/* Meeting icon — top right, white pill bg. */}
-                  {task.isMeetingTask && (
-                    <g>
-                      <rect
-                        x={w - 22}
-                        y={2}
-                        width={18}
-                        height={18}
-                        rx={5}
-                        ry={5}
-                        fill="white"
-                        stroke="rgba(0,0,0,0.1)"
-                        strokeWidth={0.5}
-                      />
-                      <text
-                        x={w - 13}
-                        y={11}
-                        fontSize={11}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                      >📅</text>
-                    </g>
-                  )}
-                  {/* Deliverable icon — bottom right, white pill bg. */}
-                  {task.deliverableTargets?.length > 0 && (
-                    <g>
-                      <rect
-                        x={w - 22}
-                        y={h - 20}
-                        width={18}
-                        height={18}
-                        rx={5}
-                        ry={5}
-                        fill="white"
-                        stroke="rgba(0,0,0,0.1)"
-                        strokeWidth={0.5}
-                      />
-                      <text
-                        x={w - 13}
-                        y={h - 11}
-                        fontSize={11}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                      >📄</text>
-                    </g>
-                  )}
-                  {/* Contributor department dots — white pill for legibility
-                     on coloured cell backgrounds. */}
-                  {contribDots.length > 0 && (() => {
-                    const dotR = 3;
-                    const dotGap = 3;
-                    const dotW = dotR * 2;
-                    const pillPadX = 5;
-                    const pillPadY = 2;
-                    const dotsW =
-                      contribDots.length * dotW +
-                      (contribDots.length - 1) * dotGap;
-                    const pillW = dotsW + pillPadX * 2;
-                    const pillH = dotW + pillPadY * 2;
-                    const pillX = w / 2 - pillW / 2;
-                    const pillY = h - pillH / 2 - 1;
-                    return (
-                      <g>
-                        <rect
-                          x={pillX}
-                          y={pillY}
-                          width={pillW}
-                          height={pillH}
-                          rx={pillH / 2}
-                          ry={pillH / 2}
-                          fill="white"
-                          stroke="rgba(0,0,0,0.1)"
-                          strokeWidth={1}
-                        />
-                        {contribDots.map((c, i) => (
-                          <circle
-                            key={i}
-                            cx={pillX + pillPadX + dotR + i * (dotW + dotGap)}
-                            cy={pillY + pillH / 2}
-                            r={dotR}
-                            fill={c}
-                          />
-                        ))}
-                      </g>
-                    );
-                  })()}
-                </g>
+                <BookTaskBox
+                  key={n.id}
+                  x={n.position.x}
+                  y={n.position.y}
+                  w={w}
+                  h={h}
+                  taskId={task.taskId}
+                  name={task.name}
+                  activityType={task.activityType}
+                  isMeetingTask={task.isMeetingTask}
+                  hasDeliverables={task.deliverableTargets?.length > 0}
+                  fillColour={fillColour}
+                  strokeColour={strokeColour}
+                  contribDots={contribDots}
+                  glowColour={glowColour}
+                  renderScale={renderScale}
+                />
               );
             })}
         </g>
       </svg>
-      {compact && (
+      {reducedDetail && (
         <p className="book-flow-compact-note">
           This phase has too many steps to label in full at page size —
-          boxes show the task ID only. Full detail for each step follows
-          below.
+          smaller boxes show only the task ID. Full detail for each step
+          follows below.
         </p>
       )}
       {(legendDepts.length > 0 || (highlightColours && highlightColours.size > 0)) && (
@@ -462,6 +284,247 @@ export function BookFlowDiagram({
         </ul>
       )}
     </div>
+  );
+}
+
+// Adaptive task box for the book-view SVG. As the diagram is scaled down
+// to fit the page, text would become illegible, so information is shed in
+// priority order — keeping the most useful bits readable for as long as
+// possible:
+//   1. activity type + corner badges drop first (smallest boxes lose them)
+//   2. then the title (wrapped, drops when there's no room for a line)
+//   3. the task ID + contributor dots are the last to go (the ID becomes a
+//      large centred "hero" so it stays readable; the dots keep the colour
+//      coding). The reader finds full detail in the step cards below.
+// Fonts are boosted inversely to the render scale so the retained text
+// fills the box rather than shrinking with it. This affects ONLY the book
+// view; the live process flow (TaskNode) is untouched.
+const TASK_MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
+
+function BookTaskBox({
+  x,
+  y,
+  w,
+  h,
+  taskId,
+  name,
+  activityType,
+  isMeetingTask,
+  hasDeliverables,
+  fillColour,
+  strokeColour,
+  contribDots,
+  glowColour,
+  renderScale,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  taskId: string;
+  name: string;
+  activityType: string;
+  isMeetingTask: boolean;
+  hasDeliverables: boolean;
+  fillColour: string;
+  strokeColour: string;
+  contribDots: string[];
+  glowColour: string | null;
+  renderScale: number;
+}) {
+  const highlighted = glowColour != null;
+  const rW = w * renderScale;
+  // Enlarge fonts as the diagram shrinks (capped) so retained text stays
+  // legible; never shrink below the design size when scaled up.
+  const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
+
+  const showType = rW >= 150;
+  const wantTitle = rW >= 90;
+  const showDots = rW >= 55 && contribDots.length > 0;
+
+  const idHeaderFont = 9 * boost;
+  const titleFont = 12 * boost;
+  const typeFont = 8 * boost;
+
+  const topPad = 6;
+  const idLineH = idHeaderFont * 1.25;
+  const titleTop = topPad + idLineH;
+  const bottomReserve = (showType ? typeFont * 1.7 : 0) + (showDots ? 16 : 0);
+  const titleAvailH = h - titleTop - bottomReserve - 2;
+  const titleLineH = titleFont * 1.15;
+  const titleMaxLines = Math.max(
+    0,
+    Math.min(3, Math.floor(titleAvailH / titleLineH)),
+  );
+  const usableW = w - 16;
+  const titleCPL = Math.max(5, Math.floor(usableW / (titleFont * 0.52)));
+  const titleLines =
+    wantTitle && titleMaxLines >= 1
+      ? wrapText(name || '(untitled)', titleCPL, titleMaxLines)
+      : [];
+  const showTitle = titleLines.length > 0;
+
+  const dotR = Math.min(3 * boost, 7);
+
+  const dotsPill = (cy: number) => {
+    const dotGap = dotR;
+    const dotW = dotR * 2;
+    const padX = dotR + 2;
+    const padY = 2;
+    const dotsW =
+      contribDots.length * dotW + (contribDots.length - 1) * dotGap;
+    const pillW = dotsW + padX * 2;
+    const pillH = dotW + padY * 2;
+    const pillX = w / 2 - pillW / 2;
+    const pillY = cy - pillH / 2;
+    return (
+      <g>
+        <rect
+          x={pillX}
+          y={pillY}
+          width={pillW}
+          height={pillH}
+          rx={pillH / 2}
+          ry={pillH / 2}
+          fill="white"
+          stroke="rgba(0,0,0,0.1)"
+          strokeWidth={1}
+        />
+        {contribDots.map((c, i) => (
+          <circle
+            key={i}
+            cx={pillX + padX + dotR + i * (dotW + dotGap)}
+            cy={pillY + pillH / 2}
+            r={dotR}
+            fill={c}
+          />
+        ))}
+      </g>
+    );
+  };
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {highlighted && (
+        <rect
+          x={-5}
+          y={-5}
+          width={w + 10}
+          height={h + 10}
+          rx={8}
+          ry={8}
+          fill="none"
+          stroke={glowColour ?? '#06b6d4'}
+          strokeWidth={3}
+          filter="url(#book-glow)"
+        />
+      )}
+      <rect
+        width={w}
+        height={h}
+        rx={4}
+        ry={4}
+        fill={fillColour}
+        stroke={strokeColour}
+        strokeWidth={1.5}
+      />
+
+      {showTitle ? (
+        <>
+          <text
+            x={8}
+            y={topPad + idHeaderFont}
+            fontSize={idHeaderFont}
+            fill="#888"
+            fontFamily={TASK_MONO}
+          >
+            {taskId}
+          </text>
+          {titleLines.map((line, li) => (
+            <text
+              key={li}
+              x={8}
+              y={titleTop + titleFont + li * titleLineH}
+              fontSize={titleFont}
+              fontWeight={600}
+              fill="#1a1a1a"
+            >
+              {line}
+            </text>
+          ))}
+          {showType && activityType && (
+            <text
+              x={8}
+              y={h - 6}
+              fontSize={typeFont}
+              fill="#aaa"
+              style={{ textTransform: 'uppercase' }}
+            >
+              {activityType}
+            </text>
+          )}
+          {showType && isMeetingTask && (
+            <g>
+              <rect
+                x={w - 22}
+                y={2}
+                width={18}
+                height={18}
+                rx={5}
+                ry={5}
+                fill="white"
+                stroke="rgba(0,0,0,0.1)"
+                strokeWidth={0.5}
+              />
+              <text x={w - 13} y={11} fontSize={11} textAnchor="middle" dominantBaseline="central">📅</text>
+            </g>
+          )}
+          {showType && hasDeliverables && (
+            <g>
+              <rect
+                x={w - 22}
+                y={h - 20}
+                width={18}
+                height={18}
+                rx={5}
+                ry={5}
+                fill="white"
+                stroke="rgba(0,0,0,0.1)"
+                strokeWidth={0.5}
+              />
+              <text x={w - 13} y={h - 11} fontSize={11} textAnchor="middle" dominantBaseline="central">📄</text>
+            </g>
+          )}
+          {showDots && dotsPill(h - (dotR + 3))}
+        </>
+      ) : (
+        <>
+          {(() => {
+            const idStr = taskId || '—';
+            const heroFont = Math.max(
+              10,
+              Math.min(h * 0.42, usableW / Math.max(4, idStr.length) / 0.62, 46),
+            );
+            const cy = showDots ? h / 2 - dotR : h / 2;
+            return (
+              <text
+                x={w / 2}
+                y={cy}
+                fontSize={heroFont}
+                fontWeight={700}
+                fill="#1a1a1a"
+                fontFamily={TASK_MONO}
+                textAnchor="middle"
+                dominantBaseline="central"
+              >
+                {idStr}
+              </text>
+            );
+          })()}
+          {showDots && dotsPill(h - (dotR + 4))}
+        </>
+      )}
+    </g>
   );
 }
 
