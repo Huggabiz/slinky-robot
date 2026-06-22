@@ -1095,7 +1095,12 @@ function BookStepCard({ task }: { task: Task }) {
           <MetaRow label="Contributors" items={task.contributors} />
         )}
         {task.isMeetingTask && task.meetingOrganiser && (
-          <MetaRow label="Meeting Organiser" value={task.meetingOrganiser} />
+          <MetaRow
+            label="Meeting Organiser"
+            value={task.meetingOrganiser}
+            icon="📅"
+            valueClassName="book-meta-meeting"
+          />
         )}
         {task.pdmTemplate && (
           <MetaRow label="PDM Template" value={task.pdmTemplate} />
@@ -1200,10 +1205,14 @@ function MetaRow({
   label,
   value,
   items,
+  icon,
+  valueClassName,
 }: {
   label: string;
   value?: string;
   items?: string[];
+  icon?: string;
+  valueClassName?: string;
 }) {
   if (items) {
     if (items.length === 0) return null;
@@ -1223,7 +1232,14 @@ function MetaRow({
   return (
     <div className="book-meta-row">
       <dt>{label}</dt>
-      <dd>{value}</dd>
+      <dd className={valueClassName}>
+        {icon && (
+          <span className="book-meta-icon" aria-hidden>
+            {icon}
+          </span>
+        )}
+        {value}
+      </dd>
     </div>
   );
 }

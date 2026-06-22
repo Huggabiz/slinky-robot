@@ -622,6 +622,26 @@
   color: #1a1a1a;
 }
 
+/* Meeting organiser is a distinct role from the contributors — mark it
+   with a calendar glyph + subtle chip so it doesn't read as just another
+   name in the list. */
+.book-meta-meeting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px 1px 5px;
+  background: #eef4ff;
+  border: 1px solid #cdddf5;
+  border-radius: 10px;
+  color: #234;
+  font-size: 11px;
+}
+
+.book-meta-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
 /* Multi-value meta rows (e.g. Contributors) render as a 2-column
    hyphenated list rather than a comma-soup so longer rosters stay
    scannable. Falls back to a single column on narrow widths. */
