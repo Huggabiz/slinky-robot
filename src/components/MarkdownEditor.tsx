@@ -315,27 +315,129 @@ export function MarkdownEditor({
     });
   };
 
+  // Restore value + selection after an edit (re-render is async).
+  const setValueSel = (next: string, selStart: number, selEnd = selStart) => {
+    onChange(next);
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(selStart, selEnd);
+    });
+  };
+
+  const LIST_INDENT = '  '; // 2 spaces per level
+
+  // Tab / Shift+Tab indent or outdent every line touched by the selection,
+  // so nested bullet/number structures are easy to build.
+  const indentSelection = (outdent: boolean) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const blockStart = value.lastIndexOf('\n', start - 1) + 1;
+    let blockEnd = value.indexOf('\n', end);
+    if (blockEnd === -1) blockEnd = value.length;
+    const lines = value.slice(blockStart, blockEnd).split('\n');
+
+    let firstDelta = 0;
+    let totalDelta = 0;
+    const newLines = lines.map((ln, idx) => {
+      if (outdent) {
+        const m = ln.match(/^( {1,2}|\t)/);
+        const removed = m ? m[0].length : 0;
+        if (idx === 0) firstDelta = -removed;
+        totalDelta -= removed;
+        return ln.slice(removed);
+      }
+      if (idx === 0) firstDelta = LIST_INDENT.length;
+      totalDelta += LIST_INDENT.length;
+      return LIST_INDENT + ln;
+    });
+
+    const next =
+      value.slice(0, blockStart) + newLines.join('\n') + value.slice(blockEnd);
+    const newStart = Math.max(blockStart, start + firstDelta);
+    const newEnd = Math.max(newStart, end + totalDelta);
+    setValueSel(next, newStart, newEnd);
+  };
+
+  // Enter inside a list item continues the list: a new item at the same
+  // indent (incrementing the number for ordered lists). On an empty item,
+  // Enter outdents one level, or ends the list if already at the margin.
+  const handleListEnter = (): boolean => {
+    const ta = textareaRef.current;
+    if (!ta) return false;
+    const start = ta.selectionStart;
+    if (start !== ta.selectionEnd) return false; // let a selection replace
+    const lineEndPos = value.indexOf('\n', start);
+    if (lineEndPos !== -1 && lineEndPos !== start) return false; // mid-line
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const line = value.slice(lineStart, start);
+    const m = line.match(/^(\s*)([-*+]|(\d+)\.)\s+(.*)$/);
+    if (!m) return false;
+    const indent = m[1];
+    const bullet = m[2];
+    const num = m[3]; // present for ordered lists
+    const content = m[4];
+
+    if (content.trim() === '') {
+      if (indent.length >= LIST_INDENT.length) {
+        // Outdent one level, keep the marker.
+        const newIndent = indent.slice(LIST_INDENT.length);
+        const marker = num !== undefined ? '1. ' : `${bullet} `;
+        const newLine = newIndent + marker;
+        const next =
+          value.slice(0, lineStart) + newLine + value.slice(start);
+        setValueSel(next, lineStart + newLine.length);
+      } else {
+        // End the list — drop the marker entirely.
+        const next = value.slice(0, lineStart) + value.slice(start);
+        setValueSel(next, lineStart);
+      }
+      return true;
+    }
+
+    const marker =
+      num !== undefined ? `${parseInt(num, 10) + 1}. ` : `${bullet} `;
+    const insertion = `\n${indent}${marker}`;
+    const next = value.slice(0, start) + insertion + value.slice(start);
+    setValueSel(next, start + insertion.length);
+    return true;
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!autocomplete || matches.length === 0) return;
-    if (e.key === 'ArrowDown') {
+    // Autocomplete popover takes priority for navigation keys.
+    if (autocomplete && matches.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setAutocomplete({
+          ...autocomplete,
+          activeIndex: (autocomplete.activeIndex + 1) % matches.length,
+        });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setAutocomplete({
+          ...autocomplete,
+          activeIndex:
+            (autocomplete.activeIndex - 1 + matches.length) % matches.length,
+        });
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        acceptAutocomplete(matches[autocomplete.activeIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setAutocomplete(null);
+      }
+      return;
+    }
+
+    // List editing helpers when the popover is closed.
+    if (e.key === 'Tab') {
       e.preventDefault();
-      setAutocomplete({
-        ...autocomplete,
-        activeIndex: (autocomplete.activeIndex + 1) % matches.length,
-      });
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setAutocomplete({
-        ...autocomplete,
-        activeIndex:
-          (autocomplete.activeIndex - 1 + matches.length) % matches.length,
-      });
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      acceptAutocomplete(matches[autocomplete.activeIndex]);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setAutocomplete(null);
+      indentSelection(e.shiftKey);
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      if (handleListEnter()) e.preventDefault();
     }
   };
 
@@ -467,6 +569,24 @@ export function MarkdownEditor({
           title="Numbered list (1. item)"
         >
           1.&ensp;List
+        </button>
+        <button
+          type="button"
+          className="md-btn"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => indentSelection(true)}
+          title="Outdent (Shift+Tab)"
+        >
+          ⇤
+        </button>
+        <button
+          type="button"
+          className="md-btn"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => indentSelection(false)}
+          title="Indent (Tab)"
+        >
+          ⇥
         </button>
         <span className="md-sep" aria-hidden />
         <button

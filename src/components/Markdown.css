@@ -28,6 +28,22 @@
   margin-bottom: 0.15em;
 }
 
+/* Distinct markers per nesting level so indented structures read clearly.
+   Unordered: disc → circle → square. Ordered: 1. → a. → i. */
+.markdown-body ul { list-style-type: disc; }
+.markdown-body ul ul { list-style-type: circle; }
+.markdown-body ul ul ul { list-style-type: square; }
+
+.markdown-body ol { list-style-type: decimal; }
+.markdown-body ol ol { list-style-type: lower-alpha; }
+.markdown-body ol ol ol { list-style-type: lower-roman; }
+
+/* Tighten nested lists so they sit snugly under their parent item. */
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 0.1em 0 0.2em;
+}
+
 /* marked wraps list-item content in <p> when the source has spacing.
    Zero out the paragraph margin inside lists so items stay tight. */
 .markdown-body li p {
