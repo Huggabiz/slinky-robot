@@ -121,6 +121,9 @@ export function BookFlowDiagram({
   // Caption appears once boxes have shed their titles (standard box too
   // small to label), pointing the reader to the step cards below.
   const reducedDetail = nodeW * renderScale < 90;
+  // Font enlargement applied to scaled-down boxes so retained text fills
+  // the box rather than shrinking with it (capped).
+  const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
 
   return (
     <div className="book-flow-diagram">
@@ -189,8 +192,19 @@ export function BookFlowDiagram({
               const task = taskData?.task;
               if (!task) return null;
 
-              // Collapsed placeholder: muted dashed box with label.
+              // Collapsed placeholder: muted dashed box with label. Font
+              // is boosted/fitted like the task boxes so it stays readable
+              // when the diagram is scaled right down.
               if (task.id.startsWith(COLLAPSED_PREFIX)) {
+                const plLabel = task.name || 'Other tasks';
+                const plFont = Math.max(
+                  8,
+                  Math.min(
+                    (w - 16) / Math.max(6, plLabel.length * 0.55),
+                    h * 0.32,
+                    13 * boost,
+                  ),
+                );
                 return (
                   <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
                     <rect
@@ -206,13 +220,13 @@ export function BookFlowDiagram({
                     <text
                       x={w / 2}
                       y={h / 2}
-                      fontSize={11}
+                      fontSize={plFont}
                       fill="#888"
                       fontStyle="italic"
                       textAnchor="middle"
                       dominantBaseline="central"
                     >
-                      {task.name}
+                      {plLabel}
                     </text>
                   </g>
                 );
@@ -338,33 +352,53 @@ function BookTaskBox({
   // legible; never shrink below the design size when scaled up.
   const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
 
+  // Activity type + corner badges drop first. Contributor dots ALWAYS
+  // show when present (their absence/presence flicker was confusing).
   const showType = rW >= 150;
-  const wantTitle = rW >= 90;
-  const showDots = rW >= 55 && contribDots.length > 0;
+  const showDots = contribDots.length > 0;
 
   const idHeaderFont = 9 * boost;
-  const titleFont = 12 * boost;
   const typeFont = 8 * boost;
+
+  const dotR = Math.min(3 * boost, 7);
+  const dotsBandH = showDots ? dotR * 2 + 6 : 0;
 
   const topPad = 6;
   const idLineH = idHeaderFont * 1.25;
   const titleTop = topPad + idLineH;
-  const bottomReserve = (showType ? typeFont * 1.7 : 0) + (showDots ? 16 : 0);
+  const bottomReserve = (showType ? typeFont * 1.7 : 0) + dotsBandH;
   const titleAvailH = h - titleTop - bottomReserve - 2;
-  const titleLineH = titleFont * 1.15;
-  const titleMaxLines = Math.max(
-    0,
-    Math.min(3, Math.floor(titleAvailH / titleLineH)),
-  );
   const usableW = w - 16;
-  const titleCPL = Math.max(5, Math.floor(usableW / (titleFont * 0.52)));
-  const titleLines =
-    wantTitle && titleMaxLines >= 1
-      ? wrapText(name || '(untitled)', titleCPL, titleMaxLines)
-      : [];
-  const showTitle = titleLines.length > 0;
 
-  const dotR = Math.min(3 * boost, 7);
+  // Fit the WHOLE title (no ellipsis): take the largest font up to a
+  // modest rendered ceiling, shrinking and adding lines as needed. If it
+  // still won't fit at a readable floor, drop the title and show the ID
+  // as a hero instead — never truncate with an ellipsis.
+  const maxTitleF = 11 / renderScale; // ~11px rendered ceiling
+  const minTitleF = 6.5 / renderScale; // below this → hero ID
+  const fullName = name || '(untitled)';
+  const longestWord = Math.max(
+    1,
+    ...fullName.split(/\s+/).map((wd) => wd.length),
+  );
+  let titleFont = 0;
+  let titleLines: string[] = [];
+  if (titleAvailH >= minTitleF * 1.15) {
+    const steps = 14;
+    for (let k = 0; k <= steps; k++) {
+      const F = maxTitleF - ((maxTitleF - minTitleF) * k) / steps;
+      const cpl = Math.floor(usableW / (F * 0.52));
+      if (cpl < 3 || longestWord > cpl) continue;
+      const lines = wrapAll(fullName, cpl);
+      if (lines.length * F * 1.15 <= titleAvailH) {
+        titleFont = F;
+        titleLines = lines;
+        break;
+      }
+    }
+  }
+  const showTitle = titleLines.length > 0;
+  const titleLineH = titleFont * 1.15;
 
   const dotsPill = (cy: number) => {
     const dotGap = dotR;
@@ -528,16 +562,12 @@ function BookTaskBox({
   );
 }
 
-// Word-wrap text into up to `maxLines` lines of roughly `charsPerLine`
-// characters each. The last line gets an ellipsis if there's still
-// overflow. Splits on spaces; falls back to a hard cut if a single
-// word exceeds the line width.
-function wrapText(
-  text: string,
-  charsPerLine: number,
-  maxLines: number,
-): string[] {
-  const words = text.split(/\s+/);
+// Word-wrap text into as many lines as needed (NO line cap, NO ellipsis)
+// of roughly `charsPerLine` characters each. A single word longer than
+// the line width is hard-split. The caller decides whether the resulting
+// line count fits the available height.
+function wrapAll(text: string, charsPerLine: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
 
@@ -545,27 +575,18 @@ function wrapText(
     const candidate = current ? `${current} ${word}` : word;
     if (candidate.length <= charsPerLine) {
       current = candidate;
-    } else {
-      if (current) {
-        lines.push(current);
-        current = word;
-      } else {
-        lines.push(word.slice(0, charsPerLine));
-        current = word.slice(charsPerLine);
-      }
+      continue;
     }
-    if (lines.length === maxLines) {
-      const remaining = [current, ...words.slice(words.indexOf(word) + 1)]
-        .join(' ')
-        .trim();
-      if (remaining) {
-        lines[maxLines - 1] =
-          remaining.length > charsPerLine
-            ? remaining.slice(0, charsPerLine - 1) + '…'
-            : remaining;
-      }
-      return lines;
+    if (current) {
+      lines.push(current);
+      current = '';
     }
+    let w = word;
+    while (w.length > charsPerLine) {
+      lines.push(w.slice(0, charsPerLine));
+      w = w.slice(charsPerLine);
+    }
+    current = w;
   }
   if (current) lines.push(current);
   return lines;
