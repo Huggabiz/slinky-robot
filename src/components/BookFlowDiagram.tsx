@@ -165,6 +165,30 @@ export function BookFlowDiagram({
   const dotsBandH = dotR * 2 + 6;
   const badgeSize = Math.min(18 * boost, 30);
 
+  // Dedupe identical gate lines, then vertically separate any that land on
+  // the same row (same date) so their abbreviation labels don't stack.
+  const gateSep = 9 * boost + 6;
+  const gatesByRow = new Map<number, string[]>();
+  const seenGate = new Set<string>();
+  for (const g of gateLines) {
+    const row = Math.round(g.y);
+    const key = `${row}|${g.label}`;
+    if (seenGate.has(key)) continue;
+    seenGate.add(key);
+    const arr = gatesByRow.get(row);
+    if (arr) arr.push(g.label);
+    else gatesByRow.set(row, [g.label]);
+  }
+  const finalGateLines: { y: number; label: string }[] = [];
+  for (const [row, labels] of gatesByRow) {
+    labels.forEach((label, i) => {
+      finalGateLines.push({
+        y: row + (i - (labels.length - 1) / 2) * gateSep,
+        label,
+      });
+    });
+  }
+
   // Common name font: the largest at which the MOST demanding (longest)
   // name fits the FULL box interior. The name now owns the whole box (the
   // id moved out and the activity type is gone), so it can be larger.
@@ -242,7 +266,7 @@ export function BookFlowDiagram({
           {/* Key-date gate lines first, at the very back: a red dashed
               line across the full width at each key-date task's centre,
               mirroring the live process flow's gate separators. */}
-          {gateLines.map((g, i) => (
+          {finalGateLines.map((g, i) => (
             <g key={`gate-${i}`}>
               <line
                 x1={minX - 10}
@@ -539,6 +563,10 @@ function BookTaskBox({
           filter="url(#book-glow)"
         />
       )}
+      {/* Opaque white mask first so the key-date gate line behind the
+          box doesn't bleed through the translucent department-colour
+          fill (same fix as the navigate view's solid node backing). */}
+      <rect width={w} height={h} rx={4} ry={4} fill="white" />
       <rect
         width={w}
         height={h}
