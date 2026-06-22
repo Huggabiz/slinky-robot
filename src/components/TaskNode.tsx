@@ -106,13 +106,16 @@ export function TaskNode({ data, selected }: NodeProps<TaskFlowNode>) {
 
   const contributorDots = persp?.contributorColours ?? [];
 
-  // Meeting-organiser perspective tints the calendar badge instead of
-  // the whole card. Only applies to meeting tasks (the only kind with
-  // an organiser), so the badge is guaranteed present.
+  // Tint the calendar badge with the organising department's colour:
+  //  - in a dept/role lens, when THIS filter's role is the organiser
+  //    (uses the lens colour);
+  //  - in allDepartments mode, always, using the organiser's own dept
+  //    colour (surfaced as meetingOrganiserColour) so it sits alongside
+  //    the other role colours.
   const meetingBadgeColour =
     persp?.role === 'meetingOrganiser'
       ? persp.colour ?? FALLBACK_COLOUR
-      : null;
+      : persp?.meetingOrganiserColour ?? null;
 
   return (
     <div className={classes} style={style}>

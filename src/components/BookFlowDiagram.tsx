@@ -388,6 +388,7 @@ export function BookFlowDiagram({
               // Glow colour comes from the active book filter (the selected
               // department/role), not the task's own accountable dept.
               const glowColour = highlightColours?.get(task.id) ?? null;
+              const meetingColour = persp?.meetingOrganiserColour ?? null;
               return (
                 <BookTaskBox
                   key={n.id}
@@ -398,6 +399,7 @@ export function BookFlowDiagram({
                   taskId={task.taskId}
                   name={task.name}
                   isMeetingTask={task.isMeetingTask}
+                  meetingColour={meetingColour}
                   hasDeliverables={task.deliverableTargets?.length > 0}
                   fillColour={fillColour}
                   strokeColour={strokeColour}
@@ -469,6 +471,7 @@ function BookTaskBox({
   taskId,
   name,
   isMeetingTask,
+  meetingColour,
   hasDeliverables,
   fillColour,
   strokeColour,
@@ -483,6 +486,7 @@ function BookTaskBox({
   taskId: string;
   name: string;
   isMeetingTask: boolean;
+  meetingColour: string | null;
   hasDeliverables: boolean;
   fillColour: string;
   strokeColour: string;
@@ -610,6 +614,9 @@ function BookTaskBox({
 
       {isMeetingTask && (
         <g>
+          {/* Calendar badge tinted with the meeting organiser's dept
+              colour (when known) so the organising department reads
+              alongside the other role colours. */}
           <rect
             x={w - badgeSize - 3}
             y={3}
@@ -617,9 +624,9 @@ function BookTaskBox({
             height={badgeSize}
             rx={5}
             ry={5}
-            fill="white"
-            stroke="rgba(0,0,0,0.1)"
-            strokeWidth={0.5}
+            fill={meetingColour ?? 'white'}
+            stroke={meetingColour ?? 'rgba(0,0,0,0.1)'}
+            strokeWidth={meetingColour ? 1 : 0.5}
           />
           <text
             x={w - 3 - badgeSize / 2}

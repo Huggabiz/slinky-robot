@@ -21,6 +21,11 @@ export interface PerspectiveInfo {
   // For 'allDepartments' mode: colours of departments that contribute
   // to this task (shown as small dots below the node).
   contributorColours?: string[];
+  // Colour of the meeting organiser's department (when the task is a
+  // meeting task with an organiser whose dept has a colour). Used to tint
+  // the calendar badge so the organising department is visible alongside
+  // the other role colours. Populated in 'allDepartments' mode.
+  meetingOrganiserColour?: string | null;
 }
 
 /**
@@ -151,6 +156,14 @@ function computeAllDepartments(
     const acctDept = roleToDept.get(task.accountable);
     const colour = acctDept?.colour ?? null;
 
+    // Meeting organiser's department colour, for tinting the calendar
+    // badge regardless of the task's accountable/contributor colouring.
+    const moDept =
+      task.isMeetingTask && task.meetingOrganiser
+        ? roleToDept.get(task.meetingOrganiser)
+        : undefined;
+    const meetingOrganiserColour = moDept?.colour ?? null;
+
     // Collect unique contributor department colours (excluding accountable's).
     const contribColours: string[] = [];
     const seenDepts = new Set<string>();
@@ -168,15 +181,21 @@ function computeAllDepartments(
         role: 'accountable',
         colour,
         contributorColours: contribColours,
+        meetingOrganiserColour,
       });
     } else if (contribColours.length > 0) {
       map.set(task.id, {
         role: 'contributor',
         colour: contribColours[0],
         contributorColours: contribColours.slice(1),
+        meetingOrganiserColour,
       });
     } else {
-      map.set(task.id, { role: 'none', colour: null });
+      map.set(task.id, {
+        role: 'none',
+        colour: null,
+        meetingOrganiserColour,
+      });
     }
   }
 
