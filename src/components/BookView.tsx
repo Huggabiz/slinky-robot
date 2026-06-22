@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   findTaskByInternalId,
@@ -656,18 +656,28 @@ export function BookView() {
             })()}
             {phases.map((phase, idx) => {
               const excluded = !isChapterVisible(`phase-${phase.id}`, chapterFilter);
+              const startsGroup = !!phase.sectionTitle;
               return (
-                <li key={phase.id} className={excluded ? 'book-toc-excluded' : ''}>
-                  <a href={excluded ? undefined : `#phase-${phase.id}`}>
-                    <span className="book-toc-num">{guideChapterNum + idx + 1}.</span>{' '}
-                    {phase.name}
-                    {excluded && (
-                      <span className="book-toc-excluded-label">
-                        {' '}(excluded from this version)
-                      </span>
-                    )}
-                  </a>
-                </li>
+                <Fragment key={phase.id}>
+                  {startsGroup && (
+                    <li className="book-toc-group-header" aria-hidden>
+                      {phase.sectionTitle}
+                    </li>
+                  )}
+                  <li
+                    className={`${excluded ? 'book-toc-excluded' : ''}${startsGroup ? ' book-toc-group-start' : ''}`}
+                  >
+                    <a href={excluded ? undefined : `#phase-${phase.id}`}>
+                      <span className="book-toc-num">{guideChapterNum + idx + 1}.</span>{' '}
+                      {phase.name}
+                      {excluded && (
+                        <span className="book-toc-excluded-label">
+                          {' '}(excluded from this version)
+                        </span>
+                      )}
+                    </a>
+                  </li>
+                </Fragment>
               );
             })}
           </ol>
@@ -693,27 +703,18 @@ export function BookView() {
 
         {phases.map((phase, idx) => {
           const visible = isChapterVisible(`phase-${phase.id}`, chapterFilter);
+          if (!visible) return null;
           return (
-            <div key={phase.id}>
-              {phase.sectionTitle && (
-                <div className="book-section-divider">
-                  <h2 className="book-section-divider-title">
-                    {phase.sectionTitle}
-                  </h2>
-                </div>
-              )}
-              {visible && (
-                <BookChapter
-                  phase={phase}
-                  chapterNumber={guideChapterNum + idx + 1}
-                  file={file}
-                  filter={filter}
-                  roleToDeptId={roleToDeptId}
-                  simplify={simplify}
-                  pageName={chapterPageName('phase', idx)}
-                />
-              )}
-            </div>
+            <BookChapter
+              key={phase.id}
+              phase={phase}
+              chapterNumber={guideChapterNum + idx + 1}
+              file={file}
+              filter={filter}
+              roleToDeptId={roleToDeptId}
+              simplify={simplify}
+              pageName={chapterPageName('phase', idx)}
+            />
           );
         })}
       </article>
@@ -880,6 +881,7 @@ function BookChapter({
     name: string;
     intro: string;
     sections?: IntroSection[];
+    sectionTitle?: string | null;
     colour: string | null;
   };
   chapterNumber: number;
@@ -952,6 +954,9 @@ function BookChapter({
 
   return (
     <section className="book-chapter" id={`phase-${phase.id}`} style={{ page: pageName } as React.CSSProperties}>
+      {phase.sectionTitle && (
+        <div className="book-chapter-section-label">{phase.sectionTitle}</div>
+      )}
       <header className="book-chapter-header">
         {phase.colour && (
           <span

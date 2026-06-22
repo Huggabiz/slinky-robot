@@ -407,6 +407,28 @@
   text-decoration: underline;
 }
 
+/* Section-group heading in the contents list. Not numbered (the ol has
+   list-style:none and numbers are manual spans). */
+.book-toc-group-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #888;
+  margin-top: var(--space-md);
+  padding: var(--space-xs) 0 2px;
+  border-top: 1px solid #ddd;
+}
+
+/* The phase that starts a group is highlighted in the contents. */
+.book-toc-group-start > a {
+  font-weight: 700;
+}
+
+.book-toc-group-start > a .book-toc-num {
+  color: #1a1a1a;
+}
+
 /* Excluded chapter entries stay in the TOC but are visually muted. */
 .book-toc-excluded a {
   color: #bbb;
@@ -427,25 +449,17 @@
   color: #888;
 }
 
-/* Titled divider between phase groups in the book. Renders as a
-   full-width banner before the first chapter in each section. */
-.book-section-divider {
-  max-width: 720px;
-  margin: var(--space-xl) auto var(--space-md);
-  padding: var(--space-md) var(--space-xl);
-  text-align: center;
-}
-
-.book-section-divider-title {
-  margin: 0;
-  font-size: 14px;
+/* Section-group label — sits directly above the chapter heading of the
+   phase that starts a new group, as a small eyebrow with a top rule. */
+.book-chapter-section-label {
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
-  color: #888;
-  border-top: 2px solid #ddd;
-  border-bottom: 2px solid #ddd;
-  padding: var(--space-sm) 0;
+  color: #999;
+  border-top: 3px solid #1a1a1a;
+  padding-top: var(--space-xs);
+  margin-bottom: var(--space-sm);
 }
 
 .book-chapter-header {
