@@ -162,7 +162,10 @@ export function BookFlowDiagram({
   const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
 
   const dotR = Math.min(3 * boost, 7);
-  const dotsBandH = dotR * 2 + 6;
+  // The contributor-dot pill straddles the box's bottom edge (centred on
+  // it), so only its top half intrudes into the interior — reserve just
+  // that, leaving more room for the name.
+  const dotsBandH = dotR + 4;
   const badgeSize = Math.min(18 * boost, 30);
 
   // Dedupe identical gate lines, then vertically separate any that land on
@@ -653,7 +656,8 @@ function BookTaskBox({
           </text>
         </g>
       )}
-      {showDots && dotsPill(h - (dotR + 3))}
+      {/* Pill centred on the bottom edge so it straddles it. */}
+      {showDots && dotsPill(h)}
     </g>
   );
 }
