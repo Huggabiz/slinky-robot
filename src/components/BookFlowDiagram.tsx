@@ -118,12 +118,85 @@ export function BookFlowDiagram({
   const MAX_H = 800;
   const renderScale = Math.min(DISPLAY_W / svgWidth, MAX_H / svgHeight, 1);
   const nodeW = DEFAULT_LAB_CONFIG.nodeWidth;
+  const nodeH = DEFAULT_LAB_CONFIG.nodeHeight;
   // Caption appears once boxes have shed their titles (standard box too
   // small to label), pointing the reader to the step cards below.
   const reducedDetail = nodeW * renderScale < 90;
   // Font enlargement applied to scaled-down boxes so retained text fills
   // the box rather than shrinking with it (capped).
   const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
+
+  // ---- Diagram-wide common box style ----
+  // Compute every font ONCE so all boxes share the same sizes. The title
+  // font is the largest at which the MOST demanding (longest) name still
+  // fits; shorter names use the same font with fewer lines. Boxes whose
+  // name can't fit at that font fall back to the hero ID.
+  const rW = nodeW * renderScale;
+  const showType = rW >= 150;
+  const idHeaderFont = 9 * boost;
+  const typeFont = 8 * boost;
+  const dotR = Math.min(3 * boost, 7);
+  const dotsBandH = dotR * 2 + 6; // always reserved so layout is uniform
+  const idLineH = idHeaderFont * 1.25;
+  const titleTop = 6 + idLineH;
+  const bottomReserve = (showType ? typeFont * 1.7 : 0) + dotsBandH;
+  const titleAvailH = nodeH - titleTop - bottomReserve - 2;
+  const usableW = nodeW - 16;
+  const maxTitleF = 11 / renderScale; // ~11px rendered ceiling
+  const minTitleF = 6.5 / renderScale; // below this → hero ID
+
+  // Gather names / ids / placeholder labels from the laid-out boxes.
+  const taskNames: string[] = [];
+  const taskIds: string[] = [];
+  const placeholderLabels: string[] = [];
+  for (const n of layout.nodes) {
+    if (n.type !== 'task') continue;
+    const t = (n.data as { task?: { id: string; taskId: string; name: string } })
+      ?.task;
+    if (!t) continue;
+    if (t.id.startsWith(COLLAPSED_PREFIX)) {
+      placeholderLabels.push(t.name || 'Other tasks');
+    } else {
+      taskNames.push(t.name || '(untitled)');
+      taskIds.push(t.taskId || '—');
+    }
+  }
+
+  // Common title font = min of each name's largest-fitting font (so every
+  // title-showing box fits at this size). Names that don't fit at all are
+  // ignored here and render as hero IDs.
+  let commonTitleFont = 0;
+  let anyTitle = false;
+  for (const name of taskNames) {
+    const best = largestTitleFont(name, usableW, titleAvailH, minTitleF, maxTitleF);
+    if (best > 0) {
+      commonTitleFont = anyTitle ? Math.min(commonTitleFont, best) : best;
+      anyTitle = true;
+    }
+  }
+
+  // Common hero font sized so the LONGEST id fits the box uniformly.
+  const maxIdLen = Math.max(1, ...taskIds.map((s) => s.length));
+  const commonHeroFont = Math.min(nodeH * 0.42, usableW / (maxIdLen * 0.62), 46);
+
+  // Common placeholder font sized so the LONGEST label fits uniformly.
+  const maxPlLen = Math.max(1, ...placeholderLabels.map((s) => s.length));
+  const commonPlaceholderFont = Math.max(
+    8,
+    Math.min(usableW / (maxPlLen * 0.55), nodeH * 0.32, 13 * boost),
+  );
+
+  const boxStyle: BoxStyle = {
+    showType,
+    idHeaderFont,
+    typeFont,
+    dotR,
+    titleTop,
+    titleAvailH,
+    usableW,
+    commonTitleFont,
+    commonHeroFont,
+  };
 
   return (
     <div className="book-flow-diagram">
@@ -192,19 +265,11 @@ export function BookFlowDiagram({
               const task = taskData?.task;
               if (!task) return null;
 
-              // Collapsed placeholder: muted dashed box with label. Font
-              // is boosted/fitted like the task boxes so it stays readable
-              // when the diagram is scaled right down.
+              // Collapsed placeholder: muted dashed box with label, sized
+              // with the diagram-common placeholder font so they all match.
               if (task.id.startsWith(COLLAPSED_PREFIX)) {
                 const plLabel = task.name || 'Other tasks';
-                const plFont = Math.max(
-                  8,
-                  Math.min(
-                    (w - 16) / Math.max(6, plLabel.length * 0.55),
-                    h * 0.32,
-                    13 * boost,
-                  ),
-                );
+                const plFont = commonPlaceholderFont;
                 return (
                   <g key={n.id} transform={`translate(${n.position.x}, ${n.position.y})`}>
                     <rect
@@ -257,7 +322,7 @@ export function BookFlowDiagram({
                   strokeColour={strokeColour}
                   contribDots={contribDots}
                   glowColour={glowColour}
-                  renderScale={renderScale}
+                  style={boxStyle}
                 />
               );
             })}
@@ -315,6 +380,42 @@ export function BookFlowDiagram({
 // view; the live process flow (TaskNode) is untouched.
 const TASK_MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 
+// Diagram-wide box metrics + fonts, computed once so EVERY box in a flow
+// chart uses the same sizes (a per-box title font looked messy). All
+// fonts here are common; only line wrapping/count differs by name.
+interface BoxStyle {
+  showType: boolean;
+  idHeaderFont: number;
+  typeFont: number;
+  dotR: number;
+  titleTop: number;
+  titleAvailH: number;
+  usableW: number;
+  commonTitleFont: number; // 0 = no box shows a title (all hero)
+  commonHeroFont: number;
+}
+
+// Largest font (scanning a band high→low) at which the whole name fits
+// the available area with no ellipsis. 0 = doesn't fit even at the floor.
+function largestTitleFont(
+  name: string,
+  usableW: number,
+  titleAvailH: number,
+  minF: number,
+  maxF: number,
+): number {
+  if (titleAvailH < minF * 1.15) return 0;
+  const longestWord = Math.max(1, ...name.split(/\s+/).map((wd) => wd.length));
+  const steps = 14;
+  for (let k = 0; k <= steps; k++) {
+    const F = maxF - ((maxF - minF) * k) / steps;
+    const cpl = Math.floor(usableW / (F * 0.52));
+    if (cpl < 3 || longestWord > cpl) continue;
+    if (wrapAll(name, cpl).length * F * 1.15 <= titleAvailH) return F;
+  }
+  return 0;
+}
+
 function BookTaskBox({
   x,
   y,
@@ -329,7 +430,7 @@ function BookTaskBox({
   strokeColour,
   contribDots,
   glowColour,
-  renderScale,
+  style,
 }: {
   x: number;
   y: number;
@@ -344,61 +445,42 @@ function BookTaskBox({
   strokeColour: string;
   contribDots: string[];
   glowColour: string | null;
-  renderScale: number;
+  style: BoxStyle;
 }) {
   const highlighted = glowColour != null;
-  const rW = w * renderScale;
-  // Enlarge fonts as the diagram shrinks (capped) so retained text stays
-  // legible; never shrink below the design size when scaled up.
-  const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
-
-  // Activity type + corner badges drop first. Contributor dots ALWAYS
-  // show when present (their absence/presence flicker was confusing).
-  const showType = rW >= 150;
+  const {
+    showType,
+    idHeaderFont,
+    typeFont,
+    dotR,
+    titleTop,
+    titleAvailH,
+    usableW,
+    commonTitleFont,
+    commonHeroFont,
+  } = style;
+  const topPad = 6;
   const showDots = contribDots.length > 0;
 
-  const idHeaderFont = 9 * boost;
-  const typeFont = 8 * boost;
-
-  const dotR = Math.min(3 * boost, 7);
-  const dotsBandH = showDots ? dotR * 2 + 6 : 0;
-
-  const topPad = 6;
-  const idLineH = idHeaderFont * 1.25;
-  const titleTop = topPad + idLineH;
-  const bottomReserve = (showType ? typeFont * 1.7 : 0) + dotsBandH;
-  const titleAvailH = h - titleTop - bottomReserve - 2;
-  const usableW = w - 16;
-
-  // Fit the WHOLE title (no ellipsis): take the largest font up to a
-  // modest rendered ceiling, shrinking and adding lines as needed. If it
-  // still won't fit at a readable floor, drop the title and show the ID
-  // as a hero instead — never truncate with an ellipsis.
-  const maxTitleF = 11 / renderScale; // ~11px rendered ceiling
-  const minTitleF = 6.5 / renderScale; // below this → hero ID
+  // Wrap THIS box's name at the diagram-common title font. Show the title
+  // only if it fits at that font (others fall back to the hero ID).
   const fullName = name || '(untitled)';
-  const longestWord = Math.max(
-    1,
-    ...fullName.split(/\s+/).map((wd) => wd.length),
-  );
-  let titleFont = 0;
   let titleLines: string[] = [];
-  if (titleAvailH >= minTitleF * 1.15) {
-    const steps = 14;
-    for (let k = 0; k <= steps; k++) {
-      const F = maxTitleF - ((maxTitleF - minTitleF) * k) / steps;
-      const cpl = Math.floor(usableW / (F * 0.52));
-      if (cpl < 3 || longestWord > cpl) continue;
+  if (commonTitleFont > 0) {
+    const cpl = Math.floor(usableW / (commonTitleFont * 0.52));
+    const longestWord = Math.max(
+      1,
+      ...fullName.split(/\s+/).map((wd) => wd.length),
+    );
+    if (cpl >= 3 && longestWord <= cpl) {
       const lines = wrapAll(fullName, cpl);
-      if (lines.length * F * 1.15 <= titleAvailH) {
-        titleFont = F;
+      if (lines.length * commonTitleFont * 1.15 <= titleAvailH) {
         titleLines = lines;
-        break;
       }
     }
   }
   const showTitle = titleLines.length > 0;
-  const titleLineH = titleFont * 1.15;
+  const titleLineH = commonTitleFont * 1.15;
 
   const dotsPill = (cy: number) => {
     const dotGap = dotR;
@@ -478,8 +560,8 @@ function BookTaskBox({
             <text
               key={li}
               x={8}
-              y={titleTop + titleFont + li * titleLineH}
-              fontSize={titleFont}
+              y={titleTop + commonTitleFont + li * titleLineH}
+              fontSize={commonTitleFont}
               fontWeight={600}
               fill="#1a1a1a"
             >
@@ -533,28 +615,18 @@ function BookTaskBox({
         </>
       ) : (
         <>
-          {(() => {
-            const idStr = taskId || '—';
-            const heroFont = Math.max(
-              10,
-              Math.min(h * 0.42, usableW / Math.max(4, idStr.length) / 0.62, 46),
-            );
-            const cy = showDots ? h / 2 - dotR : h / 2;
-            return (
-              <text
-                x={w / 2}
-                y={cy}
-                fontSize={heroFont}
-                fontWeight={700}
-                fill="#1a1a1a"
-                fontFamily={TASK_MONO}
-                textAnchor="middle"
-                dominantBaseline="central"
-              >
-                {idStr}
-              </text>
-            );
-          })()}
+          <text
+            x={w / 2}
+            y={showDots ? h / 2 - dotR : h / 2}
+            fontSize={commonHeroFont}
+            fontWeight={700}
+            fill="#1a1a1a"
+            fontFamily={TASK_MONO}
+            textAnchor="middle"
+            dominantBaseline="central"
+          >
+            {taskId || '—'}
+          </text>
           {showDots && dotsPill(h - (dotR + 4))}
         </>
       )}
