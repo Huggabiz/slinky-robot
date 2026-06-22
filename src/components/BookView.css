@@ -420,14 +420,8 @@
   border-top: 1px solid #ddd;
 }
 
-/* The phase that starts a group is highlighted in the contents. */
-.book-toc-group-start > a {
-  font-weight: 700;
-}
-
-.book-toc-group-start > a .book-toc-num {
-  color: #1a1a1a;
-}
+/* The group heading above provides the visual break — the starting phase
+   itself renders like any other entry (no bold). */
 
 /* Excluded chapter entries stay in the TOC but are visually muted. */
 .book-toc-excluded a {
