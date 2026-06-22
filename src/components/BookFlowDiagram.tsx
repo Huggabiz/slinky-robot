@@ -103,99 +103,109 @@ export function BookFlowDiagram({
     if (n.position.y + h > maxY) maxY = n.position.y + h;
   }
 
-  const pad = 20;
+  // Gather names / ids / placeholder labels + key-date gate lines.
+  const taskNames: string[] = [];
+  const taskIds: string[] = [];
+  const placeholderLabels: string[] = [];
+  const gateLines: { y: number; label: string }[] = [];
+  for (const n of layout.nodes) {
+    if (n.type !== 'task') continue;
+    const t = (n.data as {
+      task?: {
+        id: string;
+        taskId: string;
+        name: string;
+        dateType?: string;
+        abbr?: string | null;
+      };
+    })?.task;
+    if (!t) continue;
+    if (t.id.startsWith(COLLAPSED_PREFIX)) {
+      placeholderLabels.push(t.name || 'Other tasks');
+      continue;
+    }
+    taskNames.push(t.name || '(untitled)');
+    taskIds.push(t.taskId || '—');
+    if (t.dateType === 'KEY DATE' || t.dateType === 'MS DATE') {
+      gateLines.push({
+        y: n.position.y + (n.height ?? DEFAULT_LAB_CONFIG.nodeHeight) / 2,
+        label: t.abbr ?? '',
+      });
+    }
+  }
+
+  const nodeW = DEFAULT_LAB_CONFIG.nodeWidth;
+  const nodeH = DEFAULT_LAB_CONFIG.nodeHeight;
+  const usableW = nodeW - 16;
+
+  // Task ID sits ABOVE the box, left-aligned, sized so the LONGEST id is
+  // ~45% of the box width (so it stays left of the top-entering arrow).
+  // Independent of render scale.
+  const maxIdLen = Math.max(1, ...taskIds.map((str) => str.length));
+  const idGap = 3;
+  const commonIdFont = Math.max(
+    7,
+    Math.min(22, (0.45 * nodeW) / (maxIdLen * 0.6)),
+  );
+
+  // Pad the top enough that the id above the first rank isn't clipped.
+  const pad = Math.max(20, commonIdFont + idGap + 4);
   const svgWidth = maxX - minX + pad * 2;
   const svgHeight = maxY - minY + pad * 2;
   const offsetX = -minX + pad;
   const offsetY = -minY + pad;
 
-  // The SVG is displayed at the book column width (~640px) but capped at
-  // 800px tall. Estimate the on-screen scale so we can tell when the task
-  // boxes would render too small to read. Below that, switch to a compact
-  // mode that shows only the task id (the reader finds full detail in the
-  // step cards that follow). Mirrors how the live flow stays legible.
+  // On-screen scale (book column ~640px wide, capped 800px tall).
   const DISPLAY_W = 640;
   const MAX_H = 800;
   const renderScale = Math.min(DISPLAY_W / svgWidth, MAX_H / svgHeight, 1);
-  const nodeW = DEFAULT_LAB_CONFIG.nodeWidth;
-  const nodeH = DEFAULT_LAB_CONFIG.nodeHeight;
-  // Caption appears once boxes have shed their titles (standard box too
-  // small to label), pointing the reader to the step cards below.
-  const reducedDetail = nodeW * renderScale < 90;
-  // Font enlargement applied to scaled-down boxes so retained text fills
-  // the box rather than shrinking with it (capped).
   const boost = Math.max(1, Math.min(1 / renderScale, 3.2));
 
-  // ---- Diagram-wide common box style ----
-  // Compute every font ONCE so all boxes share the same sizes. The title
-  // font is the largest at which the MOST demanding (longest) name still
-  // fits; shorter names use the same font with fewer lines. Boxes whose
-  // name can't fit at that font fall back to the hero ID.
-  const rW = nodeW * renderScale;
-  const showType = rW >= 150;
-  const idHeaderFont = 9 * boost;
-  const typeFont = 8 * boost;
   const dotR = Math.min(3 * boost, 7);
-  const dotsBandH = dotR * 2 + 6; // always reserved so layout is uniform
-  const idLineH = idHeaderFont * 1.25;
-  const titleTop = 6 + idLineH;
-  const bottomReserve = (showType ? typeFont * 1.7 : 0) + dotsBandH;
-  const titleAvailH = nodeH - titleTop - bottomReserve - 2;
-  const usableW = nodeW - 16;
-  const maxTitleF = 11 / renderScale; // ~11px rendered ceiling
-  const minTitleF = 6.5 / renderScale; // below this → hero ID
+  const dotsBandH = dotR * 2 + 6;
+  const badgeSize = Math.min(18 * boost, 30);
 
-  // Gather names / ids / placeholder labels from the laid-out boxes.
-  const taskNames: string[] = [];
-  const taskIds: string[] = [];
-  const placeholderLabels: string[] = [];
-  for (const n of layout.nodes) {
-    if (n.type !== 'task') continue;
-    const t = (n.data as { task?: { id: string; taskId: string; name: string } })
-      ?.task;
-    if (!t) continue;
-    if (t.id.startsWith(COLLAPSED_PREFIX)) {
-      placeholderLabels.push(t.name || 'Other tasks');
-    } else {
-      taskNames.push(t.name || '(untitled)');
-      taskIds.push(t.taskId || '—');
+  // Common name font: the largest at which the MOST demanding (longest)
+  // name fits the FULL box interior. The name now owns the whole box (the
+  // id moved out and the activity type is gone), so it can be larger.
+  // Every box uses this one font — constant size, maximal box usage.
+  const nameTopPad = 5;
+  const nameAvailH = nodeH - nameTopPad - dotsBandH - 4;
+  const nameCeil = 13 / renderScale;
+  const nameHardFloor = 5 / renderScale;
+  const fitNameFont = (name: string): number => {
+    const longestWord = Math.max(
+      1,
+      ...name.split(/\s+/).map((wd) => wd.length),
+    );
+    const steps = 16;
+    for (let k = 0; k <= steps; k++) {
+      const F = nameCeil - ((nameCeil - nameHardFloor) * k) / steps;
+      const cpl = Math.floor(usableW / (F * 0.52));
+      if (cpl < 3 || longestWord > cpl) continue;
+      if (wrapAll(name, cpl).length * F * 1.15 <= nameAvailH) return F;
     }
-  }
-
-  // Common title font = min of each name's largest-fitting font (so every
-  // title-showing box fits at this size). Names that don't fit at all are
-  // ignored here and render as hero IDs.
-  let commonTitleFont = 0;
-  let anyTitle = false;
-  for (const name of taskNames) {
-    const best = largestTitleFont(name, usableW, titleAvailH, minTitleF, maxTitleF);
-    if (best > 0) {
-      commonTitleFont = anyTitle ? Math.min(commonTitleFont, best) : best;
-      anyTitle = true;
-    }
-  }
-
-  // Common hero font sized so the LONGEST id fits the box uniformly.
-  const maxIdLen = Math.max(1, ...taskIds.map((s) => s.length));
-  const commonHeroFont = Math.min(nodeH * 0.42, usableW / (maxIdLen * 0.62), 46);
+    return nameHardFloor;
+  };
+  const commonNameFont =
+    taskNames.length > 0 ? Math.min(...taskNames.map(fitNameFont)) : nameCeil;
 
   // Common placeholder font sized so the LONGEST label fits uniformly.
-  const maxPlLen = Math.max(1, ...placeholderLabels.map((s) => s.length));
+  const maxPlLen = Math.max(1, ...placeholderLabels.map((str) => str.length));
   const commonPlaceholderFont = Math.max(
     8,
     Math.min(usableW / (maxPlLen * 0.55), nodeH * 0.32, 13 * boost),
   );
 
   const boxStyle: BoxStyle = {
-    showType,
-    idHeaderFont,
-    typeFont,
+    commonIdFont,
+    idGap,
+    commonNameFont,
+    nameTopPad,
     dotR,
-    titleTop,
-    titleAvailH,
+    dotsBandH,
+    badgeSize,
     usableW,
-    commonTitleFont,
-    commonHeroFont,
   };
 
   return (
@@ -229,7 +239,38 @@ export function BookFlowDiagram({
         </defs>
 
         <g transform={`translate(${offsetX}, ${offsetY})`}>
-          {/* Edges first so they render behind nodes. */}
+          {/* Key-date gate lines first, at the very back: a red dashed
+              line across the full width at each key-date task's centre,
+              mirroring the live process flow's gate separators. */}
+          {gateLines.map((g, i) => (
+            <g key={`gate-${i}`}>
+              <line
+                x1={minX - 10}
+                y1={g.y}
+                x2={maxX + 10}
+                y2={g.y}
+                stroke="#e74c3c"
+                strokeWidth={Math.max(1.5, 2 * boost)}
+                strokeDasharray={`${6 * boost} ${4 * boost}`}
+                opacity={0.5}
+              />
+              {g.label && (
+                <text
+                  x={maxX + 8}
+                  y={g.y - 4 * boost}
+                  fontSize={9 * boost}
+                  fill="#e74c3c"
+                  opacity={0.75}
+                  fontWeight={600}
+                  textAnchor="end"
+                  style={{ textTransform: 'uppercase' }}
+                >
+                  {g.label}
+                </text>
+              )}
+            </g>
+          ))}
+          {/* Edges next so they render behind nodes. */}
           {layout.edges.map((edge) => {
             const pathData =
               (edge.data as { path?: string } | undefined)?.path ?? '';
@@ -315,7 +356,6 @@ export function BookFlowDiagram({
                   h={h}
                   taskId={task.taskId}
                   name={task.name}
-                  activityType={task.activityType}
                   isMeetingTask={task.isMeetingTask}
                   hasDeliverables={task.deliverableTargets?.length > 0}
                   fillColour={fillColour}
@@ -328,13 +368,6 @@ export function BookFlowDiagram({
             })}
         </g>
       </svg>
-      {reducedDetail && (
-        <p className="book-flow-compact-note">
-          This phase has too many steps to label in full at page size —
-          smaller boxes show only the task ID. Full detail for each step
-          follows below.
-        </p>
-      )}
       {(legendDepts.length > 0 || (highlightColours && highlightColours.size > 0)) && (
         <ul className="book-flow-legend">
           {legendDepts.map((d) => (
@@ -366,54 +399,25 @@ export function BookFlowDiagram({
   );
 }
 
-// Adaptive task box for the book-view SVG. As the diagram is scaled down
-// to fit the page, text would become illegible, so information is shed in
-// priority order — keeping the most useful bits readable for as long as
-// possible:
-//   1. activity type + corner badges drop first (smallest boxes lose them)
-//   2. then the title (wrapped, drops when there's no room for a line)
-//   3. the task ID + contributor dots are the last to go (the ID becomes a
-//      large centred "hero" so it stays readable; the dots keep the colour
-//      coding). The reader finds full detail in the step cards below.
-// Fonts are boosted inversely to the render scale so the retained text
-// fills the box rather than shrinking with it. This affects ONLY the book
-// view; the live process flow (TaskNode) is untouched.
+// Task box for the book-view SVG. The task ID sits ABOVE the box
+// (left-aligned, ~45% of the box width so it stays left of the
+// top-entering arrow); the name owns the whole box interior at a single
+// page-common font; contributor dots sit at the bottom. Activity type is
+// not shown. Affects ONLY the book view; the live flow (TaskNode) is
+// untouched.
 const TASK_MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 
 // Diagram-wide box metrics + fonts, computed once so EVERY box in a flow
-// chart uses the same sizes (a per-box title font looked messy). All
-// fonts here are common; only line wrapping/count differs by name.
+// chart uses the same sizes.
 interface BoxStyle {
-  showType: boolean;
-  idHeaderFont: number;
-  typeFont: number;
+  commonIdFont: number;
+  idGap: number;
+  commonNameFont: number;
+  nameTopPad: number;
   dotR: number;
-  titleTop: number;
-  titleAvailH: number;
+  dotsBandH: number;
+  badgeSize: number;
   usableW: number;
-  commonTitleFont: number; // 0 = no box shows a title (all hero)
-  commonHeroFont: number;
-}
-
-// Largest font (scanning a band high→low) at which the whole name fits
-// the available area with no ellipsis. 0 = doesn't fit even at the floor.
-function largestTitleFont(
-  name: string,
-  usableW: number,
-  titleAvailH: number,
-  minF: number,
-  maxF: number,
-): number {
-  if (titleAvailH < minF * 1.15) return 0;
-  const longestWord = Math.max(1, ...name.split(/\s+/).map((wd) => wd.length));
-  const steps = 14;
-  for (let k = 0; k <= steps; k++) {
-    const F = maxF - ((maxF - minF) * k) / steps;
-    const cpl = Math.floor(usableW / (F * 0.52));
-    if (cpl < 3 || longestWord > cpl) continue;
-    if (wrapAll(name, cpl).length * F * 1.15 <= titleAvailH) return F;
-  }
-  return 0;
 }
 
 function BookTaskBox({
@@ -423,7 +427,6 @@ function BookTaskBox({
   h,
   taskId,
   name,
-  activityType,
   isMeetingTask,
   hasDeliverables,
   fillColour,
@@ -438,7 +441,6 @@ function BookTaskBox({
   h: number;
   taskId: string;
   name: string;
-  activityType: string;
   isMeetingTask: boolean;
   hasDeliverables: boolean;
   fillColour: string;
@@ -449,38 +451,26 @@ function BookTaskBox({
 }) {
   const highlighted = glowColour != null;
   const {
-    showType,
-    idHeaderFont,
-    typeFont,
+    commonIdFont,
+    idGap,
+    commonNameFont,
+    nameTopPad,
     dotR,
-    titleTop,
-    titleAvailH,
+    dotsBandH,
+    badgeSize,
     usableW,
-    commonTitleFont,
-    commonHeroFont,
   } = style;
-  const topPad = 6;
   const showDots = contribDots.length > 0;
 
-  // Wrap THIS box's name at the diagram-common title font. Show the title
-  // only if it fits at that font (others fall back to the hero ID).
-  const fullName = name || '(untitled)';
-  let titleLines: string[] = [];
-  if (commonTitleFont > 0) {
-    const cpl = Math.floor(usableW / (commonTitleFont * 0.52));
-    const longestWord = Math.max(
-      1,
-      ...fullName.split(/\s+/).map((wd) => wd.length),
-    );
-    if (cpl >= 3 && longestWord <= cpl) {
-      const lines = wrapAll(fullName, cpl);
-      if (lines.length * commonTitleFont * 1.15 <= titleAvailH) {
-        titleLines = lines;
-      }
-    }
-  }
-  const showTitle = titleLines.length > 0;
-  const titleLineH = commonTitleFont * 1.15;
+  // Name fills the box at the page-common font, wrapped and vertically
+  // centred between the top padding and the dots band.
+  const cpl = Math.max(3, Math.floor(usableW / (commonNameFont * 0.52)));
+  const nameLines = wrapAll(name || '(untitled)', cpl);
+  const lineH = commonNameFont * 1.15;
+  const areaTop = nameTopPad;
+  const areaBot = h - (showDots ? dotsBandH : 4);
+  const blockH = nameLines.length * lineH;
+  const blockTop = areaTop + Math.max(0, (areaBot - areaTop - blockH) / 2);
 
   const dotsPill = (cy: number) => {
     const dotGap = dotR;
@@ -519,8 +509,22 @@ function BookTaskBox({
     );
   };
 
+  const badgeFont = badgeSize * 0.62;
+
   return (
     <g transform={`translate(${x}, ${y})`}>
+      {/* Task ID above the box, left-aligned. */}
+      <text
+        x={0}
+        y={-idGap}
+        fontSize={commonIdFont}
+        fontWeight={700}
+        fill="#444"
+        fontFamily={TASK_MONO}
+      >
+        {taskId || '—'}
+      </text>
+
       {highlighted && (
         <rect
           x={-5}
@@ -545,91 +549,69 @@ function BookTaskBox({
         strokeWidth={1.5}
       />
 
-      {showTitle ? (
-        <>
+      {nameLines.map((line, li) => (
+        <text
+          key={li}
+          x={w / 2}
+          y={blockTop + commonNameFont + li * lineH}
+          fontSize={commonNameFont}
+          fontWeight={600}
+          fill="#1a1a1a"
+          textAnchor="middle"
+        >
+          {line}
+        </text>
+      ))}
+
+      {isMeetingTask && (
+        <g>
+          <rect
+            x={w - badgeSize - 3}
+            y={3}
+            width={badgeSize}
+            height={badgeSize}
+            rx={5}
+            ry={5}
+            fill="white"
+            stroke="rgba(0,0,0,0.1)"
+            strokeWidth={0.5}
+          />
           <text
-            x={8}
-            y={topPad + idHeaderFont}
-            fontSize={idHeaderFont}
-            fill="#888"
-            fontFamily={TASK_MONO}
-          >
-            {taskId}
-          </text>
-          {titleLines.map((line, li) => (
-            <text
-              key={li}
-              x={8}
-              y={titleTop + commonTitleFont + li * titleLineH}
-              fontSize={commonTitleFont}
-              fontWeight={600}
-              fill="#1a1a1a"
-            >
-              {line}
-            </text>
-          ))}
-          {showType && activityType && (
-            <text
-              x={8}
-              y={h - 6}
-              fontSize={typeFont}
-              fill="#aaa"
-              style={{ textTransform: 'uppercase' }}
-            >
-              {activityType}
-            </text>
-          )}
-          {showType && isMeetingTask && (
-            <g>
-              <rect
-                x={w - 22}
-                y={2}
-                width={18}
-                height={18}
-                rx={5}
-                ry={5}
-                fill="white"
-                stroke="rgba(0,0,0,0.1)"
-                strokeWidth={0.5}
-              />
-              <text x={w - 13} y={11} fontSize={11} textAnchor="middle" dominantBaseline="central">📅</text>
-            </g>
-          )}
-          {showType && hasDeliverables && (
-            <g>
-              <rect
-                x={w - 22}
-                y={h - 20}
-                width={18}
-                height={18}
-                rx={5}
-                ry={5}
-                fill="white"
-                stroke="rgba(0,0,0,0.1)"
-                strokeWidth={0.5}
-              />
-              <text x={w - 13} y={h - 11} fontSize={11} textAnchor="middle" dominantBaseline="central">📄</text>
-            </g>
-          )}
-          {showDots && dotsPill(h - (dotR + 3))}
-        </>
-      ) : (
-        <>
-          <text
-            x={w / 2}
-            y={showDots ? h / 2 - dotR : h / 2}
-            fontSize={commonHeroFont}
-            fontWeight={700}
-            fill="#1a1a1a"
-            fontFamily={TASK_MONO}
+            x={w - 3 - badgeSize / 2}
+            y={3 + badgeSize / 2}
+            fontSize={badgeFont}
             textAnchor="middle"
             dominantBaseline="central"
           >
-            {taskId || '—'}
+            📅
           </text>
-          {showDots && dotsPill(h - (dotR + 4))}
-        </>
+        </g>
       )}
+      {hasDeliverables && (
+        <g>
+          <rect
+            x={w - badgeSize - 3}
+            y={h - badgeSize - 3}
+            width={badgeSize}
+            height={badgeSize}
+            rx={5}
+            ry={5}
+            fill="white"
+            stroke="rgba(0,0,0,0.1)"
+            strokeWidth={0.5}
+          />
+          <text
+            x={w - 3 - badgeSize / 2}
+            y={h - 3 - badgeSize / 2}
+            fontSize={badgeFont}
+            textAnchor="middle"
+            dominantBaseline="central"
+          >
+            📄
+          </text>
+        </g>
+      )}
+      {showDots && dotsPill(h - (dotR + 3))}
     </g>
   );
 }
