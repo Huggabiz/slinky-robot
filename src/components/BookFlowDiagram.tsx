@@ -167,7 +167,8 @@ export function BookFlowDiagram({
 
   // Dedupe identical gate lines, then vertically separate any that land on
   // the same row (same date) so their abbreviation labels don't stack.
-  const gateSep = 9 * boost + 6;
+  // Separation must clear the label height (which sits above its line).
+  const gateSep = 14 * boost + 8;
   const gatesByRow = new Map<number, string[]>();
   const seenGate = new Set<string>();
   for (const g of gateLines) {
@@ -188,6 +189,19 @@ export function BookFlowDiagram({
       });
     });
   }
+
+  // Reserve space to the RIGHT of the tasks for the abbreviation labels,
+  // and extend the gate lines into it, so a label never sits under the
+  // rightmost (full-width) task.
+  const gateLabelFont = 9 * boost;
+  const maxAbbrLen = finalGateLines.reduce(
+    (m, g) => Math.max(m, g.label.length),
+    0,
+  );
+  const gateLabelW = maxAbbrLen * gateLabelFont * 0.6;
+  const gateRightPad = gateLabelW > 0 ? gateLabelW + 14 : 0;
+  const gateLineX2 = maxX + (gateLabelW > 0 ? gateLabelW + 12 : 10);
+  const viewBoxWidth = svgWidth + gateRightPad;
 
   // Common name font: the largest at which the MOST demanding (longest)
   // name fits the FULL box interior. The name now owns the whole box (the
@@ -236,7 +250,7 @@ export function BookFlowDiagram({
     <div className="book-flow-diagram">
       <h3 className="book-flow-title">{phaseName} Task Flow</h3>
       <svg
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        viewBox={`0 0 ${viewBoxWidth} ${svgHeight}`}
         width="100%"
         style={{ maxHeight: Math.min(svgHeight, 800) }}
         xmlns="http://www.w3.org/2000/svg"
@@ -271,7 +285,7 @@ export function BookFlowDiagram({
               <line
                 x1={minX - 10}
                 y1={g.y}
-                x2={maxX + 10}
+                x2={gateLineX2}
                 y2={g.y}
                 stroke="#e74c3c"
                 strokeWidth={Math.max(1.5, 2 * boost)}
@@ -280,13 +294,13 @@ export function BookFlowDiagram({
               />
               {g.label && (
                 <text
-                  x={maxX + 8}
+                  x={maxX + 10}
                   y={g.y - 4 * boost}
-                  fontSize={9 * boost}
+                  fontSize={gateLabelFont}
                   fill="#e74c3c"
-                  opacity={0.75}
+                  opacity={0.85}
                   fontWeight={600}
-                  textAnchor="end"
+                  textAnchor="start"
                   style={{ textTransform: 'uppercase' }}
                 >
                   {g.label}
