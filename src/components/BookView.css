@@ -195,6 +195,20 @@
   display: inline-block;
 }
 
+/* Quiet italic note under the filter notices warning that page numbers
+   won't line up with other (differently-filtered) versions of the book. */
+.book-cover-pagenote {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--space-sm);
+  max-width: 480px;
+  font-size: 11px;
+  font-style: italic;
+  color: #777;
+  text-align: left;
+  display: block;
+}
+
 .book-cover-filter-list {
   margin: var(--space-xs) 0 0;
   padding-left: 1.2em;

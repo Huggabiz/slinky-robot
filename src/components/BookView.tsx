@@ -592,6 +592,12 @@ export function BookView() {
               <ChapterFilterBreakdown filter={chapterFilter} file={file} />
             </div>
           )}
+          {(filtering || chapterFiltering) && (
+            <div className="book-cover-pagenote">
+              Note: because this is a filtered version, its page numbers
+              will not match those of other versions of this book.
+            </div>
+          )}
           {mode === 'edit' && (
             <div className="book-cover-image-controls">
               <button
