@@ -81,6 +81,13 @@ export function BookFlowDiagram({
         const cDept = roleToDeptId.get(c);
         if (cDept) used.add(cDept);
       }
+      // Meeting-organiser department — its colour tints the calendar
+      // badge, so it belongs in the legend even if it isn't otherwise
+      // accountable/contributing on any visible task.
+      if (t.isMeetingTask && t.meetingOrganiser) {
+        const moDept = roleToDeptId.get(t.meetingOrganiser);
+        if (moDept) used.add(moDept);
+      }
     }
     return file.departments
       .filter((d) => used.has(d.id) && d.colour)
