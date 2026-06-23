@@ -195,18 +195,24 @@
   display: inline-block;
 }
 
-/* Quiet italic note under the filter notices warning that page numbers
-   won't line up with other (differently-filtered) versions of the book. */
+/* Quiet note under the filter notices warning that page numbers won't
+   line up with other (differently-filtered) versions of the book. Sits in
+   the same readable rounded box as the other notices so it stays legible
+   over a coloured cover image. */
 .book-cover-pagenote {
   position: relative;
   z-index: 1;
+  display: inline-block;
   margin-top: var(--space-sm);
   max-width: 480px;
+  padding: var(--space-xs) var(--space-lg);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
   font-size: 11px;
   font-style: italic;
-  color: #777;
+  color: #555;
   text-align: left;
-  display: block;
 }
 
 .book-cover-filter-list {
