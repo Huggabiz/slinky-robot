@@ -892,3 +892,51 @@
   }
 
 }
+
+/* ---- Referenced documentation (book step card citations + appendix) ---- */
+.book-refdoc-cites {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 12px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.book-refdoc-cite-link {
+  color: #777;
+  font-size: 11px;
+}
+
+.book-refdoc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.book-refdoc {
+  border-left: 3px solid #c9c4b6;
+  padding: var(--space-xs) var(--space-lg);
+}
+
+.book-refdoc-name {
+  margin: 0 0 2px;
+  font-size: 15px;
+  color: #1a1a1a;
+}
+
+.book-refdoc-link {
+  margin: 0 0 var(--space-xs);
+  font-size: 12px;
+  color: #4a5568;
+  word-break: break-word;
+}
+
+.book-refdoc-refs {
+  margin: var(--space-xs) 0 0;
+  font-size: 11px;
+  color: #666;
+}
+
+.book-refdoc-refs strong {
+  color: #444;
+}

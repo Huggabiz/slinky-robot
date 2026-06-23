@@ -106,6 +106,15 @@ function normaliseShape(
     deliverableGroups: Array.isArray(raw.deliverableGroups)
       ? raw.deliverableGroups
       : [],
+    referencedDocs: Array.isArray(raw.referencedDocs)
+      ? (raw.referencedDocs as Record<string, unknown>[]).map((rd, idx) => ({
+          id: typeof rd.id === 'string' ? rd.id : makeId(),
+          name: typeof rd.name === 'string' ? rd.name : '',
+          description: typeof rd.description === 'string' ? rd.description : '',
+          link: typeof rd.link === 'string' ? rd.link : '',
+          order: typeof rd.order === 'number' ? rd.order : idx,
+        }))
+      : [],
     phases: phases.map((p) => {
       const o = (p ?? {}) as Record<string, unknown>;
       const intro = typeof o.intro === 'string' ? o.intro : '';
@@ -187,6 +196,11 @@ function normaliseShape(
           : [],
         deliverableTargets: Array.isArray(o.deliverableTargets)
           ? o.deliverableTargets
+          : [],
+        referencedDocs: Array.isArray(o.referencedDocs)
+          ? (o.referencedDocs as unknown[]).filter(
+              (x): x is string => typeof x === 'string',
+            )
           : [],
         extras:
           o.extras && typeof o.extras === 'object'

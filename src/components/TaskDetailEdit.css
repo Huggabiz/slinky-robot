@@ -250,3 +250,23 @@
   background: #c0392b;
   color: white;
 }
+
+/* Referenced-documentation checkbox list. */
+.task-edit-refdocs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-edit-refdoc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.task-edit-refdoc-row input {
+  margin: 0;
+  flex-shrink: 0;
+}

@@ -5,6 +5,7 @@ import {
   type IntroSection,
   type Phase,
   type ProcessFile,
+  type ReferencedDoc,
   type Role,
   type Task,
   DEFAULT_DELIVERABLE_STATES,
@@ -161,6 +162,14 @@ interface AppState {
     targetGroupId: string | null,
     targetIndex: number,
   ) => void;
+  // ---- Referenced documentation / sub-processes ----
+  addReferencedDoc: (name: string) => string | null;
+  updateReferencedDoc: (
+    id: string,
+    patch: Partial<{ name: string; description: string; link: string }>,
+  ) => void;
+  deleteReferencedDoc: (id: string) => void;
+  moveReferencedDoc: (id: string, direction: 'up' | 'down') => void;
   // ---- Intro chapters ----
   addIntroChapter: (title?: string) => string | null;
   updateIntroChapter: (id: string, patch: Partial<IntroChapter>) => void;
@@ -1127,6 +1136,75 @@ export const useAppStore = create<AppState>((set, get) => {
           orderMap.has(item.id) ? { ...item, order: orderMap.get(item.id)! } : item,
         ),
       });
+    },
+
+    // ---- Referenced documentation ----
+
+    addReferencedDoc: (name) => {
+      const current = get().file;
+      if (!current) return null;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const docs = current.referencedDocs ?? [];
+      const maxOrder = docs.reduce((m, d) => Math.max(m, d.order ?? 0), 0);
+      const doc: ReferencedDoc = {
+        id: makeId(),
+        name: trimmed,
+        description: '',
+        link: '',
+        order: maxOrder + 10,
+      };
+      commit({ ...current, referencedDocs: [...docs, doc] });
+      return doc.id;
+    },
+
+    updateReferencedDoc: (id, patch) => {
+      const current = get().file;
+      if (!current) return;
+      commit({
+        ...current,
+        referencedDocs: (current.referencedDocs ?? []).map((d) =>
+          d.id === id ? { ...d, ...patch } : d,
+        ),
+      });
+    },
+
+    deleteReferencedDoc: (id) => {
+      const current = get().file;
+      if (!current) return;
+      // Cascade: remove the doc and drop it from every task's citation list.
+      commit({
+        ...current,
+        referencedDocs: (current.referencedDocs ?? []).filter(
+          (d) => d.id !== id,
+        ),
+        tasks: current.tasks.map((t) =>
+          (t.referencedDocs ?? []).includes(id)
+            ? {
+                ...t,
+                referencedDocs: (t.referencedDocs ?? []).filter(
+                  (r) => r !== id,
+                ),
+              }
+            : t,
+        ),
+      });
+    },
+
+    moveReferencedDoc: (id, direction) => {
+      const current = get().file;
+      if (!current) return;
+      const docs = [...(current.referencedDocs ?? [])].sort(
+        (a, b) => a.order - b.order,
+      );
+      const idx = docs.findIndex((d) => d.id === id);
+      if (idx === -1) return;
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= docs.length) return;
+      const tmp = docs[idx].order;
+      docs[idx] = { ...docs[idx], order: docs[swapIdx].order };
+      docs[swapIdx] = { ...docs[swapIdx], order: tmp };
+      commit({ ...current, referencedDocs: docs });
     },
   };
 });

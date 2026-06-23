@@ -64,6 +64,18 @@ export function computeChapterGroups(file: ProcessFile): ChapterGroup[] {
     });
   }
 
+  if ((file.referencedDocs ?? []).length > 0) {
+    out.push({
+      label: 'Appendix',
+      items: [
+        {
+          id: 'refdocs',
+          label: `${guideNum + phases.length + 1}. Referenced Documentation`,
+        },
+      ],
+    });
+  }
+
   return out;
 }
 

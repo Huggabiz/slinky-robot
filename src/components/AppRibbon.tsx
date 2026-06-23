@@ -23,6 +23,7 @@ interface Props {
   onOpenLab: () => void;
   onOpenRoles: () => void;
   onOpenDeliverables: () => void;
+  onOpenRefDocs: () => void;
   onCreatePhase: () => void;
   onCreateTask: () => void;
   onCreateDeliverableItem: () => void;
@@ -44,6 +45,7 @@ export function AppRibbon({
   onOpenLab,
   onOpenRoles,
   onOpenDeliverables,
+  onOpenRefDocs,
   onCreatePhase,
   onCreateTask,
   onCreateDeliverableItem,
@@ -211,6 +213,10 @@ export function AppRibbon({
             <DropdownItem
               label="Deliverables…"
               onClick={onOpenDeliverables}
+            />
+            <DropdownItem
+              label="Referenced Documentation…"
+              onClick={onOpenRefDocs}
             />
             <DropdownDivider />
             <DropdownItem

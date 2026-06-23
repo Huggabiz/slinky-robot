@@ -317,6 +317,37 @@ export function TaskDetailEdit({ task }: { task: Task }) {
         </Section>
       )}
 
+      {(file.referencedDocs ?? []).length > 0 && (
+        <Section title="Referenced Documentation">
+          <div className="task-edit-refdocs">
+            {[...(file.referencedDocs ?? [])]
+              .sort((a, b) => a.order - b.order)
+              .map((doc) => {
+                const cited = (task.referencedDocs ?? []).includes(doc.id);
+                return (
+                  <label key={doc.id} className="task-edit-refdoc-row">
+                    <input
+                      type="checkbox"
+                      checked={cited}
+                      onChange={(e) => {
+                        const set = new Set(task.referencedDocs ?? []);
+                        if (e.target.checked) set.add(doc.id);
+                        else set.delete(doc.id);
+                        patch({ referencedDocs: [...set] });
+                      }}
+                    />
+                    <span>{doc.name || '(untitled)'}</span>
+                  </label>
+                );
+              })}
+          </div>
+          <p className="task-edit-hint">
+            Tick the SOPs / sub-process docs this task references. Manage the
+            library under <strong>Tools → Referenced Documentation</strong>.
+          </p>
+        </Section>
+      )}
+
       {task.dateType !== 'NONE' && (
         <Section title="Key Date Rationale">
           <MarkdownEditor

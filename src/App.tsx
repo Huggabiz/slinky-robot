@@ -17,6 +17,7 @@ import type { AppView } from './components/AppRibbon';
 import type { PerspectiveFilter } from './utils/perspective';
 import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
+import { ReferencedDocsPanel } from './components/ReferencedDocsPanel';
 import { RestoreBanner } from './components/RestoreBanner';
 import { BulkRoleRefPanel } from './components/BulkRoleRefPanel';
 import { BulkTaskRefPanel } from './components/BulkTaskRefPanel';
@@ -104,6 +105,7 @@ function App() {
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
   const [deliverablesPanelOpen, setDeliverablesPanelOpen] = useState(false);
+  const [refDocsPanelOpen, setRefDocsPanelOpen] = useState(false);
   const [statsPanelOpen, setStatsPanelOpen] = useState(false);
   const [bulkRoleRefOpen, setBulkRoleRefOpen] = useState(false);
   const [bulkTaskRefOpen, setBulkTaskRefOpen] = useState(false);
@@ -192,6 +194,7 @@ function App() {
         onOpenLab={() => setLabOpen(true)}
         onOpenRoles={() => setRolesPanelOpen(true)}
         onOpenDeliverables={() => setDeliverablesPanelOpen(true)}
+        onOpenRefDocs={() => setRefDocsPanelOpen(true)}
         onCreatePhase={handleCreatePhase}
         onCreateTask={handleCreateTask}
         onCreateDeliverableItem={handleCreateDeliverableItem}
@@ -307,6 +310,10 @@ function App() {
       <DeliverablesPanel
         isOpen={deliverablesPanelOpen}
         onClose={() => setDeliverablesPanelOpen(false)}
+      />
+      <ReferencedDocsPanel
+        isOpen={refDocsPanelOpen}
+        onClose={() => setRefDocsPanelOpen(false)}
       />
       <StatsPanel
         isOpen={statsPanelOpen}

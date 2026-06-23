@@ -51,6 +51,9 @@ export interface ProcessFile {
   // Fixed-list document types tracked through the process.
   deliverableItems: DeliverableItem[];
   deliverableGroups: DeliverableGroup[];
+  // Library of referenced documentation / sub-process SOPs that tasks can
+  // cite. Indexed as an appendix in the book view.
+  referencedDocs?: ReferencedDoc[];
   // Introductory chapters that appear BEFORE the milestone-phase
   // chapters in the book view. Each chapter has a title and an ordered
   // list of sections (heading + body). Use these for "How to use this
@@ -77,6 +80,9 @@ export interface FileMeta {
   coverTitleColour?: string | null;
   coverSubColour?: string | null;
   coverDateColour?: string | null;
+  // Intro paragraph (markdown) shown above the Referenced Documentation
+  // index in the book view.
+  referencedDocsIntro?: string;
   // Running header shown top-centre on every printed page except the
   // cover. Null/empty = no header. Stored in meta so it persists with
   // the file and can differ between documents.
@@ -120,6 +126,17 @@ export interface Role {
 export interface DeliverableGroup {
   id: string;
   name: string;
+  order: number;
+}
+
+// A referenced document / sub-process SOP that tasks can cite. Managed in
+// a library and indexed as an appendix in the book view.
+export interface ReferencedDoc {
+  id: string;
+  name: string;
+  description: string;
+  // Optional location/link (URL or "where to find it" reference).
+  link: string;
   order: number;
 }
 
@@ -191,6 +208,8 @@ export interface Task {
   // Declarative "by the end of this task, these deliverable items reach
   // these states". Powers the cross-cutting deliverable checklist view.
   deliverableTargets: DeliverableTarget[];
+  // IDs of ReferencedDoc entries this task cites (e.g. "see the X SOP").
+  referencedDocs?: string[];
   // Pass-through for fields the current schema doesn't know about.
   // Preserved verbatim on export so future fields aren't silently lost.
   extras: Record<string, unknown>;
@@ -219,6 +238,7 @@ export function makeEmptyProcessFile(title = 'Untitled Process'): ProcessFile {
     roles: [],
     deliverableItems: [],
     deliverableGroups: [],
+    referencedDocs: [],
     introChapters: [],
   };
 }
