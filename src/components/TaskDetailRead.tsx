@@ -69,6 +69,27 @@ export function TaskDetailRead({ task }: { task: Task }) {
         </Section>
       )}
 
+      {(() => {
+        const cited = (task.referencedDocs ?? [])
+          .map((id) => (file.referencedDocs ?? []).find((d) => d.id === id))
+          .filter((d): d is NonNullable<typeof d> => d !== undefined);
+        if (cited.length === 0) return null;
+        return (
+          <Section title="Referenced Documentation">
+            <ul className="task-detail-refdocs">
+              {cited.map((d) => (
+                <li key={d.id}>
+                  {d.name}
+                  {d.link && (
+                    <span className="task-detail-refdoc-link"> — {d.link}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        );
+      })()}
+
       {task.keyDateRationale && (
         <Section title="Key Date Rationale">
           <Markdown text={task.keyDateRationale} />

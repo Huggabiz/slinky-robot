@@ -253,3 +253,17 @@
   flex: 1;
   word-break: break-word;
 }
+
+/* Referenced documentation list in the read-mode task detail. */
+.task-detail-refdocs {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.task-detail-refdoc-link {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  word-break: break-word;
+}
