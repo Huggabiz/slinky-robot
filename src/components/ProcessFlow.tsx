@@ -40,6 +40,7 @@ import {
 import type { LabConfig } from '../utils/flowLab';
 import { TaskNode } from './TaskNode';
 import { OrthEdge } from './OrthEdge';
+import { CrossPhaseEdge } from './CrossPhaseEdge';
 import {
   CrossPhaseIndicator,
   type CrossPhaseData,
@@ -58,6 +59,7 @@ const nodeTypes: NodeTypes = {
 
 const edgeTypes: EdgeTypes = {
   orth: OrthEdge,
+  crossPhase: CrossPhaseEdge,
 };
 
 const EMPTY_LAYOUT: LayoutResult = { nodes: [], edges: [] };
@@ -593,6 +595,19 @@ function buildCrossPhaseIndicators(
     allYs.length > 0
       ? Math.max(...allYs) + (layoutNodes[0]?.height ?? 96)
       : 96;
+  // Side gutters: empty columns just outside the node bounds that the
+  // dashed cross-phase connectors route through so they don't cut across
+  // task cards. Each connector picks the nearer side and offsets a little
+  // so parallel connectors don't stack on one another.
+  const leftMost =
+    layoutNodes.length > 0 ? Math.min(...layoutNodes.map((n) => n.position.x)) : 0;
+  const rightMost =
+    layoutNodes.length > 0
+      ? Math.max(...layoutNodes.map((n) => n.position.x + (n.width ?? 200)))
+      : 200;
+  const centerX = (leftMost + rightMost) / 2;
+  let leftGutterCount = 0;
+  let rightGutterCount = 0;
 
   const currentPhaseTaskIds = new Set(
     file.tasks.filter((t) => t.phaseId === currentPhaseId).map((t) => t.id),
@@ -632,13 +647,18 @@ function buildCrossPhaseIndicators(
           taskName: `${prereqTask.taskId}: ${prereqTask.name || '(untitled)'}`,
         },
       });
+      const inGutterX =
+        taskPos.x + taskPos.w / 2 < centerX
+          ? leftMost - 36 - leftGutterCount++ * 14
+          : rightMost + 36 + rightGutterCount++ * 14;
       edges.push({
         id: `xp-edge-${phantomId}`,
         source: phantomId,
         target: task.id,
-        type: 'default',
+        type: 'crossPhase',
+        data: { gutterX: inGutterX },
         animated: true,
-        style: { stroke: '#94a3b8', strokeDasharray: '6 4', opacity: 0.5 },
+        style: { stroke: '#94a3b8', strokeDasharray: '6 4', opacity: 0.6 },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 12,
@@ -673,13 +693,18 @@ function buildCrossPhaseIndicators(
           taskName: `${otherTask.taskId}: ${otherTask.name || '(untitled)'}`,
         },
       });
+      const outGutterX =
+        taskPos.x + taskPos.w / 2 < centerX
+          ? leftMost - 36 - leftGutterCount++ * 14
+          : rightMost + 36 + rightGutterCount++ * 14;
       edges.push({
         id: `xp-edge-${phantomId}`,
         source: task.id,
         target: phantomId,
-        type: 'default',
+        type: 'crossPhase',
+        data: { gutterX: outGutterX },
         animated: true,
-        style: { stroke: '#94a3b8', strokeDasharray: '6 4', opacity: 0.5 },
+        style: { stroke: '#94a3b8', strokeDasharray: '6 4', opacity: 0.6 },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 12,
