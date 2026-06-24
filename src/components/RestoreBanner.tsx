@@ -35,7 +35,7 @@ export function RestoreBanner({ savedAt, onAccept, onDismiss }: Props) {
 
 function formatTimestamp(iso: string): string {
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString('en-GB');
   } catch {
     return iso;
   }

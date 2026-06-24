@@ -465,7 +465,7 @@ export function BookView() {
               className="book-cover-date"
               style={{ color: file.meta.coverDateColour ?? undefined }}
             >
-              Generated {new Date().toLocaleDateString()}
+              Generated {new Date().toLocaleDateString('en-GB')}
             </p>
             {mode === 'edit' && (
               <div className="book-cover-style-controls">
