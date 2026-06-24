@@ -354,7 +354,7 @@ export function TaskDetailEdit({ task }: { task: Task }) {
             value={task.keyDateRationale ?? ''}
             onChange={(v) => patch({ keyDateRationale: v || null })}
             rows={3}
-            placeholder="Why is this a key date?"
+            placeholder="Why is this date set where it is on the timeline? e.g. Timed to follow the design freeze and allow sufficient time to complete tooling."
           />
         </Section>
       )}
