@@ -19,6 +19,7 @@ import { RolesPanel } from './components/RolesPanel';
 import { DeliverablesPanel } from './components/DeliverablesPanel';
 import { ReferencedDocsPanel } from './components/ReferencedDocsPanel';
 import { RestoreBanner } from './components/RestoreBanner';
+import { PublishedBanner } from './components/PublishedBanner';
 import { BulkRoleRefPanel } from './components/BulkRoleRefPanel';
 import { BulkTaskRefPanel } from './components/BulkTaskRefPanel';
 import { DuplicateContributorPanel } from './components/DuplicateContributorPanel';
@@ -29,6 +30,7 @@ import { DEFAULT_LAB_CONFIG, type LabConfig } from './utils/flowLab';
 import { type ImportResult } from './utils/csvImport';
 import { useAutosave } from './utils/autosave';
 import { useAppStore } from './store/useAppStore';
+import { isPublished } from './published';
 import { getPhasesOrdered } from './types';
 import { ALL_PHASES_ID } from './components/PhaseSidebar';
 import './App.css';
@@ -187,6 +189,7 @@ function App() {
 
   return (
     <div className={`app${mode === 'edit' ? ' edit-mode' : ''}`}>
+      {isPublished && <PublishedBanner />}
       <Toolbar />
       <AppRibbon
         onImportCsv={() => setCsvDialogOpen(true)}

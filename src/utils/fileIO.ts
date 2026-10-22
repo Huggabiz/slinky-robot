@@ -476,6 +476,88 @@ const JSON_PICKER_TYPES: FilePickerAcceptType[] = [
   { description: 'JSON files', accept: { 'application/json': ['.json'] } },
 ];
 
+const HTML_PICKER_TYPES: FilePickerAcceptType[] = [
+  { description: 'HTML files', accept: { 'text/html': ['.html'] } },
+];
+
+// ---- Publish HTML: self-contained, read-only viewer ----
+
+// Turn a process title into a safe filename stem.
+function sanitizeFileName(name: string): string {
+  return (name.trim() || 'process').replace(/[^\w.-]+/g, '_').slice(0, 120);
+}
+
+/**
+ * Build a self-contained, read-only HTML copy of the given process file.
+ *
+ * It fetches the app's own already-inlined index.html (see scripts/inline.mjs)
+ * and embeds the serialized process as an inert <script> data island. On load,
+ * main.tsx detects that island (src/published.ts) and boots locked to Navigate.
+ *
+ * Only usable on the built/deployed site — the dev server's index.html is not
+ * inlined — so callers guard on import.meta.env.DEV.
+ */
+export async function buildPublishedHtml(file: ProcessFile): Promise<string> {
+  const res = await fetch(`${import.meta.env.BASE_URL}index.html`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`Couldn't load the app template (HTTP ${res.status}).`);
+  }
+  const html = await res.text();
+  const json = serializeProcessFile(file);
+  // Escape '<' so a literal </script> anywhere in the prose can't terminate
+  // the data island early. JSON.parse reads < back as '<' transparently.
+  const safe = json.replace(/</g, '\\u003c');
+  const island = `<script id="__PROCESS_DATA__" type="application/json">${safe}</script>`;
+  // Insert before the FINAL </body>. The inlined app bundle contains the
+  // literal string "</body>" in its own code, so a naive replace() would
+  // splice the island into the middle of the script and corrupt it; anchor
+  // to the last occurrence (the real document end) instead. slice() also
+  // avoids replace()'s $-pattern interpretation of the JSON payload.
+  const marker = '</body>';
+  const at = html.lastIndexOf(marker);
+  if (at === -1) return `${html}\n${island}`;
+  return `${html.slice(0, at)}${island}\n${html.slice(at)}`;
+}
+
+/**
+ * Save a published HTML string to disk — native save dialog where available
+ * (Chrome/Edge), else a blob download. Filename derives from the process
+ * title. Mirrors downloadJsonFile.
+ */
+export async function downloadHtmlFile(
+  html: string,
+  file: ProcessFile,
+): Promise<void> {
+  const name = `${sanitizeFileName(file.meta.title || file.meta.masterName)}.html`;
+  if (supportsFileSystemAccess) {
+    try {
+      const handle = await window.showSaveFilePicker!({
+        suggestedName: name,
+        types: HTML_PICKER_TYPES,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(html);
+      await writable.close();
+      return;
+    } catch (err) {
+      // User dismissed the picker — nothing to save, nothing to report.
+      if (err instanceof Error && err.name === 'AbortError') return;
+      // Any other FSAA failure: fall through to the blob download below.
+    }
+  }
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Open a file using the File System Access API. Returns the parsed
  * ProcessFile, the filename, and the FileSystemFileHandle (so Save

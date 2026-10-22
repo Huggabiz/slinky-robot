@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ModeToggle } from './ModeToggle';
 import { APP_VERSION } from '../version';
 import { useAppStore } from '../store/useAppStore';
+import { isPublished } from '../published';
 import './Toolbar.css';
 
 // Top bar: mode toggle, editable file title, version badge.
@@ -28,7 +29,11 @@ export function Toolbar() {
 
   return (
     <header className="toolbar">
-      <ModeToggle />
+      {/* A published copy has no edit affordance at all. ModeToggle is the
+          ONLY route to edit mode, so hiding it keeps the copy permanently in
+          read-only Navigate — every other edit control is gated on
+          mode === 'edit' and can never fire. */}
+      {!isPublished && <ModeToggle />}
 
       <div className="toolbar-title">
         {editing && canEdit ? (

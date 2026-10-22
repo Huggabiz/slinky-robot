@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   downloadJsonFile,
@@ -6,13 +7,17 @@ import {
   saveAsWithFileSystemAccess,
   saveToHandle,
   supportsFileSystemAccess,
+  buildPublishedHtml,
+  downloadHtmlFile,
   InvalidFileError,
 } from '../utils/fileIO';
+import { isPublished } from '../published';
 import {
   DropdownButton,
   DropdownItem,
   DropdownDivider,
 } from './DropdownButton';
+import { PublishConfirmModal } from './PublishConfirmModal';
 import './AppRibbon.css';
 
 export type AppView = 'flow' | 'book';
@@ -72,6 +77,9 @@ export function AppRibbon({
   const futureLen = useAppStore((s) => s.future.length);
 
   const editing = mode === 'edit';
+
+  // File → Publish HTML export flow.
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   const confirmDiscardIfDirty = (): boolean => {
     if (!dirty) return true;
@@ -154,26 +162,63 @@ export function AppRibbon({
     onSaveComplete();
   };
 
+  const handlePublishHtml = () => {
+    if (!file) return;
+    // The published HTML is a copy of the app's *inlined* index.html (produced
+    // by the production build's inline step). The dev server serves an
+    // un-inlined index.html, so a copy made there wouldn't be self-contained.
+    if (import.meta.env.DEV) {
+      window.alert(
+        'Publish HTML works on the built/deployed app, not the dev server. ' +
+          'Run a production build to use it.',
+      );
+      return;
+    }
+    setPublishConfirmOpen(true);
+  };
+
+  const doPublishHtml = async () => {
+    setPublishConfirmOpen(false);
+    if (!file) return;
+    try {
+      const html = await buildPublishedHtml(file);
+      await downloadHtmlFile(html, file);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      window.alert(`Couldn't publish HTML: ${message}`);
+    }
+  };
+
   return (
     <div className="app-ribbon">
       {/* ---- File menu ---- */}
-      <DropdownButton label="File">
-        <DropdownItem label="New" onClick={handleNew} />
-        <DropdownItem label="Open…" onClick={handleOpen} />
-        <DropdownItem label="Import CSV…" onClick={handleImportCsv} />
-        <DropdownDivider />
-        <DropdownItem
-          label="Save"
-          onClick={handleSave}
-          disabled={!file}
-          shortcut="Ctrl+S"
-        />
-        <DropdownItem
-          label="Save as…"
-          onClick={handleSaveAs}
-          disabled={!file}
-        />
-      </DropdownButton>
+      {/* A published copy exposes no file operations — it's a read-only
+          viewer, so New/Open/Import/Save/Publish are all hidden. */}
+      {!isPublished && (
+        <DropdownButton label="File">
+          <DropdownItem label="New" onClick={handleNew} />
+          <DropdownItem label="Open…" onClick={handleOpen} />
+          <DropdownItem label="Import CSV…" onClick={handleImportCsv} />
+          <DropdownDivider />
+          <DropdownItem
+            label="Save"
+            onClick={handleSave}
+            disabled={!file}
+            shortcut="Ctrl+S"
+          />
+          <DropdownItem
+            label="Save as…"
+            onClick={handleSaveAs}
+            disabled={!file}
+          />
+          <DropdownDivider />
+          <DropdownItem
+            label="Publish HTML…"
+            onClick={handlePublishHtml}
+            disabled={!file}
+          />
+        </DropdownButton>
+      )}
 
       {/* ---- View menu ---- */}
       <DropdownButton label="View" disabled={!file}>
@@ -318,6 +363,13 @@ export function AppRibbon({
             </svg>
           </button>
         </div>
+      )}
+
+      {publishConfirmOpen && (
+        <PublishConfirmModal
+          onConfirm={doPublishHtml}
+          onCancel={() => setPublishConfirmOpen(false)}
+        />
       )}
     </div>
   );
